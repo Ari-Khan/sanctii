@@ -753,6 +753,34 @@ function DoctorPage() {
   );
 }
 
+// ─── HACKER PORTAL (/hacker) ─────────────────────────────────────────────────
+function HackerPage() {
+  return (
+    <PageWrap title="You are in the Hacker Portal" icon={<Icons.shield/>} subtitle="System access — Security level Alpha">
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
+        <Stat label="Active Sessions" value="3" color={T.rose}/>
+        <Stat label="System Health" value="99.8%" color={T.vital}/>
+        <Stat label="Threat Level" value="Low" color={T.vital}/>
+        <Stat label="Last Sync" value="2m ago" color={T.amber}/>
+      </div>
+      <div style={{ marginBottom:18, padding:"14px 18px", borderRadius:14, background:`linear-gradient(135deg,${T.vital}10,rgba(91,170,138,0.08))`, border:`1.5px solid ${T.vital}45`, display:"flex", alignItems:"center", gap:14 }}>
+        <div style={{ width:38, height:38, borderRadius:11, background:T.vital, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, animation:"breathe 2s ease-in-out infinite", flexShrink:0 }}><Icons.shield/></div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.vital }}>System Status: All Systems Nominal</div>
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, marginTop:2 }}>Welcome to the Hacker Portal. You have full system access.</div>
+        </div>
+        <button className="btn-primary" style={{ fontSize:12, padding:"8px 18px", flexShrink:0 }}>System Logs →</button>
+      </div>
+      <Card>
+        <SHead>Hacker Portal</SHead>
+        <p style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkMid, lineHeight:1.6 }}>
+          Welcome to the exclusive Hacker Portal. This space is dedicated to security research, system analysis, and advanced infrastructure monitoring. You have privileged access to system diagnostics and network analytics.
+        </p>
+      </Card>
+    </PageWrap>
+  );
+}
+
 // ─── PRESAGE AI (/presage) ────────────────────────────────────────────────────
 function PresagePage() {
   const [input, setInput] = useState("");
@@ -1250,6 +1278,9 @@ export default function App() {
         }/>
         <Route path="/doctor" element={
           <ProtectedRoute><DoctorPage/></ProtectedRoute>
+        }/>
+        <Route path="/hacker" element={
+          <ProtectedRoute><HackerPage/></ProtectedRoute>
         }/>
         <Route path="/presage" element={
           <ProtectedRoute><PresagePage/></ProtectedRoute>
