@@ -1,3 +1,33 @@
+# Sanctii
+
+React + Vite app with Auth0 (doctor/patient sign-in).
+
+## Auth0 – production vs development
+
+The app uses Auth0 credentials from environment variables when set. **Do not use Auth0 “Development” keys in production.**
+
+- **Development:** If you don’t set env vars, the app falls back to built-in dev values (for local use only).
+- **Production:** Create a separate **Production** Application in the [Auth0 Dashboard](https://manage.auth0.com/), then set:
+  - `VITE_AUTH0_DOMAIN` – your tenant domain (e.g. `your-tenant.auth0.com`)
+  - `VITE_AUTH0_CLIENT_ID` – the production application’s Client ID  
+
+  Copy `.env.example` to `.env` and fill in these values. Never commit `.env`.
+
+In Auth0 Dashboard → Branding → Universal Login you can theme the login screen (e.g. red `#B91C1C` and cream `#FAF7F2`) so it matches the app.
+
+### Fix: “Connections using Auth0 development keys”
+
+That message means a **Social connection** (Google, Facebook, Apple, etc.) is using Auth0’s test keys instead of your own. Fix it in the Auth0 Dashboard:
+
+1. Open [Auth0 Dashboard](https://manage.auth0.com/) → **Authentication** → **Social** (or **Connections** → **Social**).
+2. For each connection that shows the warning you have two options:
+   - **Use your own keys (for production):** Click the connection → get a **Client ID** and **Client Secret** from that provider (e.g. [Google Cloud Console](https://console.cloud.google.com/) for Google) → paste them into the connection and save. Then the warning goes away.
+   - **Only need email/password:** If you don’t need that social login, turn **off** that connection for your Application: **Applications** → your app → **Connections** tab → disable the social connection that uses dev keys.
+
+After every connection either has your own keys or is disabled for your app, the warning will stop.
+
+---
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

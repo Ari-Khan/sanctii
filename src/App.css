@@ -2,41 +2,153 @@
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
+  min-height: 100vh;
+}
+
+/* ----- Login: single sign-in card with role choice ----- */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.login-card {
+  background: var(--cream-dark);
+  border: 1px solid rgba(185, 28, 28, 0.15);
+  border-radius: 12px;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 420px;
   text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.login-card h1 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--text);
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.login-card .login-subtitle {
+  margin: 0 0 1.75rem 0;
+  font-size: 0.9375rem;
+  color: var(--text-muted);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.login-role-prompt {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
 }
 
-.card {
-  padding: 2em;
+.login-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.read-the-docs {
-  color: #888;
+.login-btn {
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  background: var(--red);
+  color: white;
+}
+
+.login-btn:hover {
+  background: var(--red-hover);
+}
+
+.login-btn.patient {
+  background: transparent;
+  color: var(--red);
+  border: 1.5px solid var(--red);
+}
+
+.login-btn.patient:hover {
+  background: var(--red-muted);
+  color: var(--red-hover);
+}
+
+.login-btn.sign-in {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+/* ----- Dashboards ----- */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--cream-dark);
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+}
+
+.user-info button {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: transparent;
+  color: var(--red);
+  border: 1px solid var(--red);
+  border-radius: 6px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.user-info button:hover {
+  background: var(--red-muted);
+  color: var(--red-hover);
+}
+
+.page-loading {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.switch-role {
+  margin-top: 1.5rem;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--red);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--red-hover);
+}
+
+.doctor-page main,
+.patient-page main {
+  color: var(--text);
 }
