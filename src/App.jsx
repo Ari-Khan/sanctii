@@ -3,11 +3,9 @@ import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import { getUserRoles, hasRole, ROLE } from "./auth/roles";
-import { T, Icons } from "./theme";
+import { Icons } from "./theme";
 import { BgOrbs, EcgStrip, Card } from "./components/SharedUI";
-import LandingPage from "./pages/Landing";
-import LoginPage from "./pages/Login";
-import HospitalHologram from "./HospitalHologram";
+import HospitalHologram from "./components/Hologram";
 import { getPersistedRole, setPersistedRole } from "./auth/persistedRole";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
@@ -138,9 +136,13 @@ function LoginPage() {
   const { loginWithRedirect, isLoading, isAuthenticated } = useAuth0();
   const navigate = useNavigate();
 
-  // If already logged in, bounce straight to maze
+  // If already logged in, bounce straight to role selection
   useEffect(() => {
-    if (isAuthenticated) navigate("/role", { replace: true });
+    if (isAuthenticated) {
+      const persistedRole = getPersistedRole();
+      if (persistedRole) navigate("/app", { replace: true });
+      else navigate("/role", { replace: true });
+    }
   }, [isAuthenticated, navigate]);
 
   const signIn = (connection) => {
@@ -310,20 +312,11 @@ function MazePage() {
   const navigate = useNavigate();
   const [hov, setHov] = useState(null);
   const [path, setPath] = useState([]);
-  const [view, setView] = useState("select"); // "select" or "maze"
-  const [syncing, setSyncing] = useState(false);
   const roles = getUserRoles(user);
   const persistedRole = getPersistedRole();
   const activeRole = persistedRole || roles[0] || null;
 
-  useEffect(()=>{ if(view==="maze") setPath(hov&&hov!=="center" ? bfs("center",hov) : []); }, [hov, view]);
-
-  // Require an explicit role choice before entering the maze
-  useEffect(() => {
-    if (!persistedRole) {
-      navigate("/role", { replace: true });
-    }
-  }, [persistedRole, navigate]);
+  useEffect(()=>{ setPath(hov&&hov!=="center" ? bfs("center",hov) : []); }, [hov]);
 
   const pd = makeSVGPath(path);
   const ac = hov ? NODES[hov]?.col||T.rose : T.rose;
@@ -340,61 +333,6 @@ function MazePage() {
   })();
 
   const handleLogout = () => logout({ logoutParams: { returnTo: window.location.origin } });
-
-  const selectRole = async (selectedRole) => {
-    if (!user?.email) return setView("maze");
-    setSyncing(true);
-    try {
-      await fetch("http://localhost:3001/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: user.email,
-          role: selectedRole,
-          name: user.name || user.nickname,
-          avatarUrl: user.picture
-        })
-      });
-      setView("maze");
-    } catch (err) {
-      console.error("Failed to sync role:", err);
-      // Fallback to maze even if sync fails so user isn't stuck
-      setView("maze");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  if (view === "select") return (
-    <div style={{ position:"fixed", inset:0, background:T.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
-      <BgOrbs/>
-      <div style={{ width:"100%", maxWidth:480, padding:40, zIndex:10, textAlign:"center" }}>
-        <div style={{ width:60, height:60, borderRadius:18, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, margin:"0 auto 24px", animation:"breathe 3s ease-in-out infinite" }}>
-          <Icons.cross/>
-        </div>
-        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:32, color:T.ink, letterSpacing:"-0.03em", marginBottom:8 }}>Welcome back</div>
-        <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:16, color:T.inkFaint, marginBottom:40 }}>Select your access portal to continue</div>
-        
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
-          <button onClick={()=>selectRole("doctor")} disabled={syncing} className="glass-hard" style={{ padding:28, border:`1px solid ${T.border}`, cursor:syncing?"not-allowed":"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:14, transition:"all .3s ease", opacity:syncing?.7:1 }}
-            onMouseEnter={e=>{ if(!syncing){ e.currentTarget.style.borderColor=T.rose; e.currentTarget.style.transform="translateY(-4px)"; e.currentTarget.style.boxShadow=`0 12px 30px ${T.rose}15`; } }}
-            onMouseLeave={e=>{ if(!syncing){ e.currentTarget.style.borderColor=T.border; e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="none"; } }}>
-            <div style={{ width:48, height:48, borderRadius:12, background:T.roseTint, display:"flex", alignItems:"center", justifyContent:"center", color:T.rose }}><Icons.stethoscope/></div>
-            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>Doctor Portal</div>
-          </button>
-          
-          <button onClick={()=>selectRole("patient")} disabled={syncing} className="glass-hard" style={{ padding:28, border:`1px solid ${T.border}`, cursor:syncing?"not-allowed":"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:14, transition:"all .3s ease", opacity:syncing?.7:1 }}
-            onMouseEnter={e=>{ if(!syncing){ e.currentTarget.style.borderColor=T.vital; e.currentTarget.style.transform="translateY(-4px)"; e.currentTarget.style.boxShadow=`0 12px 30px ${T.vital}15`; } }}
-            onMouseLeave={e=>{ if(!syncing){ e.currentTarget.style.borderColor=T.border; e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="none"; } }}>
-            <div style={{ width:48, height:48, borderRadius:12, background:`${T.vital}15`, display:"flex", alignItems:"center", justifyContent:"center", color:T.vital }}><Icons.user/></div>
-            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>Patient Portal</div>
-          </button>
-        </div>
-        
-        <button onClick={handleLogout} style={{ marginTop:40, background:"none", border:"none", cursor:"pointer", fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint }}>{syncing ? "Syncing profile..." : "Sign out"}</button>
-      </div>
-    </div>
-  );
 
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
@@ -545,10 +483,33 @@ function RoleSelectionPage() {
   const { user } = useAuth0();
   const navigate = useNavigate();
   const [selected, setSelected] = useState(getPersistedRole() || ROLE.PATIENT);
+  const [saving, setSaving] = useState(false);
 
-  const handleContinue = () => {
-    setPersistedRole(selected);
-    navigate("/app", { replace: true });
+  const handleContinue = async () => {
+    setSaving(true);
+    try {
+      // Persist to MongoDB
+      await fetch("http://localhost:3001/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user?.email,
+          role: selected,
+          name: user?.name,
+          lastLogin: new Date()
+        })
+      });
+
+      setPersistedRole(selected);
+      navigate("/app", { replace: true });
+    } catch (err) {
+      console.error("Failed to save role:", err);
+      // Fallback to local storage if API fails
+      setPersistedRole(selected);
+      navigate("/app", { replace: true });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -621,9 +582,10 @@ function RoleSelectionPage() {
           <button
             className="btn-primary"
             onClick={handleContinue}
-            style={{ width:"100%", marginTop:20, padding:"13px 0", fontSize:14 }}
+            disabled={saving}
+            style={{ width:"100%", marginTop:20, padding:"13px 0", fontSize:14, opacity: saving ? 0.7 : 1 }}
           >
-            Continue to Sanctii maze →
+            {saving ? "Saving..." : "Continue to Sanctii maze →"}
           </button>
         </div>
       </div>
@@ -1169,13 +1131,6 @@ function LandingPage() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const scrollRef = useRef(null);
-  const persistedRole = getPersistedRole();
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    if (!persistedRole) navigate("/role", { replace: true });
-    else navigate("/app", { replace: true });
-  }, [isAuthenticated, persistedRole, navigate]);
 
   useEffect(() => {
     const el = scrollRef.current;
