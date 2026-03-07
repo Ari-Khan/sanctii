@@ -23,7 +23,7 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
   const infoWindowRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState(null);
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(false);
 
   const resolvedApiKey = apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
@@ -77,7 +77,7 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
           fullscreenControl: true,
           rotateControl: true,
           tiltControl: true,
-          styles: getDarkMapStyles(),
+          styles: getLightMapStyles(),
         });
 
         mapRef.current = map;
@@ -273,9 +273,6 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
 
       {/* HUD Overlay */}
       <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10, display: "flex", flexDirection: "column", gap: 5, pointerEvents: "none" }}>
-        <div style={{ padding: "4px 10px", background: "rgba(0,0,0,0.6)", borderRadius: 6, border: "1px solid rgba(91,170,138,0.3)", backdropFilter: "blur(6px)" }}>
-          <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: "#5BAA8A", letterSpacing: "0.14em", textTransform: "uppercase" }}>◉ Google Maps 3D</span>
-        </div>
         {selectedHospital != null && (
           <div style={{ padding: "4px 10px", background: "rgba(0,0,0,0.6)", borderRadius: 6, border: "1px solid rgba(212,112,106,0.3)", backdropFilter: "blur(6px)" }}>
             <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: "#D4706A", letterSpacing: "0.14em", textTransform: "uppercase" }}>Route Active</span>
