@@ -258,13 +258,13 @@ function LoginPage() {
 // ─── MAZE CONFIG ──────────────────────────────────────────────────────────────
 const NODES = {
   center:    { x:50, y:50, label:"Health Center", icon:"cross", isCenter:true, col:T.roseMid },
-  patient:   { x:26, y:25, label:"Patient Portal", icon:"user", path:"/patient", col:T.rose },
-  doctor:    { x:76, y:25, label:"Doctor Portal", icon:"stethoscope", path:"/doctor", col:T.blue },
-  schedule:  { x:26, y:76, label:"Scheduling", icon:"calendar", path:"/schedule", col:T.amber },
-  presage:   { x:76, y:76, label:"Presage AI", icon:"brain", path:"/presage", col:T.amber },
-  hospital:  { x:26, y:76, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
-  feedback:  { x:76, y:25, label:"Doctor Feedback", icon:"heart", path:"/patient/feedback", col:T.blue },
-  rooms:     { x:76, y:76, label:"Room Map", icon:"grid", path:"/rooms", col:T.vital },
+  patient:   { x:25, y:25, label:"Patient Portal", icon:"user", path:"/patient", col:T.rose },
+  doctor:    { x:75, y:25, label:"Doctor Portal", icon:"stethoscope", path:"/doctor", col:T.blue },
+  schedule:  { x:25, y:75, label:"Scheduling", icon:"calendar", path:"/schedule", col:T.amber },
+  presage:   { x:75, y:75, label:"Presage AI", icon:"brain", path:"/presage", col:T.amber },
+  hospital:  { x:25, y:75, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
+  feedback:  { x:75, y:25, label:"Doctor Feedback", icon:"heart", path:"/patient/feedback", col:T.blue },
+  rooms:     { x:75, y:75, label:"Room Map", icon:"grid", path:"/rooms", col:T.vital },
 };
 
 const EDGES = [
