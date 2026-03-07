@@ -1512,147 +1512,235 @@ function CapacityEditor({ floors, onSave }) {
   );
 }
 
+// ─── PATIENT DATA ─────────────────────────────────────────────────────────────
+const PATIENTS = [
+  { id:"MRN-24891", name:"Thomas Leclerc",    age:47, sex:"M", dob:"1978-04-12", room:"ED-07",   doctor:"Dr. Sharma", apptTime:"10:00", sev:4, status:"In Treatment",
+    complaint:"Acute abdominal pain, nausea × 6h", diagnosis:"Suspected appendicitis",
+    vitals:{ bp:"138/92", hr:104, temp:38.4, o2:97 },
+    allergies:["Penicillin"], meds:["Morphine 4mg IV","Ondansetron 4mg IV"], notes:"Presage AI flags possible appendicitis. Urgent surgical consult ordered." },
+  { id:"MRN-24892", name:"Jordan Mitchell",   age:60, sex:"M", dob:"1965-09-03", room:"CARD-12", doctor:"Dr. Sharma", apptTime:"09:00", sev:2, status:"Waiting",
+    complaint:"Cardiac follow-up, mild exertional dyspnea", diagnosis:"Stable angina — routine follow-up",
+    vitals:{ bp:"122/78", hr:72, temp:36.8, o2:98 },
+    allergies:[], meds:["Atorvastatin 40mg","Aspirin 81mg","Metoprolol 25mg"], notes:"Last Echo normal. Stress test booked for next month." },
+  { id:"MRN-24893", name:"Priya Nair",        age:36, sex:"F", dob:"1990-02-17", room:"OPD-03",  doctor:"Dr. Patel",  apptTime:"09:30", sev:1, status:"Waiting",
+    complaint:"Annual physical examination", diagnosis:"Routine preventive care",
+    vitals:{ bp:"118/74", hr:68, temp:36.6, o2:99 },
+    allergies:["Sulfa drugs"], meds:["Levothyroxine 50mcg"], notes:"Bloodwork ordered. BMI 23.1. No concerns." },
+  { id:"MRN-24894", name:"Mohammed Al-Amin",  age:55, sex:"M", dob:"1970-06-05", room:"INTM-08", doctor:"Dr. Sharma", apptTime:"11:00", sev:3, status:"In Treatment",
+    complaint:"Hypertension follow-up, persistent frontal headache × 2d", diagnosis:"Uncontrolled hypertension",
+    vitals:{ bp:"168/102", hr:88, temp:37.1, o2:96 },
+    allergies:["ACE inhibitors"], meds:["Amlodipine 10mg","Hydrochlorothiazide 25mg"], notes:"BP elevated despite current regimen. Considering adding losartan." },
+  { id:"MRN-24895", name:"Ana Reyes",         age:70, sex:"F", dob:"1955-11-28", room:"GERI-04", doctor:"Dr. Chen",   apptTime:"10:30", sev:1, status:"Waiting",
+    complaint:"Chronic disease management, prescription renewal", diagnosis:"T2 Diabetes & Hypertension",
+    vitals:{ bp:"134/82", hr:76, temp:36.7, o2:97 },
+    allergies:["NSAIDs"], meds:["Metformin 1000mg","Lisinopril 10mg","Amlodipine 5mg"], notes:"HbA1c 7.2% — well controlled. Foot exam completed." },
+  { id:"MRN-24896", name:"Sarah Kim",         age:41, sex:"F", dob:"1985-03-22", room:"LAB-02",  doctor:"Dr. Chen",   apptTime:"09:00", sev:1, status:"Discharged",
+    complaint:"Thyroid panel result review", diagnosis:"Hypothyroidism — stable",
+    vitals:{ bp:"116/72", hr:64, temp:36.5, o2:99 },
+    allergies:[], meds:["Levothyroxine 75mcg"], notes:"TSH 2.4 mIU/L — within range. No dose change needed." },
+  { id:"MRN-24897", name:"Robert Green",      age:63, sex:"M", dob:"1963-07-14", room:"CCU-03",  doctor:"Dr. Sharma", apptTime:"08:30", sev:5, status:"Critical",
+    complaint:"Chest pain, diaphoresis, radiating to left arm × 45min", diagnosis:"STEMI — anterior wall",
+    vitals:{ bp:"88/58", hr:118, temp:37.0, o2:91 },
+    allergies:["Heparin (HIT)"], meds:["Aspirin 325mg","Clopidogrel 600mg","Nitroglycerin IV"], notes:"Cath lab activated. PCI in progress. Family notified." },
+  { id:"MRN-24898", name:"Fatima Hassan",     age:29, sex:"F", dob:"1997-01-09", room:"LD-01",   doctor:"Dr. Patel",  apptTime:"07:45", sev:2, status:"In Treatment",
+    complaint:"Active labour, G2P1, 39+2 weeks, ROM 3h ago", diagnosis:"Active labour — term pregnancy",
+    vitals:{ bp:"126/80", hr:92, temp:36.9, o2:99 },
+    allergies:[], meds:["Oxytocin 10 units/hr IV"], notes:"Contractions q3min × 60sec. Fetal HR 142bpm — reassuring. Epidural placed." },
+];
+
+function PatientCard({ p }) {
+  const [open, setOpen] = useState(false);
+  const sc  = p.sev >= 5 ? T.roseDeep : p.sev >= 4 ? T.rose : p.sev >= 3 ? T.amber : T.vital;
+  const stc = p.status === "Critical" ? T.roseDeep : p.status === "In Treatment" ? T.amber : p.status === "Discharged" ? T.inkFaint : T.vital;
+  const VitalChip = ({ label, val, warn }) => (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"6px 10px", borderRadius:8, background:warn?`${T.rose}12`:`${T.vital}08`, border:`1px solid ${warn?T.rose:T.vital}22` }}>
+      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, fontWeight:700, color:warn?T.rose:T.ink }}>{val}</div>
+      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7.5, color:T.inkFaint, letterSpacing:"0.08em" }}>{label}</div>
+    </div>
+  );
+  return (
+    <div style={{ borderRadius:12, border:`1.5px solid ${sc}${open?"55":"22"}`, background:open?`${sc}06`:"transparent", marginBottom:8, overflow:"hidden", transition:"all .2s" }}>
+      {/* Header row */}
+      <div onClick={()=>setOpen(o=>!o)} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 14px", cursor:"pointer" }}>
+        <div style={{ width:38, height:38, borderRadius:"50%", background:`${sc}18`, border:`2px solid ${sc}44`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:14, color:sc, flexShrink:0 }}>{p.name.charAt(0)}</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:13, color:T.ink }}>{p.name}</div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.06em" }}>{p.id}</div>
+          </div>
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkFaint, marginTop:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.complaint}</div>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, flexShrink:0 }}>
+          <div style={{ display:"flex", gap:5 }}>
+            <div style={{ padding:"2px 7px", borderRadius:5, background:`${sc}15`, fontFamily:"'DM Mono',monospace", fontSize:7, color:sc, letterSpacing:"0.1em" }}>SEV {p.sev}</div>
+            <div style={{ padding:"2px 7px", borderRadius:5, background:`${stc}12`, fontFamily:"'DM Mono',monospace", fontSize:7, color:stc, letterSpacing:"0.08em" }}>{p.status.toUpperCase()}</div>
+          </div>
+          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint }}>{p.room} · {p.apptTime} · {p.doctor}</div>
+        </div>
+        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.inkFaint, marginLeft:4 }}>{open?"▲":"▼"}</div>
+      </div>
+
+      {/* Expanded details */}
+      {open && (
+        <div style={{ padding:"0 14px 14px", borderTop:`1px solid ${sc}18` }}>
+          {/* Vitals */}
+          <div style={{ display:"flex", gap:8, margin:"12px 0 10px" }}>
+            <VitalChip label="BP" val={p.vitals.bp} warn={parseInt(p.vitals.bp)>140}/>
+            <VitalChip label="HR bpm" val={p.vitals.hr} warn={p.vitals.hr>100||p.vitals.hr<55}/>
+            <VitalChip label="Temp °C" val={p.vitals.temp} warn={p.vitals.temp>37.5}/>
+            <VitalChip label="SpO₂ %" val={p.vitals.o2} warn={p.vitals.o2<95}/>
+          </div>
+          {/* Info grid */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+            <div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>DIAGNOSIS</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink, fontWeight:600 }}>{p.diagnosis}</div>
+            </div>
+            <div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>PATIENT</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink }}>{p.age}y {p.sex} · DOB {p.dob}</div>
+            </div>
+            <div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, marginBottom:3, letterSpacing:"0.08em" }}>ALLERGIES</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:p.allergies.length?T.rose:T.inkFaint }}>{p.allergies.length?p.allergies.join(", "):"None known"}</div>
+            </div>
+            <div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>MEDICATIONS</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid, lineHeight:1.5 }}>{p.meds.join(" · ")}</div>
+            </div>
+          </div>
+          {p.notes && (
+            <div style={{ padding:"8px 11px", borderRadius:8, background:`${sc}10`, border:`1px solid ${sc}25` }}>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7.5, color:sc, letterSpacing:"0.08em", marginBottom:3 }}>CLINICAL NOTE</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, lineHeight:1.5 }}>{p.notes}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── DOCTOR PORTAL (/doctor) ──────────────────────────────────────────────────
 function DoctorPage() {
   const navigate = useNavigate();
+  const [tab,            setTab]            = useState("floorplan"); // "floorplan" | "patients"
   const [hospitalFloors, setHospitalFloors] = useState(NYGH_FLOORS);
   const [floorKey,       setFloorKey]       = useState(0);
   const [feedback,       setFeedback]       = useState([]);
   const [searchDoctor,   setSearchDoctor]   = useState("");
+  const [searchPatient,  setSearchPatient]  = useState("");
+  const [filterSev,      setFilterSev]      = useState(0); // 0 = all
 
-  const handleFloors = (floors) => {
-    setHospitalFloors(floors);
-    setFloorKey(k => k + 1);
-  };
+  const handleFloors = (floors) => { setHospitalFloors(floors); setFloorKey(k => k + 1); };
 
   useEffect(() => {
     fetch("http://localhost:3001/api/feedback")
-      .then(r => r.json())
-      .then(data => setFeedback(data))
-      .catch(console.error);
+      .then(r => r.json()).then(data => setFeedback(data)).catch(console.error);
   }, []);
 
   const filteredFeedback = feedback.filter(f => searchDoctor === "" || f.doctorName.toLowerCase().includes(searchDoctor.toLowerCase()));
 
+  const filteredPatients = PATIENTS
+    .filter(p => filterSev === 0 || p.sev === filterSev)
+    .filter(p => searchPatient === "" || p.name.toLowerCase().includes(searchPatient.toLowerCase()) || p.id.includes(searchPatient))
+    .sort((a, b) => b.sev - a.sev);
+
+  const TAB_BTN = (key, label) => (
+    <button onClick={()=>setTab(key)} style={{ padding:"8px 20px", borderRadius:8, border:`1.5px solid ${tab===key?T.rose:T.border}`, background:tab===key?T.roseTint:"transparent", fontFamily:"'Outfit',sans-serif", fontWeight:tab===key?700:400, fontSize:13, color:tab===key?T.rose:T.inkMid, cursor:"pointer", transition:"all .15s" }}>{label}</button>
+  );
+
   return (
     <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Sharma">
-      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-        <button
-          className="btn-primary"
-          style={{ fontSize:12, padding:"8px 18px" }}
-          onClick={()=>navigate("/rooms")}
-        >
-          Room assignment
-        </button>
-        <button
-          className="btn-ghost"
-          style={{ fontSize:12, padding:"8px 18px" }}
-          onClick={()=>navigate("/schedule")}
-        >
-          Scheduling
-        </button>
-        <button
-          className="btn-ghost"
-          style={{ fontSize:12, padding:"8px 18px" }}
-          onClick={()=>{
-            const el = document.getElementById("doctor-queue");
-            if (el) el.scrollIntoView({ behavior:"smooth", block:"start" });
-          }}
-        >
-          Patient information (severity)
-        </button>
-        <button
-          className="btn-ghost"
-          style={{ fontSize:12, padding:"8px 18px" }}
-          onClick={()=>{
-            const el = document.getElementById("doctor-info");
-            if (el) el.scrollIntoView({ behavior:"smooth", block:"start" });
-          }}
-        >
-          Doctor information
-        </button>
+      {/* Top nav */}
+      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
+        {TAB_BTN("floorplan","🏥 Floor Plan")}
+        {TAB_BTN("patients","🧑‍⚕️ Patient Info")}
+        <div style={{ flex:1 }}/>
+        <button className="btn-ghost" style={{ fontSize:12, padding:"8px 18px" }} onClick={()=>navigate("/rooms")}>Room assignment</button>
+        <button className="btn-ghost" style={{ fontSize:12, padding:"8px 18px" }} onClick={()=>navigate("/schedule")}>Scheduling</button>
       </div>
-      <FloorPlanUploader onFloors={handleFloors}/>
-      <CapacityEditor floors={hospitalFloors} onSave={handleFloors}/>
-      <NyghFloorPlan key={floorKey} floors={hospitalFloors}/>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
-        <Stat label="Today's Patients" value="12" color={T.rose}/>
-        <Stat label="Pending Reviews" value="4" color={T.amber}/>
-        <Stat label="Avg Wait Time" value="18m" sub="−3m from yesterday" color={T.vital}/>
-        <Stat label="Critical Alerts" value="1" color={T.roseDeep}/>
-      </div>
-      <div style={{ marginBottom:18, padding:"14px 18px", borderRadius:14, background:`linear-gradient(135deg,${T.roseDeep}10,${T.roseTint})`, border:`1.5px solid ${T.rose}45`, display:"flex", alignItems:"center", gap:14 }}>
-        <div style={{ width:38, height:38, borderRadius:11, background:T.rose, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, animation:"breathe 2s ease-in-out infinite", flexShrink:0 }}><Icons.heartbeat/></div>
-        <div style={{ flex:1 }}>
-          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.roseDeep }}>Critical Alert — Thomas Leclerc</div>
-          <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, marginTop:2 }}>Presage AI flags possible appendicitis. Severity Level 4. Expedite consultation.</div>
-        </div>
-        <button className="btn-primary" style={{ fontSize:12, padding:"8px 18px", flexShrink:0 }}>View Patient →</button>
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1.4fr 1fr", gap:16 }}>
-        <div id="doctor-queue">
-        <Card>
-          <SHead>Today's Queue</SHead>
-          {[{name:"Jordan Mitchell",time:"09:00",reason:"Follow-up — cardiac",sev:2},{name:"Priya Nair",time:"09:30",reason:"Annual physical",sev:1},{name:"Thomas Leclerc",time:"10:00",reason:"Acute abdominal pain",sev:4},{name:"Ana Reyes",time:"10:30",reason:"Prescription renewal",sev:1},{name:"Mohammed Al-Amin",time:"11:00",reason:"Hypertension follow-up",sev:3}].map((p,i)=>{
-            const sc=p.sev>=4?T.roseDeep:p.sev>=3?T.amber:T.vital;
-            return (
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:i<4?`1px solid ${T.border}`:"none", cursor:"pointer", borderRadius:8, transition:"all .15s" }}
-                onMouseEnter={e=>{ e.currentTarget.style.background=T.roseTint; e.currentTarget.style.padding="10px 8px"; }}
-                onMouseLeave={e=>{ e.currentTarget.style.background="none"; e.currentTarget.style.padding="10px 0"; }}>
-                <div style={{ width:36, height:36, borderRadius:"50%", background:`${sc}15`, border:`2px solid ${sc}35`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:13, color:sc, flexShrink:0 }}>{p.name.charAt(0)}</div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:13, color:T.ink }}>{p.name}</div>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkFaint, marginTop:1 }}>{p.reason}</div>
-                </div>
-                <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-                  <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint }}>{p.time}</span>
-                  <div style={{ padding:"2px 7px", borderRadius:5, background:`${sc}15`, fontFamily:"'DM Mono',monospace", fontSize:7, color:sc, letterSpacing:"0.1em" }}>SEV {p.sev}</div>
-                </div>
+
+      {/* ── Floor Plan Tab ── */}
+      {tab === "floorplan" && (
+        <>
+          <FloorPlanUploader onFloors={handleFloors}/>
+          <CapacityEditor floors={hospitalFloors} onSave={handleFloors}/>
+          <NyghFloorPlan key={floorKey} floors={hospitalFloors}/>
+        </>
+      )}
+
+      {/* ── Patient Info Tab ── */}
+      {tab === "patients" && (
+        <>
+          {/* Stats */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:18 }}>
+            <Stat label="Today's Patients" value={PATIENTS.length} color={T.rose}/>
+            <Stat label="Critical / Urgent" value={PATIENTS.filter(p=>p.sev>=4).length} color={T.roseDeep}/>
+            <Stat label="In Treatment" value={PATIENTS.filter(p=>p.status==="In Treatment").length} color={T.amber}/>
+            <Stat label="Discharged Today" value={PATIENTS.filter(p=>p.status==="Discharged").length} color={T.vital}/>
+          </div>
+
+          {/* Critical alert banner */}
+          {PATIENTS.filter(p=>p.sev>=5).map(p=>(
+            <div key={p.id} style={{ marginBottom:14, padding:"13px 18px", borderRadius:14, background:`linear-gradient(135deg,${T.roseDeep}10,${T.roseTint})`, border:`1.5px solid ${T.rose}55`, display:"flex", alignItems:"center", gap:14 }}>
+              <div style={{ width:38, height:38, borderRadius:11, background:T.rose, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, animation:"breathe 2s ease-in-out infinite", flexShrink:0 }}><Icons.heartbeat/></div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.roseDeep }}>Critical Alert — {p.name} · {p.room}</div>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, marginTop:2 }}>{p.notes}</div>
               </div>
-            );
-          })}
-        </Card>
-        </div>
-        <div id="doctor-info" style={{ display:"flex", flexDirection:"column", gap:14 }}>
-          <Card>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <SHead style={{ margin: 0 }}>Doctor Feedback Directory</SHead>
-              <input 
-                type="text" 
-                placeholder="Search by doctor name..." 
-                value={searchDoctor}
-                onChange={e => setSearchDoctor(e.target.value)}
-                style={{ padding: "6px 12px", borderRadius: 100, border: `1px solid ${T.border}`, background: T.bgDeep, fontFamily: "'Outfit',sans-serif", fontSize: 12, outline: "none", width: 160 }}
-              />
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.rose, padding:"4px 10px", borderRadius:6, border:`1px solid ${T.rose}44`, flexShrink:0 }}>SEV {p.sev} · {p.diagnosis}</div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 400, overflowY: "auto", paddingRight: 6 }}>
-              {filteredFeedback.length > 0 ? filteredFeedback.map((f, i) => (
-                <div key={i} style={{ padding: 14, borderRadius: 12, background: T.surfaceHard, border: `1px solid ${T.border}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                    <div>
-                      <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14, color: T.ink }}>{f.doctorName}</div>
-                      <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 11, color: T.inkFaint }}>Reviewed by {f.patientName}</div>
-                    </div>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: T.inkFaint }}>{new Date(f.date).toLocaleDateString()}</div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div>
-                      <span style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 600, fontSize: 11, color: T.vital }}>What went well: </span>
-                      <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid }}>{f.liked}</span>
-                    </div>
-                    <div>
-                      <span style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 600, fontSize: 11, color: T.amber }}>Needs improvement: </span>
-                      <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid }}>{f.improved}</span>
-                    </div>
-                  </div>
+          ))}
+
+          {/* Search + filter */}
+          <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap", alignItems:"center" }}>
+            <input value={searchPatient} onChange={e=>setSearchPatient(e.target.value)} placeholder="Search by name or MRN…"
+              style={{ padding:"7px 13px", borderRadius:9, border:`1.5px solid ${T.border}`, fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink, background:T.bgDeep, outline:"none", flex:1, minWidth:160 }}/>
+            <div style={{ display:"flex", gap:5 }}>
+              {[0,1,2,3,4,5].map(s=>(
+                <button key={s} onClick={()=>setFilterSev(s)}
+                  style={{ padding:"5px 11px", borderRadius:7, border:`1.5px solid ${filterSev===s?T.rose:T.border}`, background:filterSev===s?T.roseTint:"transparent", fontFamily:"'DM Mono',monospace", fontSize:9, color:filterSev===s?T.rose:T.inkFaint, cursor:"pointer" }}>
+                  {s===0?"All":`SEV ${s}`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Patient cards */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, alignItems:"start" }}>
+            <Card>
+              <SHead>Patient Queue — sorted by severity</SHead>
+              {filteredPatients.map(p => <PatientCard key={p.id} p={p}/>)}
+              {filteredPatients.length === 0 && <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"20px 0" }}>No patients match.</div>}
+            </Card>
+            <div id="doctor-info" style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <Card>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+                  <SHead>Doctor Feedback</SHead>
+                  <input type="text" placeholder="Search doctor…" value={searchDoctor} onChange={e=>setSearchDoctor(e.target.value)}
+                    style={{ padding:"5px 11px", borderRadius:100, border:`1px solid ${T.border}`, background:T.bgDeep, fontFamily:"'Outfit',sans-serif", fontSize:11, outline:"none", width:140 }}/>
                 </div>
-              )) : (
-                <div style={{ padding: "20px 0", textAlign: "center", fontFamily: "'Outfit',sans-serif", fontSize: 13, color: T.inkFaint }}>No feedback found.</div>
-              )}
+                <div style={{ display:"flex", flexDirection:"column", gap:10, maxHeight:460, overflowY:"auto" }}>
+                  {filteredFeedback.length > 0 ? filteredFeedback.map((f,i)=>(
+                    <div key={i} style={{ padding:12, borderRadius:10, background:T.surfaceHard, border:`1px solid ${T.border}` }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                        <div>
+                          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:13, color:T.ink }}>{f.doctorName}</div>
+                          <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:10, color:T.inkFaint }}>by {f.patientName}</div>
+                        </div>
+                        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint }}>{new Date(f.date).toLocaleDateString()}</div>
+                      </div>
+                      <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid }}><span style={{ color:T.vital, fontWeight:600 }}>✓ </span>{f.liked}</div>
+                      <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid, marginTop:3 }}><span style={{ color:T.amber, fontWeight:600 }}>△ </span>{f.improved}</div>
+                    </div>
+                  )) : <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"20px 0" }}>No feedback found.</div>}
+                </div>
+              </Card>
             </div>
-          </Card>
-        </div>
-      </div>
+          </div>
+        </>
+      )}
     </PageWrap>
   );
 }
