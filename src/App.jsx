@@ -1,215 +1,165 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 
-// ─── THEME ───────────────────────────────────────────────────────────────────
+// ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const T = {
-  cream: "#FDF6EE",
-  creamDark: "#F5EAD8",
-  creamBorder: "#E8D5BC",
-  red: "#E8A0A0",
-  redDeep: "#D4707080",
-  redAccent: "#C85A5A",
-  redGlow: "#E8A0A080",
-  redText: "#B84040",
-  muted: "#9A7B6A",
-  dark: "#3D2020",
-  white: "#FFFAF5",
+  bg:          "#F8F0E8",
+  bgDeep:      "#F0E4D4",
+  surface:     "rgba(255,248,240,0.85)",
+  surfaceHard: "#FFFAF4",
+  border:      "rgba(200,160,140,0.3)",
+  borderStrong:"rgba(180,100,100,0.45)",
+  rose:        "#D4706A",
+  roseMid:     "#C05858",
+  roseDeep:    "#A84040",
+  rosePale:    "#EEBABA",
+  roseGlow:    "rgba(212,112,106,0.35)",
+  roseTint:    "rgba(212,112,106,0.08)",
+  vital:       "#5BAA8A",
+  vitalPale:   "rgba(91,170,138,0.15)",
+  amber:       "#D4974A",
+  amberPale:   "rgba(212,151,74,0.15)",
+  ink:         "#2A1818",
+  inkMid:      "#6B4040",
+  inkFaint:    "#A08070",
+  white:       "#FFFCF8",
 };
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 const GlobalStyle = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap');
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { width:100%; height:100%; min-height:100vh; min-width:100vw; overflow:hidden; }
+    body { font-family:'Outfit',sans-serif; background:${T.bg}; color:${T.ink}; }
+    ::-webkit-scrollbar { width:4px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:${T.rosePale}; border-radius:4px; }
 
-    body {
-      background: ${T.cream};
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      color: ${T.dark};
-      overflow-x: hidden;
-    }
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+    @keyframes slideR   { from{opacity:0;transform:translateX(-24px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes ecgLoop  { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+    @keyframes ecgDraw  { from{stroke-dashoffset:600} to{stroke-dashoffset:0} }
+    @keyframes pulse    { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.08);opacity:.8} }
+    @keyframes float    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    @keyframes spin     { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+    @keyframes pathAnim { from{stroke-dashoffset:1200;opacity:0} to{stroke-dashoffset:0;opacity:1} }
+    @keyframes nodeIn   { from{opacity:0;transform:scale(.3)} to{opacity:1;transform:scale(1)} }
+    @keyframes scanLine { 0%{top:8%;opacity:.9} 50%{top:88%;opacity:.4} 100%{top:8%;opacity:.9} }
+    @keyframes ripple   { 0%{transform:scale(1);opacity:.6} 100%{transform:scale(2.4);opacity:0} }
+    @keyframes breathe  { 0%,100%{box-shadow:0 0 0 0 ${T.roseGlow}} 50%{box-shadow:0 0 0 14px transparent} }
 
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: ${T.creamDark}; }
-    ::-webkit-scrollbar-thumb { background: ${T.red}; border-radius: 3px; }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(16px); }
-      to { opacity: 1; transform: translateY(0); }
+    .btn-primary {
+      font-family:'Outfit',sans-serif; font-weight:600; font-size:13px;
+      letter-spacing:.03em; padding:11px 28px; border-radius:100px; border:none;
+      background:linear-gradient(135deg,${T.rose} 0%,${T.roseDeep} 100%);
+      color:${T.white}; cursor:pointer; transition:all .25s ease; position:relative; overflow:hidden;
     }
-    @keyframes pulseRed {
-      0%, 100% { box-shadow: 0 0 0 0 ${T.redGlow}; }
-      50% { box-shadow: 0 0 0 12px transparent; }
+    .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 28px ${T.roseGlow}; }
+    .btn-ghost {
+      font-family:'Outfit',sans-serif; font-weight:500; font-size:13px;
+      padding:10px 24px; border-radius:100px; border:1.5px solid ${T.borderStrong};
+      background:transparent; color:${T.inkMid}; cursor:pointer; transition:all .2s ease;
     }
-    @keyframes scanLine {
-      0% { top: 10%; }
-      50% { top: 88%; }
-      100% { top: 10%; }
-    }
-    @keyframes pathDraw {
-      from { stroke-dashoffset: 1000; }
-      to { stroke-dashoffset: 0; }
-    }
-    @keyframes nodeAppear {
-      from { opacity: 0; transform: scale(0.4); }
-      to { opacity: 1; transform: scale(1); }
-    }
-    @keyframes float {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-8px); }
-    }
-    @keyframes grain {
-      0%, 100% { transform: translate(0,0); }
-      10% { transform: translate(-2%,-3%); }
-      20% { transform: translate(3%,2%); }
-      30% { transform: translate(-1%,4%); }
-      40% { transform: translate(4%,-1%); }
-      50% { transform: translate(-3%,3%); }
-      60% { transform: translate(2%,-4%); }
-      70% { transform: translate(-4%,1%); }
-      80% { transform: translate(3%,-2%); }
-      90% { transform: translate(-2%,4%); }
-    }
-
-    .sanctii-btn {
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      padding: 10px 24px;
-      border-radius: 2px;
-      border: 1px solid ${T.redAccent};
-      background: transparent;
-      color: ${T.redAccent};
-      cursor: pointer;
-      transition: all 0.25s ease;
-    }
-    .sanctii-btn:hover {
-      background: ${T.redAccent};
-      color: ${T.white};
-      box-shadow: 0 4px 20px ${T.redGlow};
-    }
-    .sanctii-btn-fill {
-      background: ${T.redAccent};
-      color: ${T.white};
-    }
-    .sanctii-btn-fill:hover {
-      background: ${T.redText};
-      box-shadow: 0 6px 24px ${T.redGlow};
-    }
-
-    .fade-in { animation: fadeIn 0.6s ease forwards; }
-
-    .grain-overlay {
-      position: fixed;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-      pointer-events: none;
-      z-index: 9999;
-      opacity: 0.35;
-      animation: grain 0.5s steps(1) infinite;
+    .btn-ghost:hover { border-color:${T.rose}; color:${T.rose}; background:${T.roseTint}; }
+    .glass-hard {
+      background:${T.surfaceHard}; border:1px solid ${T.border};
+      border-radius:16px; box-shadow:0 2px 20px rgba(160,80,80,.06);
     }
   `}</style>
 );
 
-// ─── MAZE CONFIGURATION ───────────────────────────────────────────────────────
-const MAZE_NODES = {
-  center:    { x: 50,  y: 50,  label: "SANCTII",     icon: "✦",  isCenter: true },
-  patient:   { x: 50,  y: 18,  label: "Patient Portal", icon: "◎", page: "patient" },
-  doctor:    { x: 82,  y: 35,  label: "Doctor Portal",  icon: "⊕", page: "doctor" },
-  rooms:     { x: 82,  y: 65,  label: "Room Map",       icon: "⊞", page: "rooms" },
-  hospital:  { x: 50,  y: 82,  label: "Find Hospital",  icon: "⊘", page: "hospital" },
-  presage:   { x: 18,  y: 65,  label: "Presage AI",     icon: "◈", page: "presage" },
-  schedule:  { x: 18,  y: 35,  label: "Schedule",       icon: "◷", page: "schedule" },
+// ─── SHARED COMPONENTS ────────────────────────────────────────────────────────
+const Icons = {
+  cross:       () => <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8z"/></svg>,
+  heartbeat:   () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
+  heart:       () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
+  stethoscope: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>,
+  calendar:    () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  mapPin:      () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  grid:        () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
+  brain:       () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.04-4.79 3 3 0 0 1-.91-4.43 3 3 0 0 1 .5-5.32A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.04-4.79 3 3 0 0 0 .91-4.43 3 3 0 0 0-.5-5.32A2.5 2.5 0 0 0 14.5 2Z"/></svg>,
+  user:        () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  shield:      () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+  card:        () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
+  check:       () => <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
 };
 
-const MAZE_PATHS = [
-  { from: "center", to: "patient",  waypoints: [] },
-  { from: "center", to: "doctor",   waypoints: [] },
-  { from: "center", to: "rooms",    waypoints: [] },
-  { from: "center", to: "hospital", waypoints: [] },
-  { from: "center", to: "presage",  waypoints: [] },
-  { from: "center", to: "schedule", waypoints: [] },
-  { from: "patient",  to: "schedule", waypoints: [{ x: 18, y: 18 }] },
-  { from: "doctor",   to: "rooms",    waypoints: [{ x: 95, y: 50 }] },
-  { from: "hospital", to: "presage",  waypoints: [{ x: 30, y: 90 }] },
-  { from: "schedule", to: "presage",  waypoints: [{ x: 5,  y: 50 }] },
-  { from: "patient",  to: "doctor",   waypoints: [{ x: 70, y: 10 }] },
-  { from: "rooms",    to: "hospital", waypoints: [{ x: 90, y: 80 }] },
-  // decoy maze walls (non-interactive)
-  { from: null, to: null, decorative: true, d: "M 20 5 L 20 25 L 40 25" },
-  { from: null, to: null, decorative: true, d: "M 60 5 L 80 5 L 80 20" },
-  { from: null, to: null, decorative: true, d: "M 95 45 L 95 55" },
-  { from: null, to: null, decorative: true, d: "M 80 80 L 95 80 L 95 95" },
-  { from: null, to: null, decorative: true, d: "M 5 60 L 5 90 L 20 90" },
-  { from: null, to: null, decorative: true, d: "M 5 10 L 5 30 L 15 30 L 15 45" },
-  { from: null, to: null, decorative: true, d: "M 35 90 L 35 95 L 65 95 L 65 90" },
-  { from: null, to: null, decorative: true, d: "M 55 10 L 55 5 L 45 5 L 45 15" },
-  { from: null, to: null, decorative: true, d: "M 88 30 L 98 30 L 98 20 L 88 20" },
-];
-
-// BFS optimal path finder
-function findPath(fromKey, toKey) {
-  const edges = {};
-  Object.keys(MAZE_NODES).forEach(k => { edges[k] = []; });
-  MAZE_PATHS.filter(p => p.from && p.to).forEach(p => {
-    edges[p.from].push(p.to);
-    edges[p.to].push(p.from);
-  });
-  const visited = { [fromKey]: true };
-  const queue = [[fromKey]];
-  while (queue.length) {
-    const path = queue.shift();
-    const node = path[path.length - 1];
-    if (node === toKey) return path;
-    (edges[node] || []).forEach(nb => {
-      if (!visited[nb]) { visited[nb] = true; queue.push([...path, nb]); }
-    });
-  }
-  return [fromKey, toKey];
+function EcgStrip({ opacity=0.1, color=T.rose, top="auto", bottom="auto" }) {
+  return (
+    <div style={{ position:"absolute", left:0, right:0, top, bottom, height:56, overflow:"hidden", pointerEvents:"none" }}>
+      <div style={{ display:"flex", animation:"ecgLoop 8s linear infinite", width:"200%" }}>
+        {[0,1].map(k=>(
+          <svg key={k} viewBox="0 0 400 56" style={{ width:"50%", flexShrink:0 }} preserveAspectRatio="none">
+            <polyline points="0,28 30,28 36,28 40,8 44,48 48,28 80,28 86,28 90,20 94,36 98,28 130,28 136,28 140,6 144,50 148,28 190,28 196,28 200,16 204,40 208,28 240,28 246,28 250,10 254,46 258,28 300,28 306,28 310,18 314,38 318,28 360,28 366,28 370,8 374,48 378,28 400,28"
+              fill="none" stroke={color} strokeWidth="1.5" opacity={opacity}/>
+          </svg>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-function pathToSVG(pathKeys) {
-  if (pathKeys.length < 2) return "";
-  let d = "";
-  pathKeys.forEach((key, i) => {
-    const n = MAZE_NODES[key];
-    const edge = MAZE_PATHS.find(p =>
-      !p.decorative && (
-        (p.from === pathKeys[i-1] && p.to === key) ||
-        (p.to === pathKeys[i-1] && p.from === key)
-      )
-    );
-    if (i === 0) {
-      d += `M ${n.x} ${n.y}`;
-    } else if (edge && edge.waypoints && edge.waypoints.length) {
-      edge.waypoints.forEach(wp => { d += ` L ${wp.x} ${wp.y}`; });
-      d += ` L ${n.x} ${n.y}`;
-    } else {
-      d += ` L ${n.x} ${n.y}`;
-    }
+function BgOrbs() {
+  return (
+    <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none", zIndex:0 }}>
+      <div style={{ position:"absolute", top:"-15%", right:"-10%", width:520, height:520, borderRadius:"50%", background:`radial-gradient(circle,${T.rosePale}35 0%,transparent 70%)` }}/>
+      <div style={{ position:"absolute", bottom:"-20%", left:"-8%", width:620, height:620, borderRadius:"50%", background:`radial-gradient(circle,rgba(91,170,138,.1) 0%,transparent 65%)` }}/>
+      <div style={{ position:"absolute", top:"35%", left:"20%", width:320, height:320, borderRadius:"50%", background:`radial-gradient(circle,rgba(212,151,74,.06) 0%,transparent 70%)` }}/>
+    </div>
+  );
+}
+
+// ─── MAZE ────────────────────────────────────────────────────────────────────
+const NODES = {
+  center:   { x:50, y:50, label:"Sanctii",        icon:"cross",       isCenter:true },
+  patient:  { x:50, y:14, label:"Patient Portal",  icon:"user",        page:"patient",  col:T.rose },
+  doctor:   { x:82, y:32, label:"Doctor Portal",   icon:"stethoscope", page:"doctor",   col:T.roseMid },
+  rooms:    { x:82, y:68, label:"Room Map",         icon:"grid",        page:"rooms",    col:T.amber },
+  hospital: { x:50, y:86, label:"Find Hospital",   icon:"mapPin",      page:"hospital", col:T.vital },
+  presage:  { x:18, y:68, label:"Presage AI",      icon:"brain",       page:"presage",  col:"#8B6FBF" },
+  schedule: { x:18, y:32, label:"Schedule",        icon:"calendar",    page:"schedule", col:T.roseMid },
+};
+const EDGES = [
+  {from:"center",to:"patient",wp:[]},{from:"center",to:"doctor",wp:[]},
+  {from:"center",to:"rooms",wp:[]},{from:"center",to:"hospital",wp:[]},
+  {from:"center",to:"presage",wp:[]},{from:"center",to:"schedule",wp:[]},
+  {from:"patient",to:"schedule",wp:[{x:18,y:14}]},
+  {from:"doctor",to:"rooms",wp:[{x:93,y:50}]},
+  {from:"hospital",to:"presage",wp:[{x:30,y:92}]},
+  {from:"schedule",to:"presage",wp:[{x:5,y:50}]},
+  {from:"patient",to:"doctor",wp:[{x:72,y:8}]},
+  {from:"rooms",to:"hospital",wp:[{x:90,y:82}]},
+];
+const DECOS=["M 22 5 L 22 22 L 38 22","M 62 5 L 78 5 L 78 18","M 93 44 L 93 56","M 80 82 L 93 82 L 93 95","M 5 62 L 5 88 L 20 88","M 5 12 L 5 28 L 14 28 L 14 44","M 36 92 L 36 96 L 64 96 L 64 92","M 56 8 L 56 4 L 44 4 L 44 14"];
+
+function bfs(from,to){
+  const adj={};Object.keys(NODES).forEach(k=>{adj[k]=[];});
+  EDGES.forEach(e=>{adj[e.from].push(e.to);adj[e.to].push(e.from);});
+  const vis={[from]:true};const q=[[from]];
+  while(q.length){const p=q.shift();if(p[p.length-1]===to)return p;(adj[p[p.length-1]]||[]).forEach(nb=>{if(!vis[nb]){vis[nb]=true;q.push([...p,nb]);}});}
+  return[from,to];
+}
+function makeSVG(keys){
+  if(keys.length<2)return"";
+  let d="";
+  keys.forEach((key,i)=>{
+    const n=NODES[key];
+    if(i===0){d+=`M ${n.x} ${n.y}`;return;}
+    const e=EDGES.find(e=>(e.from===keys[i-1]&&e.to===key)||(e.to===keys[i-1]&&e.from===key));
+    (e?.wp||[]).forEach(wp=>{d+=` L ${wp.x} ${wp.y}`;});
+    d+=` L ${n.x} ${n.y}`;
   });
   return d;
 }
 
-// ─── MAZE COMPONENT ──────────────────────────────────────────────────────────
-function MazeUI({ onNavigate }) {
-  const [hoveredNode, setHoveredNode] = useState(null);
-  const [optimalPath, setOptimalPath] = useState([]);
-  const [clickedNode, setClickedNode] = useState(null);
-
-  useEffect(() => {
-    if (hoveredNode && hoveredNode !== "center") {
-      setOptimalPath(findPath("center", hoveredNode));
-    } else {
-      setOptimalPath([]);
-    }
-  }, [hoveredNode]);
-
-  const pathD = pathToSVG(optimalPath);
+function MazeUI({onNavigate}){
+  const[hov,setHov]=useState(null);
+  const[path,setPath]=useState([]);
+  useEffect(()=>{setPath(hov&&hov!=="center"?bfs("center",hov):[]);},[hov]);
+  const pd=makeSVG(path);
+  const ac=hov?NODES[hov]?.col||T.rose:T.rose;
 
   return (
     <div style={{
@@ -229,433 +179,225 @@ function MazeUI({ onNavigate }) {
         </div>
       </div>
 
-      {/* Top right auth */}
-      <div style={{ position: "absolute", top: 32, right: 40, display: "flex", gap: 12, zIndex: 10 }}>
-        <button className="sanctii-btn" onClick={() => onNavigate("login")}>Sign In</button>
-        <button className="sanctii-btn sanctii-btn-fill" onClick={() => onNavigate("login")}>Register</button>
+        {/* Live vitals */}
+        <div style={{display:"flex",alignItems:"center",gap:20,padding:"7px 18px",borderRadius:100,background:"rgba(91,170,138,0.08)",border:"1px solid rgba(91,170,138,0.25)"}}>
+          {[["♥","72 bpm",T.vital],["⚡","98% SpO₂",T.rose],["🌡","36.6°C",T.amber]].map(([ic,val,c])=>(
+            <div key={val} style={{display:"flex",alignItems:"center",gap:5}}>
+              <span style={{fontSize:10}}>{ic}</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:c,letterSpacing:"0.04em"}}>{val}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{display:"flex",gap:10}}>
+          <button className="btn-ghost" onClick={()=>onNavigate("login")} style={{fontSize:12,padding:"8px 20px"}}>Sign In</button>
+          <button className="btn-primary" onClick={()=>onNavigate("login")} style={{fontSize:12,padding:"9px 22px"}}>Get Started →</button>
+        </div>
       </div>
 
-      {/* Maze SVG */}
-      <div style={{ position: "relative", width: "min(85vw, 85vh)", height: "min(85vw, 85vh)", maxWidth: 680, maxHeight: 680 }}>
-        <svg
-          viewBox="0 0 100 100"
-          style={{ width: "100%", height: "100%", position: "absolute", top: 0, left: 0 }}
-        >
+      {/* Maze */}
+      <div style={{position:"relative",width:"min(76vw,80vh)",height:"min(76vw,80vh)",maxWidth:620,maxHeight:620,marginTop:16,zIndex:10}}>
+        <svg viewBox="0 0 100 100" style={{position:"absolute",inset:0,width:"100%",height:"100%"}}>
           <defs>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
-              <feMerge>
-                <feMergeNode in="coloredBlur"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
-            <marker id="arrowRed" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto">
-              <path d="M0,0 L0,4 L4,2 z" fill={T.redAccent} />
+            <filter id="glow"><feGaussianBlur stdDeviation="1.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <marker id="arr" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+              <polygon points="0 0,5 2.5,0 5" fill={ac} opacity=".9"/>
             </marker>
           </defs>
-
-          {/* Decorative maze walls */}
-          {MAZE_PATHS.filter(p => p.decorative).map((p, i) => (
-            <path key={i} d={p.d} fill="none" stroke={T.creamBorder} strokeWidth="0.6" strokeLinecap="round" />
-          ))}
-
-          {/* All connection lines (dim) */}
-          {MAZE_PATHS.filter(p => p.from && p.to).map((p, i) => {
-            const from = MAZE_NODES[p.from];
-            const to = MAZE_NODES[p.to];
-            let d = `M ${from.x} ${from.y}`;
-            if (p.waypoints) p.waypoints.forEach(wp => { d += ` L ${wp.x} ${wp.y}`; });
-            d += ` L ${to.x} ${to.y}`;
-            return (
-              <path key={i} d={d} fill="none"
-                stroke={T.creamBorder} strokeWidth="0.5"
-                strokeDasharray="2 2" opacity="0.7"
-              />
-            );
+          {DECOS.map((d,i)=><path key={i} d={d} fill="none" stroke={T.border} strokeWidth=".7" strokeLinecap="round" opacity=".8"/>)}
+          {EDGES.map((e,i)=>{
+            const f=NODES[e.from];const t=NODES[e.to];
+            let d=`M ${f.x} ${f.y}`;(e.wp||[]).forEach(w=>{d+=` L ${w.x} ${w.y}`;});d+=` L ${t.x} ${t.y}`;
+            return<path key={i} d={d} fill="none" stroke={T.border} strokeWidth=".6" strokeDasharray="1.5 2" opacity=".55"/>;
           })}
-
-          {/* Optimal path highlight */}
-          {pathD && (
-            <path
-              d={pathD} fill="none"
-              stroke={T.redAccent} strokeWidth="1.4"
-              strokeLinecap="round" strokeLinejoin="round"
-              markerEnd="url(#arrowRed)"
-              filter="url(#glow)"
-              strokeDasharray="1000"
-              strokeDashoffset="0"
-              style={{ animation: "pathDraw 0.5s ease forwards" }}
-            />
-          )}
-
-          {/* Path node highlights */}
-          {optimalPath.map((key, i) => {
-            const n = MAZE_NODES[key];
-            return (
-              <circle key={key} cx={n.x} cy={n.y} r={i === 0 ? 2.8 : 2}
-                fill={i === 0 ? T.redAccent : T.red}
-                opacity={0.6}
-                style={{ animation: `nodeAppear 0.3s ease ${i * 0.08}s both` }}
-              />
-            );
+          {pd&&<>
+            <path d={pd} fill="none" stroke={ac} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" opacity=".15" filter="url(#glow)"/>
+            <path d={pd} fill="none" stroke={ac} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" markerEnd="url(#arr)" strokeDasharray="400" style={{animation:"pathAnim .45s cubic-bezier(.4,0,.2,1) forwards"}}/>
+          </>}
+          {path.map((key,i)=>{const n=NODES[key];return<circle key={key} cx={n.x} cy={n.y} r={i===0?3.5:2.5} fill={i===0?T.roseDeep:ac} opacity=".5" style={{animation:`nodeIn .3s ease ${i*.07}s both`}}/>;
           })}
         </svg>
 
-        {/* HTML Node Buttons */}
-        {Object.entries(MAZE_NODES).map(([key, node]) => {
-          const isActive = hoveredNode === key;
-          const inPath = optimalPath.includes(key);
-          const isCenter = node.isCenter;
-
-          return (
-            <div
-              key={key}
-              onMouseEnter={() => !isCenter && setHoveredNode(key)}
-              onMouseLeave={() => setHoveredNode(null)}
-              onClick={() => { if (!isCenter && node.page) { setClickedNode(key); setTimeout(() => onNavigate(node.page), 300); } }}
-              style={{
-                position: "absolute",
-                left: `${node.x}%`,
-                top: `${node.y}%`,
-                transform: "translate(-50%, -50%)",
-                zIndex: 20,
-                cursor: isCenter ? "default" : "pointer",
-                transition: "all 0.2s ease",
-              }}
+        {Object.entries(NODES).map(([key,node])=>{
+          const isCenter=node.isCenter;const isHov=hov===key;const inPath=path.includes(key);
+          const col=node.col||T.rose;const IC=Icons[node.icon];
+          return(
+            <div key={key}
+              onMouseEnter={()=>!isCenter&&setHov(key)}
+              onMouseLeave={()=>setHov(null)}
+              onClick={()=>!isCenter&&node.page&&onNavigate(node.page)}
+              style={{position:"absolute",left:`${node.x}%`,top:`${node.y}%`,transform:"translate(-50%,-50%)",zIndex:20,cursor:isCenter?"default":"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}
             >
+              {isHov&&<div style={{position:"absolute",width:isCenter?84:60,height:isCenter?84:60,borderRadius:"50%",border:`1.5px solid ${col}`,animation:"ripple 1s ease-out infinite",pointerEvents:"none"}}/>}
               <div style={{
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                animation: isCenter ? "float 4s ease-in-out infinite" : "none",
+                width:isCenter?66:50,height:isCenter?66:50,borderRadius:isCenter?"18px":"14px",
+                background:isHov||isCenter?`linear-gradient(145deg,${col}ee,${col}aa)`:inPath?`linear-gradient(145deg,${col}35,${col}18)`:T.surfaceHard,
+                border:`${isHov?2:1.5}px solid ${isHov||inPath?col:T.border}`,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                color:isHov||isCenter?T.white:inPath?col:T.inkFaint,
+                boxShadow:isHov?`0 12px 32px ${col}55,0 4px 12px ${col}33`:inPath?`0 0 14px ${col}30`:"0 2px 10px rgba(160,80,80,.06)",
+                transition:"all .25s cubic-bezier(.4,0,.2,1)",
+                transform:isHov?"scale(1.14)":"scale(1)",
+                animation:isCenter?"float 4s ease-in-out infinite":"none",
+                backdropFilter:"blur(12px)",
               }}>
-                <div style={{
-                  width: isCenter ? 72 : 48,
-                  height: isCenter ? 72 : 48,
-                  borderRadius: isCenter ? "50%" : "4px",
-                  background: isActive || inPath
-                    ? `linear-gradient(135deg, ${T.redAccent}, ${T.redText})`
-                    : isCenter
-                      ? `linear-gradient(135deg, ${T.red}, ${T.redAccent})`
-                      : T.white,
-                  border: `${isActive ? 2 : 1}px solid ${isActive || inPath ? T.redAccent : T.creamBorder}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: isCenter ? 24 : 16,
-                  color: isActive || inPath || isCenter ? T.white : T.muted,
-                  boxShadow: isActive
-                    ? `0 0 24px ${T.redGlow}, 0 4px 16px rgba(0,0,0,0.1)`
-                    : inPath
-                      ? `0 0 12px ${T.redGlow}`
-                      : "0 2px 8px rgba(61,32,32,0.08)",
-                  transition: "all 0.25s ease",
-                  transform: isActive ? "scale(1.15)" : "scale(1)",
-                  animation: isActive ? "pulseRed 1.5s ease infinite" : "none",
-                }}>
-                  {node.icon}
-                </div>
-                <div style={{
-                  fontFamily: "'DM Mono', monospace",
-                  fontSize: isCenter ? 12 : 9,
-                  fontWeight: isCenter ? 500 : 400,
-                  letterSpacing: "0.1em",
-                  color: isActive || inPath ? T.redAccent : isCenter ? T.redText : T.muted,
-                  textAlign: "center",
-                  whiteSpace: "nowrap",
-                  transition: "color 0.2s ease",
-                  textTransform: "uppercase",
-                }}>
-                  {node.label}
-                </div>
+                {IC&&<IC/>}
               </div>
+              <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:isCenter?700:500,fontSize:isCenter?11:9,color:isHov?col:inPath?col:isCenter?T.inkMid:T.inkFaint,textAlign:"center",whiteSpace:"nowrap",transition:"color .2s",letterSpacing:isCenter?"-0.01em":"0.02em"}}>
+                {node.label}
+              </div>
+              {isHov&&<div style={{position:"absolute",top:"calc(100% + 8px)",background:T.ink,color:T.white,padding:"5px 12px",borderRadius:8,fontFamily:"'DM Mono',monospace",fontSize:8,letterSpacing:"0.1em",textTransform:"uppercase",whiteSpace:"nowrap",animation:"fadeIn .15s ease",boxShadow:"0 4px 16px rgba(0,0,0,.2)"}}>Click to enter →</div>}
             </div>
           );
         })}
       </div>
 
-      {/* Bottom hint */}
-      <div style={{
-        position: "absolute", bottom: 28,
-        fontFamily: "'DM Mono', monospace", fontSize: 10,
-        color: T.muted, letterSpacing: "0.15em", textTransform: "uppercase",
-        opacity: hoveredNode ? 0 : 0.7, transition: "opacity 0.3s ease",
-      }}>
-        hover a destination to reveal the optimal path
-      </div>
-
-      {hoveredNode && hoveredNode !== "center" && (
-        <div style={{
-          position: "absolute", bottom: 28,
-          fontFamily: "'DM Mono', monospace", fontSize: 10,
-          color: T.redAccent, letterSpacing: "0.12em", textTransform: "uppercase",
-          animation: "fadeIn 0.2s ease",
-        }}>
-          path to {MAZE_NODES[hoveredNode]?.label} — {optimalPath.length - 1} hop{optimalPath.length !== 2 ? "s" : ""} → click to enter
+      {/* Status bar */}
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:42,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 32px",borderTop:`1px solid ${T.border}`,background:"rgba(248,240,232,.75)",backdropFilter:"blur(12px)",zIndex:50}}>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.inkFaint,letterSpacing:"0.12em",textTransform:"uppercase",opacity:hov?0:1,transition:"opacity .3s"}}>Hover a destination · Optimal path · Click to enter</div>
+        {hov&&hov!=="center"&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:ac,letterSpacing:"0.1em",textTransform:"uppercase",animation:"fadeIn .2s ease"}}>◈ {path.length-1} hop{path.length!==2?"s":""} to {NODES[hov]?.label}</div>}
+        <div style={{display:"flex",gap:16,alignItems:"center"}}>
+          {[["System","Online",T.vital],["Auth0","Connected",T.vital],["Presage","Ready",T.rose]].map(([k,v,c])=>(
+            <div key={k} style={{display:"flex",alignItems:"center",gap:5}}>
+              <div style={{width:5,height:5,borderRadius:"50%",background:c,animation:"pulse 2s ease-in-out infinite"}}/>
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.inkFaint,letterSpacing:"0.08em",textTransform:"uppercase"}}>{k}</span>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-// ─── LOGIN PAGE ──────────────────────────────────────────────────────────────
-function LoginPage({ onBack, onLogin }) {
-  const [mode, setMode] = useState("card"); // card | manual
-  const [scanning, setScanning] = useState(false);
-  const [scanned, setScanned] = useState(false);
-  const [scanData, setScanData] = useState(null);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("patient");
-  const fileRef = useRef();
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
+function LoginPage({onBack,onLogin}){
+  const[mode,setMode]=useState("card");
+  const[scanning,setScanning]=useState(false);
+  const[scanned,setScanned]=useState(false);
+  const[scanData,setScanData]=useState(null);
+  const[email,setEmail]=useState("");
+  const[password,setPassword]=useState("");
+  const[role,setRole]=useState("patient");
+  const fileRef=useRef();
 
-  const simulateScan = () => {
-    setScanning(true);
-    setScanned(false);
-    setTimeout(() => {
-      setScanning(false);
-      setScanned(true);
-      setScanData({
-        name: "Jordan A. Mitchell",
-        dob: "1989-03-14",
-        healthCardNo: "HC-4821-0039-JM",
-        province: "Ontario",
-        expiry: "2027-01-01",
-      });
-    }, 2800);
+  const doScan=()=>{
+    setScanning(true);setScanned(false);
+    setTimeout(()=>{setScanning(false);setScanned(true);setScanData({name:"Jordan A. Mitchell",dob:"1989-03-14",cardNo:"HC-4821-0039-JM",province:"Ontario",expiry:"2027-01-01"});},2600);
   };
 
-  const handleFileUpload = (e) => {
-    if (e.target.files[0]) simulateScan();
-  };
-
-  return (
-    <div style={{
-      minHeight: "100vh", display: "flex",
-      background: `radial-gradient(ellipse at 30% 50%, #F9EDE3 0%, ${T.cream} 60%)`,
-    }}>
-      {/* Left panel */}
-      <div style={{
-        width: "42%", background: `linear-gradient(160deg, ${T.redAccent} 0%, ${T.redText} 100%)`,
-        display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
-        padding: 48, position: "relative", overflow: "hidden",
-      }}>
-        <div style={{
-          position: "absolute", top: -80, right: -80,
-          width: 300, height: 300, borderRadius: "50%",
-          background: "rgba(255,255,255,0.05)",
-        }}/>
-        <div style={{
-          position: "absolute", bottom: -60, left: -60,
-          width: 240, height: 240, borderRadius: "50%",
-          background: "rgba(255,255,255,0.04)",
-        }}/>
-        <button
-          onClick={onBack}
-          style={{ position: "absolute", top: 24, left: 24, background: "none", border: "none",
-            cursor: "pointer", color: "rgba(255,255,255,0.7)", fontFamily: "'DM Mono', monospace",
-            fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}
-        >
-          ← back
-        </button>
-        <div style={{ textAlign: "center", zIndex: 1 }}>
-          <div style={{ fontSize: 56, marginBottom: 8, animation: "float 3s ease-in-out infinite" }}>✦</div>
-          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 42, fontWeight: 300, color: T.white, letterSpacing: "0.05em" }}>
-            Sanctii
+  return(
+    <div style={{position:"fixed",inset:0,display:"flex",overflow:"hidden"}}>
+      <BgOrbs/>
+      {/* Left brand */}
+      <div style={{width:"44%",position:"relative",overflow:"hidden",background:`linear-gradient(160deg,${T.roseDeep} 0%,#7A2525 100%)`,display:"flex",flexDirection:"column",justifyContent:"center",padding:"56px 48px"}}>
+        <div style={{position:"absolute",right:-80,top:"50%",transform:"translateY(-50%)",opacity:.05,color:T.white,fontSize:440,lineHeight:1,fontWeight:800,userSelect:"none",fontFamily:"'Outfit',sans-serif"}}>+</div>
+        <EcgStrip bottom="8%" opacity={.18} color={T.white}/>
+        <button onClick={onBack} style={{background:"none",border:"1px solid rgba(255,255,255,.2)",cursor:"pointer",color:"rgba(255,255,255,.75)",fontFamily:"'Outfit',sans-serif",fontWeight:500,fontSize:12,padding:"8px 18px",borderRadius:100,width:"fit-content",marginBottom:48,transition:"all .2s",letterSpacing:"0.02em"}}>← Back to Maze</button>
+        <div style={{animation:"slideR .6s ease"}}>
+          <div style={{width:52,height:52,borderRadius:14,background:"rgba(255,255,255,.15)",display:"flex",alignItems:"center",justifyContent:"center",color:T.white,marginBottom:18,backdropFilter:"blur(8px)"}}>
+            <Icons.cross/>
           </div>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 18, color: "rgba(255,255,255,0.75)", marginTop: 8 }}>
-            medical intelligence platform
+          <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:42,color:T.white,letterSpacing:"-0.04em",lineHeight:1.05,marginBottom:10}}>Welcome<br/>to Sanctii</div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:16,color:"rgba(255,255,255,.65)",lineHeight:1.65,marginBottom:44}}>
+            Intelligent healthcare begins<br/>before you walk through the door.
           </div>
-          <div style={{ marginTop: 48, display: "flex", flexDirection: "column", gap: 16, textAlign: "left" }}>
-            {["Instant health card verification", "Secure Auth0 authentication", "Smart patient routing", "Real-time hospital data"].map((f, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, animation: `fadeIn 0.5s ease ${0.2 + i * 0.1}s both` }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.8)" }}/>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "rgba(255,255,255,0.8)", letterSpacing: "0.08em" }}>{f}</span>
-              </div>
-            ))}
-          </div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:13}}>
+          {[[<Icons.shield/>,"Auth0 secured authentication"],[<Icons.card/>,"Instant health card scanning"],[<Icons.heartbeat/>,"AI-powered triage with Presage"],[<Icons.mapPin/>,"Real-time hospital routing"]].map(([ic,text],i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:12,animation:`slideR .6s ease ${.1+i*.1}s both`,opacity:0}}>
+              <div style={{color:"rgba(255,255,255,.55)",flexShrink:0}}>{ic}</div>
+              <span style={{fontFamily:"'Outfit',sans-serif",fontSize:13,color:"rgba(255,255,255,.75)",fontWeight:400}}>{text}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Right panel */}
-      <div style={{
-        flex: 1, display: "flex", flexDirection: "column",
-        justifyContent: "center", alignItems: "center", padding: "48px 56px",
-      }}>
-        <div style={{ width: "100%", maxWidth: 420, animation: "fadeIn 0.6s ease" }}>
-          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 300, color: T.dark, marginBottom: 4 }}>
-            Welcome back
-          </div>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", color: T.muted, fontSize: 16, marginBottom: 32 }}>
-            Sign in to your Sanctii account
-          </div>
+      {/* Right form */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:"44px 52px",background:T.bg,overflowY:"auto"}}>
+        <div style={{width:"100%",maxWidth:400,animation:"fadeUp .5s ease"}}>
+          <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:28,color:T.ink,letterSpacing:"-0.03em",marginBottom:4}}>Sign in</div>
+          <div style={{fontFamily:"'Outfit',sans-serif",fontSize:14,color:T.inkFaint,marginBottom:26}}>Access your Sanctii health dashboard</div>
 
-          {/* Role toggle */}
-          <div style={{ display: "flex", gap: 0, marginBottom: 28, borderRadius: 4, overflow: "hidden", border: `1px solid ${T.creamBorder}` }}>
-            {["patient", "doctor", "admin"].map(r => (
-              <button key={r} onClick={() => setRole(r)} style={{
-                flex: 1, padding: "8px 0", border: "none", cursor: "pointer",
-                fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase",
-                background: role === r ? T.redAccent : T.white,
-                color: role === r ? T.white : T.muted,
-                transition: "all 0.2s ease",
-              }}>{r}</button>
+          {/* Role */}
+          <div style={{display:"flex",gap:5,marginBottom:22,padding:4,background:T.bgDeep,borderRadius:12}}>
+            {["patient","doctor","admin"].map(r=>(
+              <button key={r} onClick={()=>setRole(r)} style={{flex:1,padding:"8px 0",border:"none",cursor:"pointer",borderRadius:8,fontFamily:"'Outfit',sans-serif",fontWeight:500,fontSize:12,background:role===r?T.white:"transparent",color:role===r?T.rose:T.inkFaint,boxShadow:role===r?"0 2px 8px rgba(160,80,80,.12)":"none",transition:"all .2s",textTransform:"capitalize"}}>{r}</button>
             ))}
           </div>
 
-          {/* Mode toggle */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-            {[["card", "◎ Health Card"], ["manual", "✎ Manual"]].map(([m, label]) => (
-              <button key={m} onClick={() => setMode(m)} style={{
-                flex: 1, padding: "9px 0",
-                fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.1em",
-                textTransform: "uppercase", cursor: "pointer", borderRadius: 2,
-                border: `1px solid ${mode === m ? T.redAccent : T.creamBorder}`,
-                background: mode === m ? `${T.redAccent}15` : "transparent",
-                color: mode === m ? T.redAccent : T.muted,
-                transition: "all 0.2s ease",
-              }}>{label}</button>
+          {/* Mode tabs */}
+          <div style={{display:"flex",marginBottom:20,borderBottom:`2px solid ${T.bgDeep}`}}>
+            {[["card","Health Card"],["manual","Email & Password"]].map(([m,label])=>(
+              <button key={m} onClick={()=>setMode(m)} style={{flex:1,padding:"10px 0",border:"none",background:"transparent",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontWeight:500,fontSize:12,color:mode===m?T.rose:T.inkFaint,borderBottom:`2px solid ${mode===m?T.rose:"transparent"}`,marginBottom:-2,transition:"all .2s"}}>{label}</button>
             ))}
           </div>
 
-          {/* ── HEALTH CARD MODE ── */}
-          {mode === "card" && (
-            <div style={{ animation: "fadeIn 0.3s ease" }}>
-              <div
-                onClick={() => !scanning && fileRef.current.click()}
-                style={{
-                  border: `2px dashed ${scanned ? T.redAccent : scanning ? T.red : T.creamBorder}`,
-                  borderRadius: 8, padding: 32, textAlign: "center", cursor: "pointer",
-                  background: scanned ? `${T.redAccent}08` : T.white,
-                  transition: "all 0.3s ease", position: "relative", overflow: "hidden",
-                  minHeight: 180,
-                }}
-              >
-                {/* Scan line animation */}
-                {scanning && (
-                  <div style={{
-                    position: "absolute", left: 0, right: 0, height: 2,
-                    background: `linear-gradient(90deg, transparent, ${T.redAccent}, transparent)`,
-                    animation: "scanLine 1.2s ease-in-out infinite",
-                  }}/>
-                )}
-
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileUpload} />
-
-                {!scanning && !scanned && (
-                  <>
-                    <div style={{ fontSize: 36, marginBottom: 12, color: T.red }}>⊡</div>
-                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, color: T.dark, marginBottom: 8 }}>
-                      Scan your Health Card
-                    </div>
-                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: T.muted, letterSpacing: "0.1em" }}>
-                      UPLOAD PHOTO OR USE CAMERA
-                    </div>
-                    <div style={{ marginTop: 20, display: "flex", gap: 8, justifyContent: "center" }}>
-                      <button className="sanctii-btn" onClick={(e) => { e.stopPropagation(); simulateScan(); }}>
-                        Simulate Scan
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {scanning && (
-                  <div style={{ padding: "20px 0" }}>
-                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: T.redAccent, letterSpacing: "0.15em", marginBottom: 8 }}>
-                      SCANNING CARD...
-                    </div>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                      {[0,1,2].map(i => (
-                        <div key={i} style={{
-                          width: 8, height: 8, borderRadius: "50%",
-                          background: T.red, animation: `pulseRed 1s ease ${i * 0.2}s infinite`,
-                        }}/>
-                      ))}
-                    </div>
-                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14, color: T.muted, marginTop: 12 }}>
-                      Processing health card data via OCR...
-                    </div>
+          {mode==="card"&&(
+            <div style={{animation:"fadeUp .3s ease"}}>
+              <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={doScan}/>
+              <div onClick={()=>!scanning&&fileRef.current.click()} style={{borderRadius:16,overflow:"hidden",cursor:"pointer",border:`2px dashed ${scanned?T.vital:scanning?T.rose:T.borderStrong}`,background:scanned?T.vitalPale:scanning?T.roseTint:T.bgDeep,minHeight:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",position:"relative",transition:"all .3s ease",padding:24}}>
+                {scanning&&<div style={{position:"absolute",left:"5%",right:"5%",height:2,background:`linear-gradient(90deg,transparent,${T.rose} 30%,${T.rose} 70%,transparent)`,boxShadow:`0 0 12px ${T.roseGlow}`,animation:"scanLine 1.4s ease-in-out infinite"}}/>}
+                {!scanning&&!scanned&&<>
+                  <div style={{marginBottom:14}}>
+                    <svg width="70" height="46" viewBox="0 0 70 46" fill="none">
+                      <rect x="1" y="1" width="68" height="44" rx="6" fill={T.bgDeep} stroke={T.borderStrong} strokeWidth="1.5"/>
+                      <rect x="7" y="7" width="19" height="13" rx="3" fill={T.rosePale} opacity=".7"/>
+                      <line x1="33" y1="9" x2="61" y2="9" stroke={T.border} strokeWidth="2" strokeLinecap="round"/>
+                      <line x1="33" y1="15" x2="54" y2="15" stroke={T.border} strokeWidth="1.5" strokeLinecap="round"/>
+                      <line x1="7" y1="28" x2="63" y2="28" stroke={T.border} strokeWidth="1.5" strokeLinecap="round"/>
+                      <line x1="7" y1="36" x2="38" y2="36" stroke={T.border} strokeWidth="1.5" strokeLinecap="round"/>
+                      <rect x="46" y="30" width="16" height="9" rx="2" fill={T.rosePale} opacity=".5"/>
+                    </svg>
                   </div>
-                )}
-
-                {scanned && scanData && (
-                  <div style={{ animation: "fadeIn 0.4s ease", textAlign: "left" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#6BBF59" }}/>
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4A8A3A", letterSpacing: "0.1em" }}>
-                        CARD VERIFIED
-                      </span>
-                    </div>
-                    {Object.entries({
-                      "Name": scanData.name,
-                      "DOB": scanData.dob,
-                      "Card No.": scanData.healthCardNo,
-                      "Province": scanData.province,
-                      "Expiry": scanData.expiry,
-                    }).map(([k, v]) => (
-                      <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, borderBottom: `1px solid ${T.creamBorder}`, paddingBottom: 4 }}>
-                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>{k}</span>
-                        <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 13, color: T.dark, fontWeight: 500 }}>{v}</span>
+                  <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:600,fontSize:15,color:T.ink,marginBottom:5}}>Scan your Health Card</div>
+                  <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,color:T.inkFaint,textAlign:"center",lineHeight:1.55,marginBottom:14}}>Upload your provincial health card<br/>for instant OCR verification</div>
+                  <button className="btn-ghost" onClick={e=>{e.stopPropagation();doScan();}} style={{fontSize:11,padding:"7px 18px"}}>Demo Scan</button>
+                </>}
+                {scanning&&<div style={{textAlign:"center",padding:"16px 0"}}>
+                  <div style={{width:40,height:40,borderRadius:"50%",border:`2px solid ${T.rosePale}`,borderTopColor:T.rose,animation:"spin .8s linear infinite",margin:"0 auto 14px"}}/>
+                  <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:600,fontSize:14,color:T.ink}}>Scanning card...</div>
+                  <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,color:T.inkFaint,marginTop:3}}>Reading health card data via OCR</div>
+                </div>}
+                {scanned&&scanData&&<div style={{width:"100%",animation:"fadeUp .4s ease"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                    <div style={{width:22,height:22,borderRadius:"50%",background:T.vital,display:"flex",alignItems:"center",justifyContent:"center"}}><Icons.check/></div>
+                    <span style={{fontFamily:"'Outfit',sans-serif",fontWeight:600,fontSize:13,color:T.vital}}>Card Verified Successfully</span>
+                  </div>
+                  <div style={{background:T.white,borderRadius:10,padding:"12px 16px",display:"flex",flexDirection:"column",gap:7}}>
+                    {[["Name",scanData.name],["Date of Birth",scanData.dob],["Card Number",scanData.cardNo],["Province",scanData.province],["Expiry",scanData.expiry]].map(([k,v])=>(
+                      <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.inkFaint,letterSpacing:"0.1em",textTransform:"uppercase"}}>{k}</span>
+                        <span style={{fontFamily:"'Outfit',sans-serif",fontSize:13,fontWeight:600,color:T.ink}}>{v}</span>
                       </div>
                     ))}
                   </div>
-                )}
+                </div>}
               </div>
-
-              {scanned && (
-                <button
-                  className="sanctii-btn sanctii-btn-fill"
-                  onClick={() => onLogin(role)}
-                  style={{ width: "100%", marginTop: 16, padding: "13px 0", fontSize: 12 }}
-                >
-                  Continue with Health Card →
-                </button>
-              )}
+              {scanned&&<button className="btn-primary" onClick={()=>onLogin(role)} style={{width:"100%",marginTop:12,padding:"13px 0",fontSize:14}}>Continue with Health Card →</button>}
             </div>
           )}
 
-          {/* ── MANUAL MODE ── */}
-          {mode === "manual" && (
-            <div style={{ animation: "fadeIn 0.3s ease", display: "flex", flexDirection: "column", gap: 16 }}>
-              {[["Email address", "email", email, setEmail], ["Password", "password", password, setPassword]].map(([label, type, val, setter]) => (
+          {mode==="manual"&&(
+            <div style={{animation:"fadeUp .3s ease",display:"flex",flexDirection:"column",gap:13}}>
+              {[["Email address","email",email,setEmail,"you@example.com"],["Password","password",password,setPassword,"••••••••"]].map(([label,type,val,setter,ph])=>(
                 <div key={label}>
-                  <label style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: T.muted, display: "block", marginBottom: 6 }}>
-                    {label}
-                  </label>
-                  <input
-                    type={type} value={val} onChange={e => setter(e.target.value)}
-                    style={{
-                      width: "100%", padding: "11px 14px",
-                      border: `1px solid ${T.creamBorder}`, borderRadius: 2,
-                      fontFamily: "'Cormorant Garamond', serif", fontSize: 16,
-                      background: T.white, color: T.dark, outline: "none",
-                      transition: "border-color 0.2s ease",
-                    }}
-                    onFocus={e => { e.target.style.borderColor = T.redAccent; }}
-                    onBlur={e => { e.target.style.borderColor = T.creamBorder; }}
+                  <label style={{fontFamily:"'Outfit',sans-serif",fontWeight:500,fontSize:12,color:T.inkMid,display:"block",marginBottom:6}}>{label}</label>
+                  <input type={type} value={val} onChange={e=>setter(e.target.value)} placeholder={ph}
+                    style={{width:"100%",padding:"12px 16px",borderRadius:10,border:`1.5px solid ${T.border}`,background:T.bgDeep,fontFamily:"'Outfit',sans-serif",fontSize:14,color:T.ink,outline:"none",transition:"border-color .2s"}}
+                    onFocus={e=>{e.target.style.borderColor=T.rose;e.target.style.background=T.surfaceHard;}}
+                    onBlur={e=>{e.target.style.borderColor=T.border;e.target.style.background=T.bgDeep;}}
                   />
                 </div>
               ))}
-              <button
-                className="sanctii-btn sanctii-btn-fill"
-                onClick={() => onLogin(role)}
-                style={{ width: "100%", padding: "13px 0", fontSize: 12, marginTop: 8 }}
-              >
-                Sign In →
-              </button>
-              <div style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                or continue with
+              <button className="btn-primary" onClick={()=>onLogin(role)} style={{width:"100%",padding:"13px 0",fontSize:14,marginTop:4}}>Sign In →</button>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{flex:1,height:1,background:T.border}}/><span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.inkFaint,letterSpacing:"0.12em",textTransform:"uppercase"}}>or</span><div style={{flex:1,height:1,background:T.border}}/>
               </div>
-              <button
-                onClick={() => onLogin(role)}
-                style={{
-                  width: "100%", padding: "11px 0",
-                  border: `1px solid ${T.creamBorder}`, borderRadius: 2,
-                  background: T.white, cursor: "pointer",
-                  fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.1em",
-                  color: T.dark, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = T.redAccent; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = T.creamBorder; }}
-              >
-                <span style={{ fontSize: 14 }}>A</span> Continue with Auth0
+              <button onClick={()=>onLogin(role)} style={{width:"100%",padding:"12px 0",borderRadius:10,border:`1.5px solid ${T.border}`,background:T.surfaceHard,cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontWeight:500,fontSize:13,color:T.ink,display:"flex",alignItems:"center",justifyContent:"center",gap:10,transition:"all .2s"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=T.rose;}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;}}>
+                <div style={{width:20,height:20,borderRadius:"50%",background:T.rose,display:"flex",alignItems:"center",justifyContent:"center",color:T.white,fontSize:11,fontWeight:700}}>A</div>
+                Continue with Auth0
               </button>
             </div>
           )}
@@ -665,464 +407,516 @@ function LoginPage({ onBack, onLogin }) {
   );
 }
 
-// ─── PORTAL PAGES ─────────────────────────────────────────────────────────────
-function PageShell({ title, icon, subtitle, children, onBack }) {
-  return (
-    <div style={{ minHeight: "100vh", background: `radial-gradient(ellipse at 60% 20%, ${T.creamDark} 0%, ${T.cream} 60%)` }}>
-      <div style={{ borderBottom: `1px solid ${T.creamBorder}`, background: T.white, padding: "16px 40px", display: "flex", alignItems: "center", gap: 16 }}>
-        <button onClick={onBack} style={{ background: "none", border: `1px solid ${T.creamBorder}`, cursor: "pointer", padding: "6px 16px", borderRadius: 2, fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.1em", color: T.muted, textTransform: "uppercase" }}>← maze</button>
-        <div style={{ fontSize: 22, color: T.redAccent }}>{icon}</div>
+// ─── PAGE WRAPPER ─────────────────────────────────────────────────────────────
+function PageWrap({children,onBack,title,icon,subtitle,badge}){
+  return(
+    <div style={{position:"fixed",inset:0,display:"flex",flexDirection:"column",background:T.bg,overflow:"hidden"}}>
+      <BgOrbs/>
+      <EcgStrip bottom={0} opacity={.06}/>
+      <div style={{position:"sticky",top:0,zIndex:50,display:"flex",alignItems:"center",gap:14,padding:"0 30px",height:65,background:"rgba(248,240,232,.9)",backdropFilter:"blur(20px)",borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
+        <button className="btn-ghost" onClick={onBack} style={{padding:"7px 16px",fontSize:12}}>← Maze</button>
+        <div style={{width:1,height:26,background:T.border}}/>
+        <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`,display:"flex",alignItems:"center",justifyContent:"center",color:T.white,flexShrink:0}}>{icon}</div>
         <div>
-          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 300, color: T.dark }}>{title}</div>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13, color: T.muted }}>{subtitle}</div>
+          <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:16,color:T.ink,letterSpacing:"-0.01em"}}>{title}</div>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.inkFaint,letterSpacing:"0.12em",textTransform:"uppercase"}}>{subtitle}</div>
         </div>
-        <div style={{ marginLeft: "auto", fontFamily: "'DM Mono', monospace", fontSize: 10, color: T.muted, letterSpacing: "0.1em" }}>SANCTII PLATFORM</div>
+        {badge&&<div style={{marginLeft:8}}>{badge}</div>}
+        <div style={{marginLeft:"auto",fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:13,color:T.inkFaint,letterSpacing:"-0.01em"}}>Sanctii</div>
       </div>
-      <div style={{ padding: 40, animation: "fadeIn 0.5s ease" }}>{children}</div>
+      <div style={{flex:1,overflow:"auto",padding:"26px 30px",position:"relative",zIndex:1}}>
+        <div style={{animation:"fadeUp .4s ease"}}>{children}</div>
+      </div>
     </div>
   );
 }
 
-function Card({ children, style }) {
-  return (
-    <div style={{
-      background: T.white, border: `1px solid ${T.creamBorder}`,
-      borderRadius: 4, padding: 24, boxShadow: "0 2px 12px rgba(61,32,32,0.05)",
-      ...style
-    }}>{children}</div>
+function Card({children,style,accent,onClick}){
+  const[hov,setHov]=useState(false);
+  return(
+    <div className="glass-hard" onClick={onClick}
+      onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      style={{padding:20,cursor:onClick?"pointer":"default",borderColor:hov&&onClick?T.roseMid:accent?`${accent}35`:T.border,boxShadow:hov&&onClick?`0 8px 32px ${T.roseGlow}`:"0 2px 12px rgba(160,80,80,.05)",background:accent?`linear-gradient(145deg,${accent}06,${T.surfaceHard})`:T.surfaceHard,transition:"all .2s ease",...style}}>{children}</div>
   );
 }
 
-function StatBadge({ label, value, accent }) {
-  return (
-    <div style={{ textAlign: "center", padding: "20px 24px", background: accent ? `${T.redAccent}10` : T.white, border: `1px solid ${accent ? T.redAccent : T.creamBorder}`, borderRadius: 4 }}>
-      <div style={{ fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 300, color: accent ? T.redAccent : T.dark }}>{value}</div>
-      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: T.muted, marginTop: 4 }}>{label}</div>
+function Stat({label,value,sub,color}){
+  return(
+    <Card accent={color} style={{textAlign:"center",padding:"18px 12px"}}>
+      <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:32,color:color||T.ink,letterSpacing:"-0.03em"}}>{value}</div>
+      {sub&&<div style={{fontFamily:"'Outfit',sans-serif",fontSize:11,color:color?`${color}99`:T.inkFaint,marginTop:1}}>{sub}</div>}
+      <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,letterSpacing:"0.14em",textTransform:"uppercase",color:T.inkFaint,marginTop:5}}>{label}</div>
+    </Card>
+  );
+}
+
+function SHead({children}){
+  return(
+    <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,letterSpacing:"0.18em",textTransform:"uppercase",color:T.inkFaint,marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+      <div style={{flex:1,height:1,background:T.border}}/>{children}<div style={{flex:1,height:1,background:T.border}}/>
     </div>
   );
 }
 
-function PatientPortal({ onBack }) {
-  const [tab, setTab] = useState("overview");
-  return (
-    <PageShell title="Patient Portal" icon="◎" subtitle="Your health dashboard" onBack={onBack}>
-      <div style={{ display: "flex", gap: 8, marginBottom: 32 }}>
-        {["overview", "records", "prescriptions", "messages"].map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase",
-            padding: "8px 18px", border: `1px solid ${tab === t ? T.redAccent : T.creamBorder}`, borderRadius: 2, cursor: "pointer",
-            background: tab === t ? T.redAccent : "transparent", color: tab === t ? T.white : T.muted,
-            transition: "all 0.2s ease",
-          }}>{t}</button>
+function VChart(){
+  const pts=[72,75,71,74,73,76,72,74,70,73,75,72];
+  const max=Math.max(...pts);const min=Math.min(...pts);
+  const W=150,H=38;
+  const y=v=>H-((v-min)/(max-min+1))*H;
+  const d=pts.map((v,i)=>`${i===0?"M":"L"} ${(i/(pts.length-1))*W} ${y(v)}`).join(" ");
+  return(
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      <defs><linearGradient id="vg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={T.vital} stopOpacity=".3"/><stop offset="100%" stopColor={T.vital} stopOpacity="0"/></linearGradient></defs>
+      <path d={d+` L ${W} ${H} L 0 ${H} Z`} fill="url(#vg)"/>
+      <path d={d} fill="none" stroke={T.vital} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+// ─── PATIENT PORTAL ───────────────────────────────────────────────────────────
+function PatientPortal({onBack}){
+  const[tab,setTab]=useState("overview");
+  return(
+    <PageWrap title="Patient Portal" icon={<Icons.user/>} subtitle="Personal health dashboard" onBack={onBack}
+      badge={<div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:100,background:"rgba(91,170,138,.1)",border:"1px solid rgba(91,170,138,.25)"}}>
+        <div style={{width:6,height:6,borderRadius:"50%",background:T.vital,animation:"pulse 1.5s ease infinite"}}/><span style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.vital,letterSpacing:"0.12em",textTransform:"uppercase"}}>Active</span>
+      </div>}
+    >
+      <div style={{display:"flex",gap:4,marginBottom:20,padding:4,background:T.bgDeep,borderRadius:12,width:"fit-content"}}>
+        {["overview","records","prescriptions","messages"].map(t=>(
+          <button key={t} onClick={()=>setTab(t)} style={{padding:"7px 18px",border:"none",borderRadius:8,cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontWeight:500,fontSize:12,background:tab===t?T.white:"transparent",color:tab===t?T.rose:T.inkFaint,boxShadow:tab===t?"0 2px 8px rgba(160,80,80,.12)":"none",transition:"all .2s",textTransform:"capitalize"}}>{t}</button>
         ))}
       </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
-        <StatBadge label="Next Appointment" value="Mar 12" accent />
-        <StatBadge label="Active Prescriptions" value="3" />
-        <StatBadge label="Last Visit" value="Feb 18" />
-        <StatBadge label="Health Score" value="87" accent />
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
+        <Stat label="Next Appointment" value="Mar 12" sub="09:30 AM" color={T.rose}/>
+        <Stat label="Active Scripts" value="3" color={T.roseMid}/>
+        <Stat label="Last Visit" value="Feb 18" sub="Dr. Sharma"/>
+        <Stat label="Health Score" value="87" sub="Excellent" color={T.vital}/>
       </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
-        <Card>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: T.muted, marginBottom: 16 }}>Recent Activity</div>
-          {[
-            { date: "Feb 18", event: "General Checkup — Dr. Sharma", status: "completed" },
-            { date: "Feb 02", event: "Blood Work Results Received", status: "info" },
-            { date: "Jan 29", event: "Prescription Renewed", status: "completed" },
-            { date: "Jan 15", event: "X-Ray — Radiology Dept.", status: "completed" },
-          ].map((item, i) => (
-            <div key={i} style={{ display: "flex", gap: 16, alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.creamBorder}` }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.muted, minWidth: 48 }}>{item.date}</div>
-              <div style={{ flex: 1, fontFamily: "'Cormorant Garamond', serif", fontSize: 15, color: T.dark }}>{item.event}</div>
-              <div style={{ padding: "2px 10px", borderRadius: 10, background: item.status === "completed" ? "#E8F5E3" : "#EEF3FF", fontFamily: "'DM Mono', monospace", fontSize: 8, letterSpacing: "0.1em", color: item.status === "completed" ? "#4A8A3A" : "#4A5ABA", textTransform: "uppercase" }}>
-                {item.status}
+      <div style={{display:"grid",gridTemplateColumns:"1.6fr 1fr",gap:16}}>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <Card>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:15,color:T.ink}}>Live Vitals</div>
+              <div style={{display:"flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:100,background:T.vitalPale,border:`1px solid rgba(91,170,138,.3)`}}>
+                <div style={{width:5,height:5,borderRadius:"50%",background:T.vital,animation:"pulse 1.5s ease infinite"}}/><span style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.vital,letterSpacing:"0.1em",textTransform:"uppercase"}}>Live</span>
               </div>
             </div>
-          ))}
-        </Card>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+              {[["Heart Rate","72","bpm",T.rose,<Icons.heart/>],["Blood Pressure","118/76","mmHg",T.vital,<Icons.heartbeat/>],["SpO₂","98","%","#6B8FDF",<Icons.shield/>]].map(([l,v,u,c,ic])=>(
+                <div key={l} style={{padding:"12px 10px",background:`${c}08`,borderRadius:12,border:`1px solid ${c}20`}}>
+                  <div style={{color:`${c}88`,marginBottom:5}}>{ic}</div>
+                  <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:22,color:c,letterSpacing:"-0.02em"}}>{v}<span style={{fontSize:10,fontWeight:400,marginLeft:2}}>{u}</span></div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:T.inkFaint,letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>{l}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.inkFaint,letterSpacing:"0.1em",textTransform:"uppercase"}}>7-day HR trend</div>
+              <VChart/>
+            </div>
+          </Card>
           <Card>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Vitals on File</div>
-            {[["Blood Pressure", "118/76"], ["Heart Rate", "72 bpm"], ["Blood Type", "A+"], ["Weight", "74 kg"]].map(([k, v]) => (
-              <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.muted, letterSpacing: "0.08em" }}>{k}</span>
-                <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 14, color: T.dark, fontWeight: 500 }}>{v}</span>
+            <SHead>Recent Activity</SHead>
+            {[{date:"Feb 18",event:"General Checkup",doctor:"Dr. Sharma",type:"visit"},{date:"Feb 02",event:"Blood Work Results",doctor:"Lab Dept.",type:"lab"},{date:"Jan 29",event:"Prescription Renewed",doctor:"Dr. Sharma",type:"rx"},{date:"Jan 15",event:"Chest X-Ray",doctor:"Radiology",type:"imaging"}].map((item,i)=>{
+              const c={visit:T.vital,lab:T.rose,rx:T.amber,imaging:"#6B8FDF"}[item.type];
+              return(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0",borderBottom:i<3?`1px solid ${T.border}`:"none"}}>
+                  <div style={{width:34,height:34,borderRadius:10,background:`${c}15`,display:"flex",alignItems:"center",justifyContent:"center",color:c,flexShrink:0}}>
+                    {item.type==="visit"?<Icons.stethoscope/>:item.type==="lab"?<Icons.heartbeat/>:item.type==="imaging"?<Icons.grid/>:<Icons.shield/>}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:500,fontSize:13,color:T.ink}}>{item.event}</div>
+                    <div style={{fontFamily:"'Outfit',sans-serif",fontSize:11,color:T.inkFaint,marginTop:1}}>{item.doctor}</div>
+                  </div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.inkFaint}}>{item.date}</div>
+                </div>
+              );
+            })}
+          </Card>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <Card style={{background:`linear-gradient(145deg,${T.rose}08,${T.surfaceHard})`,borderColor:`${T.rose}25`}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+              <div style={{width:48,height:48,borderRadius:"50%",background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`,display:"flex",alignItems:"center",justifyContent:"center",color:T.white,fontSize:20,fontWeight:800,fontFamily:"'Outfit',sans-serif"}}>J</div>
+              <div>
+                <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:15,color:T.ink}}>Jordan Mitchell</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.inkFaint,letterSpacing:"0.1em",textTransform:"uppercase",marginTop:2}}>HC-4821-0039-JM</div>
+              </div>
+            </div>
+            {[["Blood Type","A+"],["Weight","74 kg"],["Height","178 cm"],["Allergies","Penicillin"]].map(([k,v])=>(
+              <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${T.border}`}}>
+                <span style={{fontFamily:"'Outfit',sans-serif",fontSize:12,color:T.inkFaint}}>{k}</span>
+                <span style={{fontFamily:"'Outfit',sans-serif",fontWeight:600,fontSize:12,color:T.ink}}>{v}</span>
               </div>
             ))}
           </Card>
-          <Card style={{ background: `${T.redAccent}10`, border: `1px solid ${T.red}` }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: T.redAccent, marginBottom: 8 }}>Presage AI Insight</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 14, color: T.dark, lineHeight: 1.6 }}>
-              "Your vitals look stable. Consider scheduling your annual eye exam — last recorded 14 months ago."
+          <Card accent={T.rose} style={{borderColor:`${T.rose}28`}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+              <div style={{color:T.rose}}><Icons.brain/></div>
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.rose,letterSpacing:"0.12em",textTransform:"uppercase"}}>Presage AI Insight</span>
             </div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:14,color:T.ink,lineHeight:1.65}}>"Your vitals look stable. Consider scheduling your annual eye exam — last recorded 14 months ago."</div>
+            <div style={{marginTop:10,fontFamily:"'DM Mono',monospace",fontSize:8,color:T.inkFaint,letterSpacing:"0.1em",textTransform:"uppercase"}}>Confidence: 94% · Updated today</div>
           </Card>
         </div>
       </div>
-    </PageShell>
+    </PageWrap>
   );
 }
 
-function DoctorPortal({ onBack }) {
-  return (
-    <PageShell title="Doctor Portal" icon="⊕" subtitle="Clinical dashboard — Dr. Sharma" onBack={onBack}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
-        <StatBadge label="Today's Patients" value="12" accent />
-        <StatBadge label="Pending Reviews" value="4" />
-        <StatBadge label="Avg Wait Time" value="18 min" />
-        <StatBadge label="Critical Alerts" value="1" accent />
+// ─── DOCTOR PORTAL ────────────────────────────────────────────────────────────
+function DoctorPortal({onBack}){
+  return(
+    <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Sharma" onBack={onBack}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
+        <Stat label="Today's Patients" value="12" color={T.rose}/>
+        <Stat label="Pending Reviews" value="4" color={T.amber}/>
+        <Stat label="Avg Wait Time" value="18m" sub="−3m from yesterday" color={T.vital}/>
+        <Stat label="Critical Alerts" value="1" color={T.roseDeep}/>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div style={{marginBottom:18,padding:"14px 18px",borderRadius:14,background:`linear-gradient(135deg,${T.roseDeep}10,${T.roseTint})`,border:`1.5px solid ${T.rose}45`,display:"flex",alignItems:"center",gap:14}}>
+        <div style={{width:38,height:38,borderRadius:11,background:T.rose,display:"flex",alignItems:"center",justifyContent:"center",color:T.white,animation:"breathe 2s ease-in-out infinite",flexShrink:0}}><Icons.heartbeat/></div>
+        <div style={{flex:1}}>
+          <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:14,color:T.roseDeep}}>Critical Alert — Thomas Leclerc</div>
+          <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,color:T.inkMid,marginTop:2}}>Presage AI flags possible appendicitis. Severity Level 4. Expedite consultation.</div>
+        </div>
+        <button className="btn-primary" style={{fontSize:12,padding:"8px 18px",flexShrink:0}}>View Patient →</button>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr",gap:16}}>
         <Card>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: T.muted, marginBottom: 16 }}>Today's Queue</div>
-          {[
-            { name: "Jordan Mitchell", time: "09:00", reason: "Follow-up — cardiac", severity: 2 },
-            { name: "Priya Nair",      time: "09:30", reason: "Annual physical",    severity: 1 },
-            { name: "Thomas Leclerc", time: "10:00", reason: "Acute abdominal pain", severity: 4 },
-            { name: "Ana Reyes",       time: "10:30", reason: "Prescription renewal", severity: 1 },
-          ].map((p, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: `1px solid ${T.creamBorder}`, cursor: "pointer" }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: p.severity >= 4 ? T.redAccent : p.severity >= 3 ? "#E8C060" : "#6BBF59", flexShrink: 0 }}/>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, color: T.dark }}>{p.name}</div>
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.muted, marginTop: 2 }}>{p.reason}</div>
+          <SHead>Today's Queue</SHead>
+          {[{name:"Jordan Mitchell",time:"09:00",reason:"Follow-up — cardiac",sev:2},{name:"Priya Nair",time:"09:30",reason:"Annual physical",sev:1},{name:"Thomas Leclerc",time:"10:00",reason:"Acute abdominal pain",sev:4},{name:"Ana Reyes",time:"10:30",reason:"Prescription renewal",sev:1},{name:"Mohammed Al-Amin",time:"11:00",reason:"Hypertension follow-up",sev:3}].map((p,i)=>{
+            const sc=p.sev>=4?T.roseDeep:p.sev>=3?T.amber:T.vital;
+            return(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:i<4?`1px solid ${T.border}`:"none",cursor:"pointer",borderRadius:8,transition:"all .15s"}}
+                onMouseEnter={e=>{e.currentTarget.style.background=T.roseTint;e.currentTarget.style.padding="10px 8px";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.padding="10px 0";}}>
+                <div style={{width:36,height:36,borderRadius:"50%",background:`${sc}15`,border:`2px solid ${sc}35`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:13,color:sc,flexShrink:0}}>{p.name.charAt(0)}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:600,fontSize:13,color:T.ink}}>{p.name}</div>
+                  <div style={{fontFamily:"'Outfit',sans-serif",fontSize:11,color:T.inkFaint,marginTop:1}}>{p.reason}</div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.inkFaint}}>{p.time}</div>
+                  <div style={{padding:"2px 7px",borderRadius:5,background:`${sc}15`,fontFamily:"'DM Mono',monospace",fontSize:7,color:sc,letterSpacing:"0.1em"}}>SEV {p.sev}</div>
+                </div>
               </div>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: T.muted }}>{p.time}</div>
-            </div>
-          ))}
+            );
+          })}
         </Card>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Card style={{ border: `1px solid ${T.redAccent}`, background: `${T.redAccent}08` }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: T.redAccent, marginBottom: 8 }}>⚠ Critical Alert</div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, color: T.dark }}>Thomas Leclerc — Severity 4</div>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.muted, marginTop: 4 }}>Presage AI flags possible appendicitis. Expedite consultation.</div>
-          </Card>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
           <Card>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Severity Scale</div>
-            {[[1, "#6BBF59", "Non-urgent"], [2, "#A8C85A", "Low priority"], [3, "#E8C060", "Moderate"], [4, T.redAccent, "High urgency"], [5, T.redText, "Critical"]].map(([n, c, l]) => (
-              <div key={n} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: c }}/>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.muted, letterSpacing: "0.08em" }}>LEVEL {n} — {l}</span>
+            <SHead>Severity Guide</SHead>
+            {[[1,T.vital,"Routine / Preventive"],[2,"#8BBF5A","Mild Symptoms"],[3,T.amber,"Moderate — Monitor"],[4,T.rose,"Urgent — Expedite"],[5,T.roseDeep,"Critical — Emergency"]].map(([n,c,l])=>(
+              <div key={n} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <div style={{width:26,height:26,borderRadius:7,background:`${c}18`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:12,color:c}}>{n}</div>
+                <span style={{fontFamily:"'Outfit',sans-serif",fontSize:12,color:T.inkMid}}>{l}</span>
+              </div>
+            ))}
+          </Card>
+          <Card accent={T.vital}>
+            <SHead>Dept. Capacity</SHead>
+            {[["Emergency",85],["General",62],["Cardiology",44],["Radiology",71]].map(([dept,pct])=>(
+              <div key={dept} style={{marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                  <span style={{fontFamily:"'Outfit',sans-serif",fontSize:11,color:T.inkMid}}>{dept}</span>
+                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:pct>70?T.rose:T.vital}}>{pct}%</span>
+                </div>
+                <div style={{height:4,borderRadius:4,background:T.bgDeep,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${pct}%`,borderRadius:4,background:pct>70?`linear-gradient(90deg,${T.amber},${T.rose})`:`linear-gradient(90deg,${T.vital},#4A9A7A)`,transition:"width .6s ease"}}/>
+                </div>
               </div>
             ))}
           </Card>
         </div>
       </div>
-    </PageShell>
+    </PageWrap>
   );
 }
 
-function PresagePage({ onBack }) {
-  const [input, setInput] = useState("");
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+// ─── PRESAGE AI ───────────────────────────────────────────────────────────────
+function PresagePage({onBack}){
+  const[input,setInput]=useState("");
+  const[result,setResult]=useState(null);
+  const[loading,setLoading]=useState(false);
 
-  const analyze = async () => {
-    if (!input.trim()) return;
-    setLoading(true);
-    setResult(null);
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: `You are Presage, Sanctii's medical triage AI. Analyze symptoms and give a structured JSON response ONLY (no markdown, no explanation outside JSON):
-{
-  "severity": 1-5,
-  "recommendation": "see doctor urgently" | "schedule appointment" | "home care" | "emergency",
-  "reasoning": "brief clinical reasoning",
-  "homeCareTips": ["tip1", "tip2"],
-  "warningSign": "specific symptom that would escalate urgency"
-}
-Be concise, medically accurate, and cautious. Always recommend professional consultation for anything above severity 2.`,
-          messages: [{ role: "user", content: `Patient describes: ${input}` }],
-        }),
-      });
-      const data = await res.json();
-      const text = data.content?.[0]?.text || "{}";
-      const clean = text.replace(/```json|```/g, "").trim();
-      setResult(JSON.parse(clean));
-    } catch {
-      setResult({ severity: 0, recommendation: "error", reasoning: "Could not analyze. Please try again.", homeCareTips: [], warningSign: "" });
-    }
+  const analyze=async()=>{
+    if(!input.trim())return;
+    setLoading(true);setResult(null);
+    try{
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:`You are Presage, Sanctii's medical triage AI. Respond ONLY in JSON (no markdown):{"severity":1-5,"recommendation":"see doctor urgently"|"schedule appointment"|"home care"|"emergency","reasoning":"2 sentence clinical reasoning","homeCareTips":["tip1","tip2","tip3"],"warningSign":"symptom that escalates urgency","confidence":0-100}`,messages:[{role:"user",content:`Patient symptoms: ${input}`}]})});
+      const data=await res.json();
+      const text=data.content?.[0]?.text||"{}";
+      setResult(JSON.parse(text.replace(/```json|```/g,"").trim()));
+    }catch{setResult({severity:0,recommendation:"error",reasoning:"Analysis unavailable. Please try again.",homeCareTips:[],warningSign:"",confidence:0});}
     setLoading(false);
   };
 
-  const severityColor = s => s >= 4 ? T.redAccent : s >= 3 ? "#E8C060" : s >= 2 ? "#A8C85A" : "#6BBF59";
-  const severityLabel = s => ["—", "Non-urgent", "Low", "Moderate", "High urgency", "Critical"][s] || "—";
+  const sc=s=>s>=5?T.roseDeep:s>=4?T.rose:s>=3?T.amber:T.vital;
+  const sl=s=>["—","Routine","Low Priority","Moderate","Urgent","Critical"][s]||"—";
 
-  return (
-    <PageShell title="Presage AI" icon="◈" subtitle="Intelligent medical triage — powered by AI" onBack={onBack}>
-      <div style={{ maxWidth: 700, margin: "0 auto" }}>
-        <Card style={{ marginBottom: 24 }}>
-          <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: T.dark, marginBottom: 6 }}>
-            Describe your symptoms
-          </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: T.muted, letterSpacing: "0.1em", marginBottom: 16 }}>
-            PRESAGE WILL ASSESS SEVERITY AND ADVISE NEXT STEPS
-          </div>
-          <textarea
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="e.g. I have had a headache for 3 days, mild fever 38.2°C, sore throat and fatigue..."
-            style={{
-              width: "100%", minHeight: 100, padding: "12px 14px",
-              border: `1px solid ${T.creamBorder}`, borderRadius: 2, resize: "vertical",
-              fontFamily: "'Cormorant Garamond', serif", fontSize: 16, color: T.dark,
-              background: T.cream, outline: "none", lineHeight: 1.6,
-            }}
-            onFocus={e => { e.target.style.borderColor = T.redAccent; }}
-            onBlur={e => { e.target.style.borderColor = T.creamBorder; }}
+  return(
+    <PageWrap title="Presage AI" icon={<Icons.brain/>} subtitle="Intelligent medical triage" onBack={onBack}>
+      <div style={{maxWidth:740,margin:"0 auto"}}>
+        <div style={{marginBottom:22,padding:"22px 26px",borderRadius:20,background:`linear-gradient(135deg,${T.roseDeep} 0%,#6A1E3A 100%)`,position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",right:-20,top:-20,width:150,height:150,borderRadius:"50%",background:"rgba(255,255,255,.04)"}}/>
+          <EcgStrip bottom={0} opacity={.2} color={T.white}/>
+          <div style={{color:"rgba(255,255,255,.75)",marginBottom:7}}><Icons.brain/></div>
+          <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:22,color:T.white,letterSpacing:"-0.02em"}}>Presage Triage Engine</div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:13,color:"rgba(255,255,255,.65)",marginTop:4}}>AI-powered symptom analysis to help you decide your next step.</div>
+        </div>
+
+        <Card style={{marginBottom:18}}>
+          <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:15,color:T.ink,marginBottom:3}}>Describe your symptoms</div>
+          <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,color:T.inkFaint,marginBottom:12}}>Be specific — duration, severity, location, and associated symptoms help Presage give accurate guidance.</div>
+          <textarea value={input} onChange={e=>setInput(e.target.value)} placeholder="e.g. I've had a headache for 3 days, mild fever around 38°C, sore throat and fatigue..."
+            style={{width:"100%",minHeight:100,padding:"13px 15px",borderRadius:11,border:`1.5px solid ${T.border}`,resize:"vertical",fontFamily:"'Outfit',sans-serif",fontSize:14,color:T.ink,background:T.bgDeep,outline:"none",lineHeight:1.6,transition:"border-color .2s"}}
+            onFocus={e=>{e.target.style.borderColor=T.rose;}} onBlur={e=>{e.target.style.borderColor=T.border;}}
           />
-          <button
-            className="sanctii-btn sanctii-btn-fill"
-            onClick={analyze}
-            disabled={loading || !input.trim()}
-            style={{ marginTop: 12, opacity: loading || !input.trim() ? 0.5 : 1 }}
-          >
-            {loading ? "Analyzing..." : "Analyze with Presage →"}
-          </button>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12}}>
+            <span style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.inkFaint,letterSpacing:"0.1em",textTransform:"uppercase"}}>Powered by Claude · Not medical advice</span>
+            <button className="btn-primary" onClick={analyze} disabled={loading||!input.trim()} style={{opacity:loading||!input.trim()?.5:1,cursor:loading||!input.trim()?"not-allowed":"pointer"}}>
+              {loading?"Analyzing...":"Analyze with Presage →"}
+            </button>
+          </div>
         </Card>
 
-        {loading && (
-          <Card style={{ textAlign: "center", padding: 40 }}>
-            <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 12 }}>
-              {[0,1,2].map(i => (
-                <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: T.red, animation: `pulseRed 1s ease ${i * 0.2}s infinite` }}/>
-              ))}
+        {loading&&(
+          <Card style={{textAlign:"center",padding:40}}>
+            <div style={{display:"flex",justifyContent:"center",marginBottom:14}}>
+              <svg width="80" height="28" viewBox="0 0 80 28"><polyline points="0,14 10,14 14,4 18,24 22,14 32,14 36,9 40,19 44,14 54,14 58,7 62,21 66,14 80,14" fill="none" stroke={T.rose} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="200" style={{animation:"ecgDraw 1.2s ease infinite"}}/></svg>
             </div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: T.muted }}>
-              Presage is analyzing your symptoms...
-            </div>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:600,fontSize:15,color:T.ink,marginBottom:3}}>Presage is analyzing...</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:13,color:T.inkFaint}}>Cross-referencing symptom patterns with clinical data</div>
           </Card>
         )}
 
-        {result && !loading && (
-          <div style={{ animation: "fadeIn 0.5s ease" }}>
-            <Card style={{ border: `2px solid ${severityColor(result.severity)}`, marginBottom: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-                <div style={{ width: 56, height: 56, borderRadius: "50%", background: `${severityColor(result.severity)}20`, border: `2px solid ${severityColor(result.severity)}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: severityColor(result.severity), fontFamily: "'Fraunces', serif" }}>
-                  {result.severity}
-                </div>
-                <div>
-                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: T.muted }}>Severity Level</div>
-                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 300, color: severityColor(result.severity) }}>
-                    {severityLabel(result.severity)}
-                  </div>
-                </div>
-                <div style={{ marginLeft: "auto", padding: "8px 20px", borderRadius: 20, background: `${severityColor(result.severity)}15`, border: `1px solid ${severityColor(result.severity)}`, fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: severityColor(result.severity) }}>
-                  {result.recommendation}
-                </div>
+        {result&&!loading&&(
+          <div style={{animation:"fadeUp .5s ease"}}>
+            <div style={{marginBottom:14,padding:"18px 22px",borderRadius:16,background:`linear-gradient(135deg,${sc(result.severity)}15,${sc(result.severity)}06)`,border:`2px solid ${sc(result.severity)}45`,display:"flex",alignItems:"center",gap:18}}>
+              <div style={{width:60,height:60,borderRadius:14,background:`${sc(result.severity)}18`,border:`2px solid ${sc(result.severity)}55`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:26,color:sc(result.severity),lineHeight:1}}>{result.severity}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:sc(result.severity),letterSpacing:"0.1em"}}>LEVEL</div>
               </div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 16, color: T.dark, lineHeight: 1.7, marginBottom: 16, paddingLeft: 16, borderLeft: `3px solid ${T.creamBorder}` }}>
-                {result.reasoning}
+              <div style={{flex:1}}>
+                <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:20,color:sc(result.severity),letterSpacing:"-0.01em"}}>{sl(result.severity)}</div>
+                <div style={{fontFamily:"'Outfit',sans-serif",fontSize:13,color:T.inkMid,marginTop:3,lineHeight:1.55}}>{result.reasoning}</div>
               </div>
-              {result.homeCareTips?.length > 0 && (
-                <div>
-                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: T.muted, marginBottom: 8 }}>Home Care</div>
-                  {result.homeCareTips.map((tip, i) => (
-                    <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, fontFamily: "'Cormorant Garamond', serif", fontSize: 14, color: T.dark }}>
-                      <span style={{ color: T.red }}>◦</span> {tip}
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,flexShrink:0}}>
+                <div style={{padding:"8px 18px",borderRadius:100,background:`${sc(result.severity)}18`,border:`1.5px solid ${sc(result.severity)}55`,fontFamily:"'Outfit',sans-serif",fontWeight:600,fontSize:12,color:sc(result.severity),textTransform:"capitalize",textAlign:"center"}}>{result.recommendation}</div>
+                {result.confidence>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.inkFaint,letterSpacing:"0.1em"}}>{result.confidence}% confidence</div>}
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+              {result.homeCareTips?.length>0&&(
+                <Card>
+                  <SHead>Home Care Tips</SHead>
+                  {result.homeCareTips.map((tip,i)=>(
+                    <div key={i} style={{display:"flex",gap:9,marginBottom:9,alignItems:"flex-start"}}>
+                      <div style={{width:18,height:18,borderRadius:"50%",background:T.vitalPale,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}><span style={{fontSize:9,color:T.vital}}>✓</span></div>
+                      <span style={{fontFamily:"'Outfit',sans-serif",fontSize:13,color:T.inkMid,lineHeight:1.5}}>{tip}</span>
                     </div>
                   ))}
-                </div>
+                </Card>
               )}
-              {result.warningSign && (
-                <div style={{ marginTop: 16, padding: "10px 14px", background: `${T.redAccent}10`, border: `1px solid ${T.red}`, borderRadius: 2 }}>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.redAccent, letterSpacing: "0.12em", textTransform: "uppercase" }}>⚠ Seek immediate care if: </span>
-                  <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 13, color: T.dark }}>{result.warningSign}</span>
-                </div>
+              {result.warningSign&&(
+                <Card accent={T.rose} style={{borderColor:`${T.rose}35`}}>
+                  <SHead>Seek Immediate Care If</SHead>
+                  <div style={{display:"flex",gap:10,alignItems:"flex-start",padding:"12px",background:T.roseTint,borderRadius:9}}>
+                    <div style={{color:T.rose,flexShrink:0,marginTop:1}}><Icons.heartbeat/></div>
+                    <span style={{fontFamily:"'Outfit',sans-serif",fontSize:13,color:T.inkMid,lineHeight:1.6}}>{result.warningSign}</span>
+                  </div>
+                  <div style={{marginTop:12,fontFamily:"'DM Mono',monospace",fontSize:8,color:T.inkFaint,letterSpacing:"0.1em",textTransform:"uppercase",textAlign:"center"}}>Presage AI · Not a substitute for professional medical advice</div>
+                </Card>
               )}
-            </Card>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.muted, letterSpacing: "0.1em", textAlign: "center" }}>
-              PRESAGE IS AN AI TRIAGE TOOL AND DOES NOT REPLACE PROFESSIONAL MEDICAL ADVICE
             </div>
           </div>
         )}
       </div>
-    </PageShell>
+    </PageWrap>
   );
 }
 
-function SchedulePage({ onBack }) {
-  const [selected, setSelected] = useState(null);
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-  const slots = ["09:00", "09:30", "10:00", "10:30", "11:00", "14:00", "14:30", "15:00", "15:30", "16:00"];
-  const taken = ["09:00", "10:00", "14:30", "15:30"];
-
-  return (
-    <PageShell title="Schedule" icon="◷" subtitle="Book appointments & view calendar" onBack={onBack}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24 }}>
-        <Card>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: T.muted, marginBottom: 20 }}>March 2026</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4, marginBottom: 24 }}>
-            {days.map(d => (
-              <div key={d} style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.muted, letterSpacing: "0.1em", textAlign: "center", paddingBottom: 8, textTransform: "uppercase" }}>{d}</div>
-            ))}
-            {[9,10,11,12,13,10,11,12,13,14,11,12,13,14,15,12,13,14,15,16,13,14,15,16,17].map((n, i) => (
-              <div key={i} onClick={() => setSelected(n)} style={{
-                padding: "8px 0", textAlign: "center", cursor: "pointer", borderRadius: 2,
-                background: selected === n ? T.redAccent : i % 7 === 2 ? `${T.red}20` : "transparent",
-                color: selected === n ? T.white : T.dark,
-                fontFamily: "'Cormorant Garamond', serif", fontSize: 15,
-                transition: "all 0.15s ease",
-                border: `1px solid ${selected === n ? T.redAccent : "transparent"}`,
-              }}>{n}</div>
-            ))}
-          </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Available Slots</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 }}>
-            {slots.map(s => (
-              <button key={s} disabled={taken.includes(s)} style={{
-                padding: "7px 0", border: `1px solid ${taken.includes(s) ? T.creamBorder : T.redAccent}`,
-                borderRadius: 2, cursor: taken.includes(s) ? "not-allowed" : "pointer",
-                background: taken.includes(s) ? T.creamDark : "transparent",
-                fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.08em",
-                color: taken.includes(s) ? T.muted : T.redAccent,
-                transition: "all 0.15s ease",
-                opacity: taken.includes(s) ? 0.5 : 1,
-              }}>{s}</button>
-            ))}
-          </div>
-        </Card>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+// ─── SCHEDULE ─────────────────────────────────────────────────────────────────
+function SchedulePage({onBack}){
+  const[sel,setSel]=useState(12);
+  const slots=["09:00","09:30","10:00","10:30","11:00","11:30","14:00","14:30","15:00","15:30"];
+  const taken=["09:00","10:00","14:30"];
+  return(
+    <PageWrap title="Schedule" icon={<Icons.calendar/>} subtitle="Appointments & availability" onBack={onBack}>
+      <div style={{display:"grid",gridTemplateColumns:"1.6fr 1fr",gap:18}}>
+        <div style={{display:"flex",flexDirection:"column",gap:16}}>
           <Card>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Average Wait Times</div>
-            {[["Emergency", "4 min"], ["General Practice", "18 min"], ["Specialist", "32 min"], ["Lab Work", "11 min"]].map(([k, v]) => (
-              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.creamBorder}` }}>
-                <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 14, color: T.dark }}>{k}</span>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: T.redAccent }}>{v}</span>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:16,color:T.ink}}>March 2026</div>
+              <div style={{display:"flex",gap:5}}>
+                <button className="btn-ghost" style={{padding:"5px 11px",fontSize:12}}>‹</button>
+                <button className="btn-ghost" style={{padding:"5px 11px",fontSize:12}}>›</button>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:6}}>
+              {["S","M","T","W","T","F","S"].map((d,i)=>(
+                <div key={i} style={{textAlign:"center",fontFamily:"'DM Mono',monospace",fontSize:9,color:T.inkFaint,letterSpacing:"0.1em",paddingBottom:6}}>{d}</div>
+              ))}
+              {Array.from({length:35},(_,i)=>{
+                const n=i-6;const day=n>0&&n<=31?n:null;
+                const isSel=day===sel;const hasAppt=[3,12,18,24].includes(day);
+                return(
+                  <div key={i} onClick={()=>day&&setSel(day)} style={{padding:"7px 0",textAlign:"center",borderRadius:8,cursor:day?"pointer":"default",background:isSel?`linear-gradient(135deg,${T.rose},${T.roseDeep})`:"transparent",color:isSel?T.white:day?T.ink:T.border,fontFamily:"'Outfit',sans-serif",fontWeight:isSel?700:400,fontSize:13,transition:"all .15s",position:"relative"}}>
+                    {day}{hasAppt&&!isSel&&<div style={{position:"absolute",bottom:3,left:"50%",transform:"translateX(-50%)",width:4,height:4,borderRadius:"50%",background:T.rose}}/>}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+          <Card>
+            <SHead>Available Slots — Mar {sel}</SHead>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:7}}>
+              {slots.map(s=>{
+                const busy=taken.includes(s);
+                return(
+                  <button key={s} disabled={busy} style={{padding:"9px 0",borderRadius:9,cursor:busy?"not-allowed":"pointer",border:`1.5px solid ${busy?T.border:T.rose}`,background:busy?T.bgDeep:T.roseTint,fontFamily:"'DM Mono',monospace",fontSize:10,letterSpacing:"0.05em",color:busy?T.inkFaint:T.rose,opacity:busy?.4:1,transition:"all .15s"}}
+                    onMouseEnter={e=>{if(!busy){e.currentTarget.style.background=T.rose;e.currentTarget.style.color=T.white;}}}
+                    onMouseLeave={e=>{if(!busy){e.currentTarget.style.background=T.roseTint;e.currentTarget.style.color=T.rose;}}}
+                  >{s}</button>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <Card accent={T.rose}>
+            <SHead>Upcoming</SHead>
+            {[["Mar 12","09:30","Dr. Sharma","Cardiology",T.rose],["Mar 18","14:00","Dr. Patel","Lab Work",T.vital]].map(([date,time,dr,dept,c],i)=>(
+              <div key={i} style={{padding:"11px 13px",marginBottom:8,borderRadius:9,background:`${c}08`,border:`1px solid ${c}28`}}>
+                <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:15,color:c}}>{date} · {time}</div>
+                <div style={{fontFamily:"'Outfit',sans-serif",fontSize:12,color:T.inkMid,marginTop:1}}>{dr} — {dept}</div>
               </div>
             ))}
           </Card>
-          <Card style={{ background: `${T.redAccent}08`, border: `1px solid ${T.red}` }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: T.redAccent, marginBottom: 8 }}>Upcoming</div>
-            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: T.dark }}>Mar 12, 09:30</div>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: T.muted, marginTop: 4 }}>Dr. Sharma — Cardiology</div>
+          <Card>
+            <SHead>Current Wait Times</SHead>
+            {[["Emergency","4 min",T.vital],["General Practice","18 min",T.rose],["Specialist","32 min",T.amber],["Lab / Diagnostics","11 min",T.vital]].map(([k,v,c])=>(
+              <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.border}`}}>
+                <span style={{fontFamily:"'Outfit',sans-serif",fontSize:13,color:T.ink}}>{k}</span>
+                <div style={{padding:"3px 9px",borderRadius:6,background:`${c}14`,fontFamily:"'DM Mono',monospace",fontSize:10,color:c,letterSpacing:"0.05em"}}>{v}</div>
+              </div>
+            ))}
           </Card>
         </div>
       </div>
-    </PageShell>
+    </PageWrap>
   );
 }
 
-function HospitalPage({ onBack }) {
-  return (
-    <PageShell title="Find Hospital" icon="⊘" subtitle="Nearest facilities and directions" onBack={onBack}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {[
-            { name: "St. Michael's Hospital", dist: "1.2 km", wait: "8 min", status: "open" },
-            { name: "Toronto General", dist: "2.8 km", wait: "14 min", status: "open" },
-            { name: "Mount Sinai Hospital", dist: "3.1 km", wait: "22 min", status: "open" },
-            { name: "Sunnybrook Health", dist: "8.4 km", wait: "6 min", status: "open" },
-          ].map((h, i) => (
-            <Card key={i} style={{ cursor: "pointer", transition: "all 0.2s ease" }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = T.redAccent; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = T.creamBorder; }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+// ─── HOSPITAL ────────────────────────────────────────────────────────────────
+function HospitalPage({onBack}){
+  return(
+    <PageWrap title="Find Hospital" icon={<Icons.mapPin/>} subtitle="Nearest facilities & live routing" onBack={onBack}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1.2fr",gap:18}}>
+        <div style={{display:"flex",flexDirection:"column",gap:11}}>
+          <SHead>Nearby Hospitals</SHead>
+          {[{name:"St. Michael's Hospital",dist:"1.2 km",wait:"8 min",beds:12,col:T.vital},{name:"Toronto General",dist:"2.8 km",wait:"14 min",beds:8,col:T.rose},{name:"Mount Sinai Hospital",dist:"3.1 km",wait:"22 min",beds:4,col:T.amber},{name:"Sunnybrook Health Centre",dist:"8.4 km",wait:"6 min",beds:18,col:T.vital}].map((h,i)=>(
+            <Card key={i} onClick={()=>{}} accent={h.col} style={{padding:"16px 18px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:9}}>
                 <div>
-                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 300, color: T.dark, marginBottom: 4 }}>{h.name}</div>
-                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.muted, letterSpacing: "0.1em" }}>{h.dist} away</div>
+                  <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:14,color:T.ink}}>{h.name}</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.inkFaint,letterSpacing:"0.08em",marginTop:2}}>{h.dist} away</div>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: 22, color: T.redAccent }}>{h.wait}</div>
-                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: T.muted, letterSpacing: "0.1em" }}>AVG WAIT</div>
+                <div style={{textAlign:"center",padding:"7px 12px",borderRadius:9,background:`${h.col}14`,border:`1px solid ${h.col}35`}}>
+                  <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:18,color:h.col}}>{h.wait}</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:h.col,letterSpacing:"0.12em",textTransform:"uppercase"}}>Avg Wait</div>
                 </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{display:"flex",alignItems:"center",gap:5}}>
+                  <div style={{width:5,height:5,borderRadius:"50%",background:h.col}}/><span style={{fontFamily:"'Outfit',sans-serif",fontSize:11,color:T.inkMid}}>{h.beds} beds available</span>
+                </div>
+                <button className="btn-ghost" style={{fontSize:10,padding:"5px 12px"}}>Directions →</button>
               </div>
             </Card>
           ))}
         </div>
-        <Card style={{ background: T.creamDark, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 320 }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>⊘</div>
-          <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 18, color: T.muted, textAlign: "center" }}>
-            Interactive 3D hospital map
+        <div style={{height:"100%",minHeight:400,borderRadius:20,overflow:"hidden",background:`linear-gradient(135deg,${T.bgDeep} 0%,#E8D8CC 100%)`,border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",position:"relative"}}>
+          <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:.12}} viewBox="0 0 400 400">
+            {Array.from({length:9},(_,i)=>(
+              <g key={i}><line x1={i*50} y1="0" x2={i*50} y2="400" stroke={T.rose} strokeWidth=".8"/><line x1="0" y1={i*50} x2="400" y2={i*50} stroke={T.rose} strokeWidth=".8"/></g>
+            ))}
+            <path d="M 80 200 L 200 200 L 200 120 L 300 120" fill="none" stroke={T.rose} strokeWidth="3" strokeLinecap="round"/>
+            <path d="M 40 280 L 160 280 L 200 200" fill="none" stroke={T.amber} strokeWidth="2.5" strokeLinecap="round"/>
+            <circle cx="200" cy="200" r="10" fill={T.rose} opacity=".6"/>
+            <circle cx="300" cy="120" r="8" fill={T.vital} opacity=".7"/>
+            <circle cx="40" cy="280" r="8" fill={T.amber} opacity=".7"/>
+          </svg>
+          <div style={{textAlign:"center",zIndex:1}}>
+            <div style={{width:60,height:60,borderRadius:18,background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`,display:"flex",alignItems:"center",justifyContent:"center",color:T.white,margin:"0 auto 14px",animation:"float 3s ease-in-out infinite"}}><Icons.mapPin/></div>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:700,fontSize:18,color:T.ink}}>Interactive Hospital Map</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:13,color:T.inkFaint,marginTop:5}}>Three.js 3D visualization with live routing</div>
+            <button className="btn-primary" style={{marginTop:18,fontSize:13}}>Enable Location →</button>
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.muted, letterSpacing: "0.1em", marginTop: 6, textTransform: "uppercase" }}>
-            Three.js visualization
-          </div>
-          <div style={{ marginTop: 20, padding: "8px 24px", border: `1px solid ${T.creamBorder}`, borderRadius: 2, fontFamily: "'DM Mono', monospace", fontSize: 9, color: T.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-            Requires Geolocation Permission
-          </div>
-        </Card>
+        </div>
       </div>
-    </PageShell>
+    </PageWrap>
   );
 }
 
-function RoomsPage({ onBack }) {
-  const rooms = Array.from({ length: 24 }, (_, i) => ({
-    id: `${Math.floor(i / 6) + 1}0${(i % 6) + 1}`,
-    floor: Math.floor(i / 6) + 1,
-    status: ["occupied", "occupied", "available", "maintenance", "occupied", "available"][i % 6],
-    patient: ["occupied"].includes(["occupied", "occupied", "available", "maintenance", "occupied", "available"][i % 6]) ? `Patient ${i + 1}` : null,
-  }));
-  const statusColor = s => ({ occupied: T.redAccent, available: "#6BBF59", maintenance: "#E8C060" }[s] || T.muted);
-  return (
-    <PageShell title="Room Map" icon="⊞" subtitle="Live floor plan and room status" onBack={onBack}>
-      <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
-        {[["Occupied", T.redAccent, rooms.filter(r => r.status === "occupied").length],
-          ["Available", "#6BBF59", rooms.filter(r => r.status === "available").length],
-          ["Maintenance", "#E8C060", rooms.filter(r => r.status === "maintenance").length]
-        ].map(([l, c, n]) => (
-          <div key={l} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", border: `1px solid ${c}30`, borderRadius: 2, background: `${c}10` }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: c }}/>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: c, letterSpacing: "0.1em", textTransform: "uppercase" }}>{l}: {n}</span>
-          </div>
+// ─── ROOMS ────────────────────────────────────────────────────────────────────
+function RoomsPage({onBack}){
+  const rooms=Array.from({length:30},(_,i)=>({id:`${Math.floor(i/6)+1}0${(i%6)+1}`,floor:Math.floor(i/6)+1,status:["occupied","occupied","available","maintenance","occupied","available"][i%6]}));
+  const sc=s=>({occupied:T.rose,available:T.vital,maintenance:T.amber}[s]||T.inkFaint);
+  const sl=s=>({occupied:"In Use",available:"Free",maintenance:"Maint."}[s]||s);
+  return(
+    <PageWrap title="Room Map" icon={<Icons.grid/>} subtitle="Live floor plan · Real-time bed status" onBack={onBack}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:20,maxWidth:480}}>
+        {[["Occupied",T.rose],["Available",T.vital],["Maintenance",T.amber]].map(([s,c])=>(
+          <Card key={s} accent={c} style={{textAlign:"center",padding:"14px 10px"}}>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:28,color:c}}>{rooms.filter(r=>r.status===s.toLowerCase()).length}</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,letterSpacing:"0.12em",color:c,textTransform:"uppercase",marginTop:3}}>{s}</div>
+          </Card>
         ))}
       </div>
-      {[1,2,3,4].map(floor => (
-        <div key={floor} style={{ marginBottom: 20 }}>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: T.muted, marginBottom: 8 }}>Floor {floor}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }}>
-            {rooms.filter(r => r.floor === floor).map(r => (
-              <div key={r.id} style={{
-                padding: "10px 8px", borderRadius: 2, textAlign: "center", cursor: "pointer",
-                background: `${statusColor(r.status)}15`,
-                border: `1px solid ${statusColor(r.status)}40`,
-                transition: "all 0.15s ease",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.border = `1px solid ${statusColor(r.status)}`; }}
-              onMouseLeave={e => { e.currentTarget.style.border = `1px solid ${statusColor(r.status)}40`; }}
-              >
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: T.dark, letterSpacing: "0.05em" }}>{r.id}</div>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor(r.status), margin: "4px auto 0" }}/>
+      {[1,2,3,4,5].map(floor=>(
+        <Card key={floor} style={{marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:12}}>
+            <div style={{width:26,height:26,borderRadius:7,background:T.roseTint,border:`1px solid ${T.borderStrong}`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:12,color:T.rose}}>{floor}</div>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:600,fontSize:13,color:T.ink}}>Floor {floor}</div>
+            <div style={{marginLeft:"auto",fontFamily:"'DM Mono',monospace",fontSize:8,color:T.inkFaint,letterSpacing:"0.1em",textTransform:"uppercase"}}>{rooms.filter(r=>r.floor===floor&&r.status==="available").length} free of {rooms.filter(r=>r.floor===floor).length}</div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:7}}>
+            {rooms.filter(r=>r.floor===floor).map(r=>(
+              <div key={r.id} style={{padding:"11px 5px",borderRadius:9,textAlign:"center",cursor:"pointer",background:`${sc(r.status)}10`,border:`1.5px solid ${sc(r.status)}28`,transition:"all .15s"}}
+                onMouseEnter={e=>{e.currentTarget.style.background=`${sc(r.status)}20`;e.currentTarget.style.borderColor=sc(r.status);e.currentTarget.style.transform="scale(1.05)";}}
+                onMouseLeave={e=>{e.currentTarget.style.background=`${sc(r.status)}10`;e.currentTarget.style.borderColor=`${sc(r.status)}28`;e.currentTarget.style.transform="scale(1)";}}>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.ink,letterSpacing:"0.04em",marginBottom:3}}>{r.id}</div>
+                <div style={{width:6,height:6,borderRadius:"50%",background:sc(r.status),margin:"0 auto 3px"}}/>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:sc(r.status),letterSpacing:"0.07em",textTransform:"uppercase"}}>{sl(r.status)}</div>
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       ))}
-    </PageShell>
+    </PageWrap>
   );
 }
 
-// ─── ROOT APP ─────────────────────────────────────────────────────────────────
-export default function App() {
-  const [page, setPage] = useState("home");
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState(null);
-
-  const navigate = (p) => setPage(p);
-  const handleLogin = (role) => { setLoggedIn(true); setUserRole(role); setPage("home"); };
-  const handleBack = () => setPage("home");
-
-  return (
-    <>
-      <GlobalStyle />
-      <div className="grain-overlay" />
-      {page === "home" && <MazeUI onNavigate={navigate} />}
-      {page === "login" && <LoginPage onBack={handleBack} onLogin={handleLogin} />}
-      {page === "patient" && <PatientPortal onBack={handleBack} />}
-      {page === "doctor" && <DoctorPortal onBack={handleBack} />}
-      {page === "presage" && <PresagePage onBack={handleBack} />}
-      {page === "schedule" && <SchedulePage onBack={handleBack} />}
-      {page === "hospital" && <HospitalPage onBack={handleBack} />}
-      {page === "rooms" && <RoomsPage onBack={handleBack} />}
-    </>
+// ─── APP ──────────────────────────────────────────────────────────────────────
+export default function App(){
+  const[page,setPage]=useState("home");
+  const go=p=>setPage(p);
+  const back=()=>setPage("home");
+  return(
+    <div style={{width:"100vw",height:"100vh",overflow:"hidden",position:"relative"}}>
+      <GlobalStyle/>
+      <div style={{position:"fixed",top:"-50%",left:"-50%",width:"200%",height:"200%",backgroundImage:`url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E")`,pointerEvents:"none",zIndex:9999,opacity:.22}}/>
+      {page==="home"&&<MazeUI onNavigate={go}/>}
+      {page==="login"&&<LoginPage onBack={back} onLogin={()=>go("home")}/>}
+      {page==="patient"&&<PatientPortal onBack={back}/>}
+      {page==="doctor"&&<DoctorPortal onBack={back}/>}
+      {page==="presage"&&<PresagePage onBack={back}/>}
+      {page==="schedule"&&<SchedulePage onBack={back}/>}
+      {page==="hospital"&&<HospitalPage onBack={back}/>}
+      {page==="rooms"&&<RoomsPage onBack={back}/>}
+    </div>
   );
 }
