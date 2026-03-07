@@ -7,6 +7,30 @@ import { T, Icons } from "./theme";
 import { BgOrbs, EcgStrip, Card } from "./components/SharedUI";
 import LandingPage from "./pages/Landing";
 import LoginPage from "./pages/Login";
+import HospitalHologram from "./HospitalHologram";
+import { getPersistedRole, setPersistedRole } from "./auth/persistedRole";
+
+// ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
+const T = {
+  bg:           "#F8F0E8",
+  bgDeep:       "#F0E4D4",
+  surfaceHard:  "#FFFAF4",
+  border:       "rgba(200,160,140,0.3)",  
+  borderStrong: "rgba(180,100,100,0.45)",
+  rose:         "#D4706A",
+  roseMid:      "#C05858",
+  roseDeep:     "#A84040",
+  rosePale:     "#EEBABA",
+  roseGlow:     "rgba(212,112,106,0.35)",
+  roseTint:     "rgba(212,112,106,0.08)",
+  vital:        "#5BAA8A",
+  vitalPale:    "rgba(91,170,138,0.15)",
+  amber:        "#D4974A",
+  ink:          "#2A1818",
+  inkMid:       "#6B4040",
+  inkFaint:     "#A08070",
+  white:        "#FFFCF8",
+};
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 const GlobalStyle = () => (
@@ -88,6 +112,140 @@ function VChart() {
   );
 }
 
+// ─── LOADING SCREEN ───────────────────────────────────────────────────────────
+function LoadingScreen() {
+  return (
+    <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:T.bg }}>
+      <BgOrbs/>
+      <EcgStrip bottom="10%" opacity={0.09}/>
+      <div style={{ zIndex:1, textAlign:"center" }}>
+        <div style={{ width:52, height:52, borderRadius:14, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, margin:"0 auto 20px", animation:"breathe 2s ease-in-out infinite" }}>
+          <Icons.cross/>
+        </div>
+        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:28, color:T.ink, letterSpacing:"-0.03em", marginBottom:16 }}>Sanctii</div>
+        <div style={{ display:"flex", gap:6, justifyContent:"center" }}>
+          {[0,1,2].map(i=>(
+            <div key={i} style={{ width:8, height:8, borderRadius:"50%", background:T.rose, animation:`pulse 1.2s ease ${i*0.2}s infinite` }}/>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── LOGIN PAGE (/login) ──────────────────────────────────────────────────────
+function LoginPage() {
+  const { loginWithRedirect, isLoading, isAuthenticated } = useAuth0();
+  const navigate = useNavigate();
+
+  // If already logged in, bounce straight to maze
+  useEffect(() => {
+    if (isAuthenticated) navigate("/role", { replace: true });
+  }, [isAuthenticated, navigate]);
+
+  const signIn = (connection) => {
+    loginWithRedirect({
+      authorizationParams: {
+        ...(connection && { connection }),
+      },
+      appState: { returnTo: "/role" },
+    });
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, display:"flex", overflow:"hidden" }}>
+      <BgOrbs/>
+
+      {/* ── LEFT BRAND PANEL ── */}
+      <div style={{ width:"44%", position:"relative", overflow:"hidden", background:`linear-gradient(160deg,${T.roseDeep} 0%,#7A2525 100%)`, display:"flex", flexDirection:"column", justifyContent:"center", padding:"56px 48px" }}>
+        {/* Watermark cross */}
+        <div style={{ position:"absolute", right:-80, top:"50%", transform:"translateY(-50%)", opacity:.05, color:T.white, fontSize:440, lineHeight:1, fontWeight:800, userSelect:"none" }}>+</div>
+        <EcgStrip bottom="8%" opacity={.18} color={T.white}/>
+
+        <div style={{ animation:"slideR .6s ease", zIndex:1 }}>
+          <div style={{ width:52, height:52, borderRadius:14, background:"rgba(255,255,255,.15)", display:"flex", alignItems:"center", justifyContent:"center", color:T.white, marginBottom:18, backdropFilter:"blur(8px)" }}>
+            <Icons.cross/>
+          </div>
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:44, color:T.white, letterSpacing:"-0.04em", lineHeight:1.05, marginBottom:10 }}>
+            Welcome<br/>to Sanctii
+          </div>
+          <div style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic", fontSize:16, color:"rgba(255,255,255,.65)", lineHeight:1.65, marginBottom:44 }}>
+            Intelligent healthcare begins<br/>before you walk through the door.
+          </div>
+        </div>
+
+        {/* Feature list */}
+        <div style={{ display:"flex", flexDirection:"column", gap:13, zIndex:1 }}>
+          {[
+            [<Icons.shield/>, "Auth0 enterprise authentication"],
+            [<Icons.card/>,   "Instant health card scanning"],
+            [<Icons.heartbeat/>, "AI-powered triage with Presage"],
+            [<Icons.mapPin/>, "Real-time hospital routing"],
+          ].map(([ic, text], i) => (
+            <div key={i} style={{ display:"flex", alignItems:"center", gap:12, animation:`slideR .6s ease ${.1+i*.1}s both`, opacity:0 }}>
+              <div style={{ color:"rgba(255,255,255,.55)", flexShrink:0 }}>{ic}</div>
+              <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:"rgba(255,255,255,.75)", fontWeight:400 }}>{text}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Live vitals badge strip */}
+        <div style={{ marginTop:44, display:"flex", gap:14, flexWrap:"wrap", zIndex:1 }}>
+          {[["♥","72 bpm"],["⚡","98% SpO₂"],["🌡","36.6°C"]].map(([ic,v])=>(
+            <div key={v} style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", borderRadius:100, background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.12)" }}>
+              <span style={{ fontSize:10 }}>{ic}</span>
+              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:"rgba(255,255,255,.7)", letterSpacing:"0.04em" }}>{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── RIGHT FORM PANEL ── */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center", padding:"44px 52px", background:T.bg, overflowY:"auto" }}>
+        <div style={{ width:"100%", maxWidth:400, animation:"fadeUp .5s ease" }}>
+
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:28, color:T.ink, letterSpacing:"-0.03em", marginBottom:4 }}>Sign in</div>
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:14, color:T.inkFaint, marginBottom:28 }}>Access your Sanctii health dashboard</div>
+
+          {/* ── Auth buttons ── */}
+          <div style={{ display:"flex", flexDirection:"column", gap:11, animation:"fadeUp .3s ease" }}>
+
+            {/* Auth0 Universal Login */}
+            <button className="btn-primary"
+              onClick={() => signIn(null)}
+              disabled={isLoading}
+              style={{ width:"100%", padding:"14px 0", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}
+            >
+              <Icons.shield/>
+              {isLoading ? "Connecting…" : "Continue with Auth0 →"}
+            </button>
+
+            {/* Google Social */}
+            <button
+              onClick={() => signIn("google-oauth2")}
+              disabled={isLoading}
+              style={{ width:"100%", padding:"13px 0", borderRadius:100, border:`1.5px solid ${T.border}`, background:T.surfaceHard, cursor:"pointer", fontFamily:"'Outfit',sans-serif", fontWeight:500, fontSize:13, color:T.ink, display:"flex", alignItems:"center", justifyContent:"center", gap:10, transition:"all .2s" }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor=T.rose; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor=T.border; }}
+            >
+              <Icons.google/> Continue with Google
+            </button>
+
+            <div style={{ marginTop:8, fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase", textAlign:"center", lineHeight:1.8 }}>
+              Sign in as a patient or doctor — you’ll choose your role after logging in.
+            </div>
+          </div>
+
+          <div style={{ marginTop:22, fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase", textAlign:"center", lineHeight:1.8 }}>
+            Secured by Auth0 · HIPAA-aligned · SOC 2 Type II<br/>
+            By signing in you agree to Sanctii's Terms &amp; Privacy Policy
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── MAZE CONFIG ──────────────────────────────────────────────────────────────
 const NODES = {
   center:    { x:50, y:50, label:"Health Center", icon:"cross", isCenter:true, col:T.roseMid },
@@ -155,11 +313,31 @@ function MazePage() {
   const [view, setView] = useState("select"); // "select" or "maze"
   const [syncing, setSyncing] = useState(false);
   const roles = getUserRoles(user);
+  const persistedRole = getPersistedRole();
+  const activeRole = persistedRole || roles[0] || null;
 
   useEffect(()=>{ if(view==="maze") setPath(hov&&hov!=="center" ? bfs("center",hov) : []); }, [hov, view]);
 
+  // Require an explicit role choice before entering the maze
+  useEffect(() => {
+    if (!persistedRole) {
+      navigate("/role", { replace: true });
+    }
+  }, [persistedRole, navigate]);
+
   const pd = makeSVGPath(path);
   const ac = hov ? NODES[hov]?.col||T.rose : T.rose;
+
+  // Adjust maze buttons (nodes) based on active role
+  const visibleNodeKeys = (() => {
+    if (activeRole === ROLE.PATIENT) {
+      return ["center","patient","hospital","presage"];
+    }
+    if (activeRole === ROLE.DOCTOR) {
+      return ["center","rooms","schedule","patient","doctor"];
+    }
+    return Object.keys(NODES);
+  })();
 
   const handleLogout = () => logout({ logoutParams: { returnTo: window.location.origin } });
 
@@ -246,12 +424,12 @@ function MazePage() {
           ))}
         </div>
 
-        {/* User chip + logout */}
+        {/* User chip + role + actions */}
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          {/* Role badge */}
-          {roles.length>0 && (
+          {/* Role badge (from persisted role or token) */}
+          {activeRole && (
             <div style={{ padding:"4px 10px", borderRadius:100, background:`${T.rose}15`, border:`1px solid ${T.rose}35`, fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.1em", textTransform:"uppercase" }}>
-              {roles[0]}
+              {activeRole}
             </div>
           )}
           {/* Avatar chip */}
@@ -267,6 +445,9 @@ function MazePage() {
               <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.06em", marginTop:1 }}>{user?.email}</div>
             </div>
           </div>
+          <button onClick={()=>navigate("/role")} className="btn-ghost" style={{ fontSize:11, padding:"8px 14px", display:"flex", alignItems:"center", gap:4 }}>
+            Change role
+          </button>
           <button onClick={handleLogout} className="btn-ghost" style={{ fontSize:11, padding:"8px 16px", display:"flex", alignItems:"center", gap:6 }}>
             <Icons.logout/> Sign Out
           </button>
@@ -291,20 +472,51 @@ function MazePage() {
           {path.map((key,i)=>{ const n=NODES[key]; return <circle key={key} cx={n.x} cy={n.y} r={i===0?3.5:2.5} fill={i===0?T.roseDeep:ac} opacity=".5" style={{ animation:`nodeIn .3s ease ${i*.07}s both` }}/>; })}
         </svg>
 
-        {Object.entries(NODES).map(([key,node])=>{
+        {Object.entries(NODES)
+          .filter(([key]) => visibleNodeKeys.includes(key))
+          .map(([key,node])=>{
           const isCenter=node.isCenter, isHov=hov===key, inPath=path.includes(key), col=node.col||T.rose, IC=Icons[node.icon];
           return (
             <div key={key}
               onMouseEnter={()=>!isCenter&&setHov(key)}
               onMouseLeave={()=>setHov(null)}
-              onClick={()=>!isCenter&&node.path&&navigate(node.path)}
+              onClick={()=>{
+                if (isCenter) return;
+                // Override destinations for role-specific buttons
+                if (activeRole === ROLE.PATIENT) {
+                  if (key === "patient") navigate("/patient");
+                  else if (key === "hospital") navigate("/hospital");
+                  else if (key === "presage") navigate("/presage");
+                  else if (node.path) navigate(node.path);
+                  return;
+                }
+                if (activeRole === ROLE.DOCTOR) {
+                  if (key === "rooms") navigate("/rooms");
+                  else if (key === "schedule") navigate("/schedule");
+                  else if (key === "patient") navigate("/doctor"); // patient info by severity
+                  else if (key === "doctor") navigate("/doctor");  // doctor information
+                  else if (node.path) navigate(node.path);
+                  return;
+                }
+                if (node.path) navigate(node.path);
+              }}
               style={{ position:"absolute", left:`${node.x}%`, top:`${node.y}%`, transform:"translate(-50%,-50%)", zIndex:20, cursor:isCenter?"default":"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}
             >
               {isHov && <div style={{ position:"absolute", width:isCenter?84:60, height:isCenter?84:60, borderRadius:"50%", border:`1.5px solid ${col}`, animation:"ripple 1s ease-out infinite", pointerEvents:"none" }}/>}
               <div style={{ width:isCenter?66:50, height:isCenter?66:50, borderRadius:isCenter?"18px":"14px", background:isHov||isCenter?`linear-gradient(145deg,${col}ee,${col}aa)`:inPath?`linear-gradient(145deg,${col}35,${col}18)`:T.surfaceHard, border:`${isHov?2:1.5}px solid ${isHov||inPath?col:T.border}`, display:"flex", alignItems:"center", justifyContent:"center", color:isHov||isCenter?T.white:inPath?col:T.inkFaint, boxShadow:isHov?`0 12px 32px ${col}55,0 4px 12px ${col}33`:inPath?`0 0 14px ${col}30`:"0 2px 10px rgba(160,80,80,.06)", transition:"all .25s cubic-bezier(.4,0,.2,1)", transform:isHov?"scale(1.14)":"scale(1)", animation:isCenter?"float 4s ease-in-out infinite":"none", backdropFilter:"blur(12px)" }}>
                 {IC && <IC/>}
               </div>
-              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:isCenter?700:500, fontSize:isCenter?11:9, color:isHov?col:inPath?col:isCenter?T.inkMid:T.inkFaint, textAlign:"center", whiteSpace:"nowrap", transition:"color .2s", letterSpacing:isCenter?"-0.01em":"0.02em" }}>{node.label}</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:isCenter?700:500, fontSize:isCenter?11:9, color:isHov?col:inPath?col:isCenter?T.inkMid:T.inkFaint, textAlign:"center", whiteSpace:"nowrap", transition:"color .2s", letterSpacing:isCenter?"-0.01em":"0.02em" }}>
+                {activeRole === ROLE.PATIENT && key === "patient" && "Patient information"}
+                {activeRole === ROLE.PATIENT && key === "hospital" && "Nearest hospital map"}
+                {activeRole === ROLE.PATIENT && key === "presage" && "Presage"}
+                {activeRole === ROLE.DOCTOR && key === "rooms" && "Room assignment"}
+                {activeRole === ROLE.DOCTOR && key === "schedule" && "Scheduling"}
+                {activeRole === ROLE.DOCTOR && key === "patient" && "Patient info (severity)"}
+                {activeRole === ROLE.DOCTOR && key === "doctor" && "Doctor information"}
+                {!activeRole && node.label}
+                {activeRole && !["patient","hospital","presage","rooms","schedule","doctor"].includes(key) && node.label}
+              </div>
               {isHov && <div style={{ position:"absolute", top:"calc(100% + 8px)", background:T.ink, color:T.white, padding:"5px 12px", borderRadius:8, fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.1em", textTransform:"uppercase", whiteSpace:"nowrap", animation:"fadeIn .15s ease", boxShadow:"0 4px 16px rgba(0,0,0,.2)", zIndex:30 }}>Click to enter →</div>}
             </div>
           );
@@ -322,6 +534,97 @@ function MazePage() {
               <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.08em", textTransform:"uppercase" }}>{k}</span>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ROLE SELECTION (after login) ──────────────────────────────────────────────
+function RoleSelectionPage() {
+  const { user } = useAuth0();
+  const navigate = useNavigate();
+  const [selected, setSelected] = useState(getPersistedRole() || ROLE.PATIENT);
+
+  const handleContinue = () => {
+    setPersistedRole(selected);
+    navigate("/app", { replace: true });
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, display:"flex", overflow:"hidden" }}>
+      <BgOrbs/>
+      <EcgStrip bottom="6%" opacity={0.08}/>
+
+      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center", padding:"44px 52px", background:T.bg }}>
+        <div style={{ width:"100%", maxWidth:520, animation:"fadeUp .5s ease" }}>
+          <div style={{ marginBottom:20, display:"flex", alignItems:"center", gap:12 }}>
+            <div style={{ width:40, height:40, borderRadius:12, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white }}>
+              <Icons.cross/>
+            </div>
+            <div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:22, color:T.ink, letterSpacing:"-0.03em" }}>Welcome, {user?.name || user?.email?.split("@")[0] || "there"}</div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.14em", textTransform:"uppercase", marginTop:2 }}>
+                Choose how you’d like to explore Sanctii
+              </div>
+            </div>
+          </div>
+
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:14, color:T.inkFaint, marginBottom:24 }}>
+            Pick the role that best describes you today. You can change this later from the maze header.
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+            <Card
+              onClick={()=>setSelected(ROLE.PATIENT)}
+              accent={T.rose}
+              style={{
+                padding:22,
+                borderColor: selected===ROLE.PATIENT ? T.roseMid : undefined,
+                boxShadow: selected===ROLE.PATIENT ? `0 10px 30px ${T.roseGlow}` : undefined,
+              }}
+            >
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
+                <div style={{ width:32, height:32, borderRadius:10, background:`${T.rose}18`, display:"flex", alignItems:"center", justifyContent:"center", color:T.rose }}>
+                  <Icons.user/>
+                </div>
+                <div>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>I’m a patient</div>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkFaint }}>View your vitals, appointments, and Presage insights.</div>
+                </div>
+              </div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.12em", textTransform:"uppercase" }}>Continue to Sanctii maze →</div>
+            </Card>
+
+            <Card
+              onClick={()=>setSelected(ROLE.DOCTOR)}
+              accent={T.vital}
+              style={{
+                padding:22,
+                borderColor: selected===ROLE.DOCTOR ? T.vital : undefined,
+                boxShadow: selected===ROLE.DOCTOR ? `0 10px 30px rgba(91,170,138,.35)` : undefined,
+              }}
+            >
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
+                <div style={{ width:32, height:32, borderRadius:10, background:`${T.vital}18`, display:"flex", alignItems:"center", justifyContent:"center", color:T.vital }}>
+                  <Icons.stethoscope/>
+                </div>
+                <div>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>I’m a doctor</div>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkFaint }}>Access clinical dashboards, queues, and alerts.</div>
+                </div>
+              </div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.vital, letterSpacing:"0.12em", textTransform:"uppercase" }}>Doctor tools & dashboards</div>
+            </Card>
+          </div>
+
+          <button
+            className="btn-primary"
+            onClick={handleContinue}
+            style={{ width:"100%", marginTop:20, padding:"13px 0", fontSize:14 }}
+          >
+            Continue to Sanctii maze →
+          </button>
         </div>
       </div>
     </div>
@@ -358,7 +661,7 @@ function PageWrap({ children, title, icon, subtitle, badge }) {
 // ─── PATIENT PORTAL (/patient) ────────────────────────────────────────────────
 function PatientPage() {
   const { user } = useAuth0();
-  const [tab, setTab] = useState("overview");
+  const navigate = useNavigate();
   const displayName = user?.name || user?.email?.split("@")[0] || "Patient";
   const initials = displayName.split(" ").map(n=>n[0]).join("").toUpperCase().slice(0,2);
 
@@ -368,10 +671,28 @@ function PatientPage() {
         <div style={{ width:6, height:6, borderRadius:"50%", background:T.vital, animation:"pulse 1.5s ease infinite" }}/><span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.vital, letterSpacing:"0.12em", textTransform:"uppercase" }}>Active</span>
       </div>}
     >
-      <div style={{ display:"flex", gap:4, marginBottom:20, padding:4, background:T.bgDeep, borderRadius:12, width:"fit-content" }}>
-        {["overview","records","prescriptions","messages"].map(t=>(
-          <button key={t} onClick={()=>setTab(t)} style={{ padding:"7px 18px", border:"none", borderRadius:8, cursor:"pointer", fontFamily:"'Outfit',sans-serif", fontWeight:500, fontSize:12, background:tab===t?T.white:"transparent", color:tab===t?T.rose:T.inkFaint, boxShadow:tab===t?"0 2px 8px rgba(160,80,80,.12)":"none", transition:"all .2s", textTransform:"capitalize" }}>{t}</button>
-        ))}
+      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
+        <button
+          className="btn-primary"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>navigate("/patient")}
+        >
+          Patient information
+        </button>
+        <button
+          className="btn-ghost"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>navigate("/hospital")}
+        >
+          Nearest hospital map
+        </button>
+        <button
+          className="btn-ghost"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>navigate("/presage")}
+        >
+          Presage
+        </button>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         <Stat label="Next Appointment" value="Mar 12" sub="09:30 AM" color={T.rose}/>
@@ -456,8 +777,45 @@ function PatientPage() {
 
 // ─── DOCTOR PORTAL (/doctor) ──────────────────────────────────────────────────
 function DoctorPage() {
+  const navigate = useNavigate();
   return (
     <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Sharma">
+      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
+        <button
+          className="btn-primary"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>navigate("/rooms")}
+        >
+          Room assignment
+        </button>
+        <button
+          className="btn-ghost"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>navigate("/schedule")}
+        >
+          Scheduling
+        </button>
+        <button
+          className="btn-ghost"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>{
+            const el = document.getElementById("doctor-queue");
+            if (el) el.scrollIntoView({ behavior:"smooth", block:"start" });
+          }}
+        >
+          Patient information (severity)
+        </button>
+        <button
+          className="btn-ghost"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>{
+            const el = document.getElementById("doctor-info");
+            if (el) el.scrollIntoView({ behavior:"smooth", block:"start" });
+          }}
+        >
+          Doctor information
+        </button>
+      </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         <Stat label="Today's Patients" value="12" color={T.rose}/>
         <Stat label="Pending Reviews" value="4" color={T.amber}/>
@@ -473,6 +831,7 @@ function DoctorPage() {
         <button className="btn-primary" style={{ fontSize:12, padding:"8px 18px", flexShrink:0 }}>View Patient →</button>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1.4fr 1fr", gap:16 }}>
+        <div id="doctor-queue">
         <Card>
           <SHead>Today's Queue</SHead>
           {[{name:"Jordan Mitchell",time:"09:00",reason:"Follow-up — cardiac",sev:2},{name:"Priya Nair",time:"09:30",reason:"Annual physical",sev:1},{name:"Thomas Leclerc",time:"10:00",reason:"Acute abdominal pain",sev:4},{name:"Ana Reyes",time:"10:30",reason:"Prescription renewal",sev:1},{name:"Mohammed Al-Amin",time:"11:00",reason:"Hypertension follow-up",sev:3}].map((p,i)=>{
@@ -494,7 +853,8 @@ function DoctorPage() {
             );
           })}
         </Card>
-        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        </div>
+        <div id="doctor-info" style={{ display:"flex", flexDirection:"column", gap:14 }}>
           <Card>
             <SHead>Severity Guide</SHead>
             {[[1,T.vital,"Routine / Preventive"],[2,"#8BBF5A","Mild Symptoms"],[3,T.amber,"Moderate — Monitor"],[4,T.rose,"Urgent — Expedite"],[5,T.roseDeep,"Critical — Emergency"]].map(([n,c,l])=>(
@@ -803,6 +1163,224 @@ function RoomsPage() {
   );
 }
 
+// ─── LANDING PAGE (/) ─────────────────────────────────────────────────────────
+function LandingPage() {
+  const { isAuthenticated } = useAuth0();
+  const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false);
+  const scrollRef = useRef(null);
+  const persistedRole = getPersistedRole();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!persistedRole) navigate("/role", { replace: true });
+    else navigate("/app", { replace: true });
+  }, [isAuthenticated, persistedRole, navigate]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => setScrolled(el.scrollTop > 40);
+    el.addEventListener("scroll", onScroll);
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const FEATURES = [
+    [<Icons.brain/>,       "#8B6FBF", "Presage AI Triage",   "Symptom analysis with confidence scoring — powered by Claude."],
+    [<Icons.mapPin/>,      T.vital,   "Hospital Routing",    "Nearest facility with live wait times and bed availability."],
+    [<Icons.calendar/>,    T.rose,    "Smart Scheduling",    "Book appointments, view slots, and manage your care calendar."],
+    [<Icons.stethoscope/>, T.roseMid, "Doctor Portal",       "Clinical dashboards, patient queues, and AI-flagged alerts."],
+    [<Icons.shield/>,      T.amber,   "Auth0 Security",      "Enterprise-grade authentication. HIPAA-aligned. SOC 2 Type II."],
+    [<Icons.heartbeat/>,   T.vital,   "Live Vitals",         "Real-time health monitoring integrated across all portals."],
+  ];
+
+  return (
+    <div ref={scrollRef} style={{ position:"fixed", inset:0, overflowY:"auto", background:T.bg }}>
+
+      {/* ── Sticky Nav ── */}
+      <div style={{ position:"sticky", top:0, zIndex:100, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 48px", height:66, background: scrolled ? "rgba(248,240,232,.97)" : "rgba(248,240,232,.6)", backdropFilter:"blur(20px)", borderBottom:`1px solid ${scrolled ? T.border : "transparent"}`, transition:"all .3s ease" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:11 }}>
+          <div style={{ width:36, height:36, borderRadius:10, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, animation:"breathe 3s ease-in-out infinite" }}>
+            <Icons.cross/>
+          </div>
+          <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:20, color:T.ink, letterSpacing:"-0.03em" }}>Sanctii</span>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:24 }}>
+          {["Features","Hospitals","Presage AI"].map(l=>(
+            <span key={l} style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, cursor:"pointer", transition:"color .2s" }}
+              onMouseEnter={e=>{ e.target.style.color=T.rose; }} onMouseLeave={e=>{ e.target.style.color=T.inkFaint; }}>{l}</span>
+          ))}
+          <div style={{ width:1, height:20, background:T.border }}/>
+          <button className="btn-ghost" onClick={()=>navigate("/login")} style={{ fontSize:12, padding:"8px 18px" }}>Sign In</button>
+          <button className="btn-primary" onClick={()=>navigate("/login")} style={{ fontSize:12, padding:"9px 22px" }}>Get Started →</button>
+        </div>
+      </div>
+
+      {/* ── HERO (full viewport, split) ── */}
+      <section style={{ height:"calc(100vh - 66px)", display:"flex", position:"relative", overflow:"hidden" }}>
+
+        {/* Background orbs behind hero */}
+        <div style={{ position:"absolute", inset:0, pointerEvents:"none", zIndex:0 }}>
+          <div style={{ position:"absolute", top:"-10%", right:"35%", width:500, height:500, borderRadius:"50%", background:`radial-gradient(circle,${T.rosePale}30 0%,transparent 70%)` }}/>
+          <div style={{ position:"absolute", bottom:"-15%", left:"5%", width:400, height:400, borderRadius:"50%", background:`radial-gradient(circle,rgba(91,170,138,.1) 0%,transparent 65%)` }}/>
+        </div>
+
+        {/* ── LEFT: Text & CTAs ── */}
+        <div style={{ flex:"0 0 48%", display:"flex", flexDirection:"column", justifyContent:"center", padding:"0 56px 0 60px", position:"relative", zIndex:2 }}>
+
+          {/* Badge */}
+          <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"6px 14px", borderRadius:100, background:`${T.rose}12`, border:`1px solid ${T.rose}35`, marginBottom:26, width:"fit-content", animation:"fadeUp .4s ease" }}>
+            <div style={{ width:6, height:6, borderRadius:"50%", background:T.vital, animation:"pulse 1.5s ease infinite" }}/>
+            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.16em", textTransform:"uppercase" }}>Powered by Claude AI · Presage Engine</span>
+          </div>
+
+          {/* Headline */}
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:"clamp(36px,4.2vw,62px)", color:T.ink, letterSpacing:"-0.04em", lineHeight:1.06, marginBottom:16, animation:"fadeUp .5s ease" }}>
+            Healthcare,<br/>intelligently<br/>
+            <span style={{ background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>before you arrive.</span>
+          </div>
+
+          {/* Subhead */}
+          <div style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic", fontSize:"clamp(14px,1.4vw,18px)", color:T.inkFaint, lineHeight:1.75, marginBottom:36, maxWidth:420, animation:"fadeUp .6s ease" }}>
+            Sanctii connects patients, doctors, and hospitals through AI-powered triage, real-time routing, and seamless scheduling.
+          </div>
+
+          {/* CTAs */}
+          <div style={{ display:"flex", gap:12, marginBottom:44, animation:"fadeUp .7s ease" }}>
+            <button className="btn-primary" onClick={()=>navigate("/login")} style={{ fontSize:14, padding:"13px 32px" }}>
+              Start Now →
+            </button>
+            <button className="btn-ghost" onClick={()=>navigate("/login")} style={{ fontSize:14, padding:"12px 24px" }}>
+              Sign In
+            </button>
+          </div>
+
+          {/* Live vitals */}
+          <div style={{ display:"flex", gap:10, flexWrap:"wrap", animation:"fadeUp .8s ease" }}>
+            {[["♥","72 bpm",T.vital],["⚡","98% SpO₂",T.rose],["🌡","36.6°C",T.amber],["🛏","12 beds",T.vital]].map(([ic,v,c])=>(
+              <div key={v} style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 12px", borderRadius:100, background:T.surfaceHard, border:`1px solid ${T.border}`, boxShadow:"0 1px 8px rgba(160,80,80,.06)" }}>
+                <span style={{ fontSize:11 }}>{ic}</span>
+                <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:c, letterSpacing:"0.04em" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Scroll hint */}
+          <div style={{ position:"absolute", bottom:28, left:60, display:"flex", alignItems:"center", gap:8, opacity:.5 }}>
+            <div style={{ width:1, height:28, background:T.border }}/>
+            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.inkFaint, letterSpacing:"0.18em", textTransform:"uppercase" }}>Scroll to explore</span>
+          </div>
+        </div>
+
+        {/* ── RIGHT: 3D Hologram ── */}
+        <div style={{ flex:1, position:"relative", overflow:"hidden" }}>
+          {/* Dark gradient so hologram pops */}
+          <div style={{ position:"absolute", inset:0, background:`linear-gradient(135deg,rgba(20,8,8,.82) 0%,rgba(10,22,18,.78) 100%)`, zIndex:1 }}/>
+
+          {/* Subtle grid overlay */}
+          <div style={{ position:"absolute", inset:0, zIndex:2, pointerEvents:"none", backgroundImage:`linear-gradient(${T.vital}08 1px,transparent 1px),linear-gradient(90deg,${T.vital}08 1px,transparent 1px)`, backgroundSize:"32px 32px" }}/>
+
+          {/* Corner brackets */}
+          {[["0","0","borderTop","borderLeft"],["0","auto","borderTop","borderRight"],["auto","0","borderBottom","borderLeft"],["auto","auto","borderBottom","borderRight"]].map(([t,r,b1,b2],i)=>(
+            <div key={i} style={{ position:"absolute", top:t, right:r, bottom:i>1?0:"auto", left:i%2===0?0:"auto", width:28, height:28, [b1]:`1.5px solid ${T.vital}`, [b2]:`1.5px solid ${T.vital}`, opacity:.4, zIndex:3, margin:20 }}/>
+          ))}
+
+          {/* HUD overlay top-right */}
+          <div style={{ position:"absolute", top:20, right:20, zIndex:4, display:"flex", flexDirection:"column", gap:6 }}>
+            <div style={{ padding:"5px 10px", background:"rgba(0,0,0,.5)", borderRadius:6, border:`1px solid ${T.vital}30`, backdropFilter:"blur(8px)" }}>
+              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.vital, letterSpacing:"0.14em", textTransform:"uppercase" }}>◉ Hologram Active</span>
+            </div>
+            <div style={{ padding:"5px 10px", background:"rgba(0,0,0,.5)", borderRadius:6, border:`1px solid ${T.rose}30`, backdropFilter:"blur(8px)" }}>
+              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.rose, letterSpacing:"0.14em", textTransform:"uppercase" }}>Drag · Scroll · Interact</span>
+            </div>
+          </div>
+
+          {/* HUD bottom-left */}
+          <div style={{ position:"absolute", bottom:20, left:20, zIndex:4 }}>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:"rgba(91,170,138,.5)", letterSpacing:"0.12em", textTransform:"uppercase", lineHeight:2 }}>
+              Sanctii General Hospital<br/>
+              St. Michael's · Toronto, ON<br/>
+              <span style={{ color:T.vital }}>12 beds available</span>
+            </div>
+          </div>
+
+          {/* Three.js canvas */}
+          <div style={{ position:"absolute", inset:0, zIndex:3 }}>
+            <HospitalHologram/>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FEATURES SECTION ── */}
+      <section style={{ padding:"80px 60px 60px", position:"relative" }}>
+        <BgOrbs/>
+        <EcgStrip bottom={0} opacity={.05}/>
+
+        <div style={{ textAlign:"center", marginBottom:48, position:"relative", zIndex:1 }}>
+          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.18em", textTransform:"uppercase", color:T.inkFaint, marginBottom:12 }}>Platform Capabilities</div>
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:"clamp(28px,3vw,42px)", color:T.ink, letterSpacing:"-0.03em" }}>
+            Everything you need,<br/>
+            <span style={{ background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>in one intelligent platform.</span>
+          </div>
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:16, maxWidth:1100, margin:"0 auto", position:"relative", zIndex:1 }}>
+          {FEATURES.map(([ic,c,title,desc],i)=>(
+            <div key={i} className="glass-hard"
+              style={{ padding:"26px 22px", textAlign:"left", animation:`fadeUp .5s ease ${.05+i*.07}s both`, opacity:0, cursor:"default", transition:"all .2s ease" }}
+              onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-4px)"; e.currentTarget.style.boxShadow=`0 12px 32px ${c}22`; e.currentTarget.style.borderColor=`${c}40`; }}
+              onMouseLeave={e=>{ e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="0 2px 12px rgba(160,80,80,.05)"; e.currentTarget.style.borderColor=T.border; }}
+            >
+              <div style={{ width:42, height:42, borderRadius:12, background:`${c}18`, display:"flex", alignItems:"center", justifyContent:"center", color:c, marginBottom:14, border:`1px solid ${c}30` }}>{ic}</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink, marginBottom:6 }}>{title}</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint, lineHeight:1.7 }}>{desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── STATS BAND ── */}
+      <section style={{ padding:"40px 60px", borderTop:`1px solid ${T.border}`, borderBottom:`1px solid ${T.border}`, background:T.surfaceHard, position:"relative", zIndex:1 }}>
+        <div style={{ display:"flex", justifyContent:"center", gap:0, maxWidth:900, margin:"0 auto", flexWrap:"wrap" }}>
+          {[["98%","Triage Accuracy"],["< 2s","AI Response"],["4 Cities","Active Hospitals"],["SOC 2","Type II Certified"]].map(([val,lbl],i)=>(
+            <div key={i} style={{ flex:"1 1 180px", textAlign:"center", padding:"16px 24px", borderRight:i<3?`1px solid ${T.border}`:"none" }}>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:32, color:T.rose, letterSpacing:"-0.03em" }}>{val}</div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.14em", textTransform:"uppercase", marginTop:4 }}>{lbl}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── CTA BAND ── */}
+      <section style={{ padding:"72px 60px", textAlign:"center", position:"relative" }}>
+        <div style={{ position:"absolute", inset:0, background:`radial-gradient(ellipse at center,${T.rosePale}20 0%,transparent 70%)`, pointerEvents:"none" }}/>
+        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:"clamp(26px,3vw,40px)", color:T.ink, letterSpacing:"-0.03em", marginBottom:10, position:"relative", zIndex:1 }}>
+          Ready to transform your<br/>healthcare experience?
+        </div>
+        <div style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic", fontSize:16, color:T.inkFaint, marginBottom:32, position:"relative", zIndex:1 }}>
+          Join Sanctii today — no setup required.
+        </div>
+        <button className="btn-primary" onClick={()=>navigate("/login")} style={{ fontSize:15, padding:"14px 40px", position:"relative", zIndex:1 }}>
+          Create Your Account →
+        </button>
+      </section>
+
+      {/* ── Footer ── */}
+      <div style={{ borderTop:`1px solid ${T.border}`, padding:"24px 60px", display:"flex", alignItems:"center", justifyContent:"space-between", background:T.surfaceHard }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:28, height:28, borderRadius:8, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white }}><Icons.cross/></div>
+          <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.inkMid }}>Sanctii</span>
+        </div>
+        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase", textAlign:"center" }}>
+          Secured by Auth0 · HIPAA-aligned · SOC 2 Type II · © 2026 Sanctii Health Technologies
+        </div>
+        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.inkFaint, letterSpacing:"0.1em" }}>v1.0.0</div>
+      </div>
+
+    </div>
+  );
+}
+
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const { isLoading } = useAuth0();
@@ -835,6 +1413,9 @@ export default function App() {
         <Route path="/login" element={<LoginPage/>}/>
 
         {/* Protected routes — require Auth0 authentication */}
+        <Route path="/role" element={
+          <ProtectedRoute><RoleSelectionPage/></ProtectedRoute>
+        }/>
         <Route path="/app" element={
           <ProtectedRoute><MazePage/></ProtectedRoute>
         }/>
