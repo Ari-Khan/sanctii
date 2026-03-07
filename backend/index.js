@@ -16,15 +16,36 @@ console.log("Checking MONGO_URI in main:", !!process.env.MONGO_URI);
 app.use(cors({ origin: "http://localhost:5176", credentials: true }));
 app.use(express.json());
 
-mongoose
-  .connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log("Mongo connected"))
-  .catch((err) => {
-    console.error("Mongo connection error:", err);
-    process.exit(1);
-  });
+// Optional Mongo connection
+if (process.env.MONGO_URI) {
+  mongoose
+    .connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log("Mongo connected"))
+    .catch((err) => {
+      console.error("Mongo connection error:", err);
+    });
+} else {
+  console.log("No MONGO_URI provided, skipping MongoDB connection");
+}
 
 app.use("/api/users", users);
+
+app.get("/api/distances", async (req, res) => {
+  const { origins, destinations } = req.query;
+  if (!origins || !destinations) {
+    return res.status(400).json({ error: "Missing origins or destinations" });
+  }
+  try {
+    const apiKey = "AIzaSyCKqQCSCZoUCMSTkN1hzYOWm44bwClhDsE";
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origins)}&destinations=${encodeURIComponent(destinations)}&units=metric&key=${apiKey}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("Error fetching distances:", error);
+    res.status(500).json({ error: "Failed to fetch distances" });
+  }
+});
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => console.log(`Server listening on ${port}`));
