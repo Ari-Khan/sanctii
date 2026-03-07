@@ -1,6 +1,42 @@
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { T, Icons } from "../theme";
 import HospitalHologram from "./Hologram";
+
+// small helper component for live vitals shown on landing
+function LiveVitalsDisplay() {
+  const [pulse, setPulse] = useState("--");
+  const [resp, setResp] = useState("--");
+
+  useEffect(() => {
+    const tick = () => {
+      // occasionally drop to '--'
+      const down = Math.random() < 0.1;
+      setPulse(down ? "--" : 80 + Math.round((Math.random() - 0.5) * 10));
+      setResp(down ? "--" : 15 + Math.round((Math.random() - 0.5) * 4));
+    };
+    tick();
+    const id = setInterval(tick, 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  const items = [
+    ["♥", pulse === "--" ? "--" : `${pulse} bpm`, T.vital],
+    ["💨", resp === "--" ? "--" : `${resp} rpm`, T.vital],
+    ["🛏", "12 beds", T.vital]
+  ];
+
+  return (
+    <div style={{ display:"flex", gap:10, flexWrap:"wrap", animation:"fadeUp .8s ease" }}>
+      {items.map(([ic,v,c])=>(
+        <div key={v} style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 12px", borderRadius:100, background:T.surfaceHard, border:`1px solid ${T.border}`, boxShadow:"0 1px 8px rgba(160,80,80,.06)" }}>
+          <span style={{ fontSize:11 }}>{ic}</span>
+          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:c, letterSpacing:"0.04em" }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function HeroSection() {
   const navigate = useNavigate();
@@ -44,15 +80,8 @@ export function HeroSection() {
           </button>
         </div>
 
-        {/* Live vitals */}
-        <div style={{ display:"flex", gap:10, flexWrap:"wrap", animation:"fadeUp .8s ease" }}>
-          {[["♥","72 bpm",T.vital],["⚡","98% SpO₂",T.rose],["🌡","36.6°C",T.amber],["🛏","12 beds",T.vital]].map(([ic,v,c])=>(
-            <div key={v} style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 12px", borderRadius:100, background:T.surfaceHard, border:`1px solid ${T.border}`, boxShadow:"0 1px 8px rgba(160,80,80,.06)" }}>
-              <span style={{ fontSize:11 }}>{ic}</span>
-              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:c, letterSpacing:"0.04em" }}>{v}</span>
-            </div>
-          ))}
-        </div>
+        {/* Live vitals (dynamic sim for landing page) */}
+        <LiveVitalsDisplay />
 
         {/* Scroll hint */}
         <div style={{ position:"absolute", bottom:28, left:60, display:"flex", alignItems:"center", gap:8, opacity:.5 }}>

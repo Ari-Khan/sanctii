@@ -698,7 +698,7 @@ function PatientPage() {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         <Stat label="Next Appointment" value="Mar 12" sub="09:30 AM" color={T.rose}/>
         <Stat label="Active Scripts" value="3" color={T.roseMid}/>
-        <Stat label="Last Visit" value="Feb 18" sub="Dr. Sharma"/>
+        <Stat label="Last Visit" value="Feb 18" sub="Dr. Roberts"/>
         <Stat label="Health Score" value="87" sub="Excellent" color={T.vital}/>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1.6fr 1fr", gap:16 }}>
@@ -726,7 +726,7 @@ function PatientPage() {
           </Card>
           <Card>
             <SHead>Recent Activity</SHead>
-            {[{date:"Feb 18",event:"General Checkup",doctor:"Dr. Sharma",type:"visit"},{date:"Feb 02",event:"Blood Work Results",doctor:"Lab Dept.",type:"lab"},{date:"Jan 29",event:"Prescription Renewed",doctor:"Dr. Sharma",type:"rx"},{date:"Jan 15",event:"Chest X-Ray",doctor:"Radiology",type:"imaging"}].map((item,i)=>{
+            {[{date:"Feb 18",event:"General Checkup",doctor:"Dr. Roberts",type:"visit"},{date:"Feb 02",event:"Blood Work Results",doctor:"Lab Dept.",type:"lab"},{date:"Jan 29",event:"Prescription Renewed",doctor:"Dr. Roberts",type:"rx"},{date:"Jan 15",event:"Chest X-Ray",doctor:"Radiology",type:"imaging"}].map((item,i)=>{
               const c={visit:T.vital,lab:T.rose,rx:T.amber,imaging:"#6B8FDF"}[item.type];
               return (
                 <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"9px 0", borderBottom:i<3?`1px solid ${T.border}`:"none" }}>
@@ -780,7 +780,7 @@ function PatientPage() {
 function DoctorPage() {
   const navigate = useNavigate();
   return (
-    <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Sharma">
+    <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Roberts">
       <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
         <button
           className="btn-primary"
@@ -956,7 +956,7 @@ function SchedulePage() {
         <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
           <Card accent={T.rose}>
             <SHead>Upcoming</SHead>
-            {[["Mar 12","09:30","Dr. Sharma","Cardiology",T.rose],["Mar 18","14:00","Dr. Patel","Lab Work",T.vital]].map(([date,time,dr,dept,c],i)=>(
+            {[["Mar 12","09:30","Dr. Roberts","Cardiology",T.rose],["Mar 18","14:00","Dr. Patel","Lab Work",T.vital]].map(([date,time,dr,dept,c],i)=>(
               <div key={i} style={{ padding:"11px 13px", marginBottom:8, borderRadius:9, background:`${c}08`, border:`1px solid ${c}28` }}>
                 <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:c }}>{date} · {time}</div>
                 <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, marginTop:1 }}>{dr} — {dept}</div>

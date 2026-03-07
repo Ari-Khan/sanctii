@@ -1,5 +1,19 @@
 # Sanctii
 
+> ⚠️ **Environment variables required**:
+> 
+> * `GEMINI_API_KEY` – Google Gemini/GenAI key used by backend routes.
+> * `VITE_API_BASE` (optional) – URL of backend when running the frontend (`http://localhost:3001` by default). If you use a proxy or different host, set this in `.env` at the project root.
+>
+> ## Running both servers together
+> Install the new dependency by running `npm install` in the project root (it adds `concurrently`).
+> After that you can launch both backend and frontend with a single command:
+> ```sh
+> npm run start:all
+> ```
+> This spins up `node backend/index.js` and `npm run dev` side‑by‑side. Before starting it will also try to kill any processes listening on ports `3001`, `5173`, or `5176` so stale servers don’t conflict.
+
+
 React + Vite app with Auth0 (doctor/patient sign-in).
 
 ## Auth0 – production vs development
