@@ -1266,7 +1266,8 @@ function NyghFloorPlan({ floors = NYGH_FLOORS }) {
 
 // ─── FLOOR PLAN PDF UPLOADER ──────────────────────────────────────────────────
 async function extractPdfText(file) {
-  const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
+  // use legacy mjs build import that works with Vite resolver
+  const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
   pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
@@ -1629,6 +1630,9 @@ function DoctorPage() {
   const [hospitalFloors, setHospitalFloors] = useState(NYGH_FLOORS);
   const [floorKey,       setFloorKey]       = useState(0);
   const [feedback,       setFeedback]       = useState([]);
+  const [incidents,      setIncidents]      = useState([]);
+  const [notifVisible,   setNotifVisible]   = useState(false);
+  const notifCountRef = useRef(0);
   const [searchDoctor,   setSearchDoctor]   = useState("");
   const [searchPatient,  setSearchPatient]  = useState("");
   const [filterSev,      setFilterSev]      = useState(0); // 0 = all
@@ -1638,11 +1642,45 @@ function DoctorPage() {
   useEffect(() => {
     fetch("http://localhost:3001/api/feedback")
       .then(r => r.json()).then(data => setFeedback(data)).catch(console.error);
+
+    // incident polling
+    const fetchInc = async () => {
+      try {
+        const res = await fetch("http://localhost:3001/api/incidents");
+        if (res.ok) {
+          const data = await res.json();
+          setIncidents(data);
+        }
+      } catch (e) { console.error("incidents fetch", e); }
+    };
+    fetchInc();
+    const iv = setInterval(fetchInc, 8000);
+    return () => clearInterval(iv);
   }, []);
+
+  // show notification when new incident arrives
+  useEffect(() => {
+    if (incidents.length > notifCountRef.current) {
+      setNotifVisible(true);
+      notifCountRef.current = incidents.length;
+      setTimeout(() => setNotifVisible(false), 5000);
+    }
+  }, [incidents]);
 
   const filteredFeedback = feedback.filter(f => searchDoctor === "" || f.doctorName.toLowerCase().includes(searchDoctor.toLowerCase()));
 
-  const filteredPatients = PATIENTS
+  // choose source list depending on tab; on patients tab show incidents only
+  const patientSource = tab === "patients" ? incidents.map(i => ({
+    id: i.patient.email || i.patient.name || i._id,
+    name: i.patient.name || "Unknown",
+    sev: i.category === "emergency" ? 5 : 4,
+    notes: i.message,
+    diagnosis: "",
+    room: "",
+    status: "",
+  })) : PATIENTS;
+
+  const filteredPatients = patientSource
     .filter(p => filterSev === 0 || p.sev === filterSev)
     .filter(p => searchPatient === "" || p.name.toLowerCase().includes(searchPatient.toLowerCase()) || p.id.includes(searchPatient))
     .sort((a, b) => b.sev - a.sev);
@@ -1654,6 +1692,11 @@ function DoctorPage() {
   return (
     <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Sharma">
       {/* Top nav */}
+      {notifVisible && (
+        <div style={{ position:"fixed", top:80, right:20, padding:"12px 20px", background:T.rose, color:T.white, borderRadius:8, boxShadow:"0 4px 12px rgba(0,0,0,.2)", zIndex:200 }}>
+          New incident recorded
+        </div>
+      )}
       <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
         {TAB_BTN("floorplan","🏥 Floor Plan")}
         {TAB_BTN("patients","🧑‍⚕️ Patient Info")}
@@ -1676,7 +1719,7 @@ function DoctorPage() {
         <>
           {/* Stats */}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:18 }}>
-            <Stat label="Today's Patients" value={PATIENTS.length} color={T.rose}/>
+            <Stat label="Incidents" value={patientSource.length} color={T.rose}/>
             <Stat label="Critical / Urgent" value={PATIENTS.filter(p=>p.sev>=4).length} color={T.roseDeep}/>
             <Stat label="In Treatment" value={PATIENTS.filter(p=>p.status==="In Treatment").length} color={T.amber}/>
             <Stat label="Discharged Today" value={PATIENTS.filter(p=>p.status==="Discharged").length} color={T.vital}/>

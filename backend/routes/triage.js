@@ -1,7 +1,17 @@
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
+import mongoose from "mongoose";
 
 const router = express.Router();
+
+// define triage record schema
+const triageSchema = new mongoose.Schema({
+  category: String,
+  message: String,
+  patient: mongoose.Schema.Types.Mixed,
+  timestamp: { type: Date, default: Date.now }
+});
+const TriageRecord = mongoose.models.TriageRecord || mongoose.model("TriageRecord", triageSchema);
 
 // POST /api/triage
 // Body: { narrative: "..." }
@@ -73,6 +83,23 @@ Please provide a rating of either EMERGENCY, URGENT, or ROUTINE, along with a co
       if ((result.startsWith('"') && result.endsWith('"')) ||
           (result.startsWith("'") && result.endsWith("'"))) {
         result = result.slice(1, -1);
+      }
+    }
+
+    // if urgency is high enough, persist to database
+    if (result && typeof result === "object" && result.category) {
+      const cat = String(result.category).toLowerCase();
+      if (cat === "urgent" || cat === "emergency") {
+        try {
+          const rec = new TriageRecord({
+            category: cat,
+            message: result.explanation || result.message || result,
+            patient: req.body.patient || {},
+          });
+          await rec.save();
+        } catch (saveErr) {
+          console.error("Failed to save triage record", saveErr);
+        }
       }
     }
 

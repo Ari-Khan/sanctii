@@ -1,5 +1,26 @@
 import { useRef, useEffect, useState } from "react";
-import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
+
+// simple loader that injects Google Maps script if it isn't already present
+function loadGoogleMaps(apiKey) {
+  if (window.google && window.google.maps) return Promise.resolve(window.google.maps);
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-google-maps]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.google.maps));
+      existing.addEventListener('error', reject);
+      return;
+    }
+    const script = document.createElement('script');
+    script.setAttribute('data-google-maps','loaded');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&libraries=places,geometry`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve(window.google.maps);
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+// we'll load Google Maps API via script tag instead of the npm loader
 
 /**
  * HospitalMap3D — Google Maps 3D interactive hospital map.
@@ -47,9 +68,8 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
       return;
     }
 
-    // Set options once
+    // load maps script
     if (!optionsSet) {
-      setOptions({ apiKey: resolvedApiKey, version: "weekly" });
       optionsSet = true;
     }
 
@@ -57,10 +77,14 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
 
     async function initMap() {
       try {
-        const { Map } = await importLibrary("maps");
-        await importLibrary("routes");
-
+        await loadGoogleMaps(resolvedApiKey);
         if (cancelled || !containerRef.current) return;
+        const { Map } = window.google.maps;
+
+        // already routes library included via script parameter if needed
+
+        const center = getCenter();
+        const map = new Map(containerRef.current, {
 
         const center = getCenter();
         const map = new Map(containerRef.current, {

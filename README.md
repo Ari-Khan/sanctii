@@ -13,6 +13,15 @@
 > ```
 > This spins up `node backend/index.js` and `npm run dev` side‑by‑side. Before starting it will also try to kill any processes listening on ports `3001`, `5173`, or `5176` so stale servers don’t conflict.
 
+## Triage persistence
+> When a clinical triage request returns **urgent** or **emergency** severity the backend saves a record in MongoDB with the following fields:
+> * `category`: lowered severity string
+> * `message`: explanation returned by Gemini
+> * `patient`: object passed from the front‑end (currently includes Auth0 user name/email)
+> * `timestamp`: automatic
+>
+> The front‑end includes the logged‑in user's name and email in the request; additional patient data can be added to the `patient` object in the POST body as needed.
+
 
 React + Vite app with Auth0 (doctor/patient sign-in).
 

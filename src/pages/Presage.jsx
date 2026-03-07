@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
 import { Icons } from "../theme";
 import { Card } from "../components/SharedUI";
 
@@ -20,6 +21,7 @@ function SHead({ children }) {
 
 export default function PresagePage({ PageWrap }) {
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001"; // backend address
+  const { user } = useAuth0();
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -141,7 +143,10 @@ export default function PresagePage({ PageWrap }) {
                     const res = await fetch(`${API_BASE}/api/triage`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ narrative: input.trim() }),
+                      body: JSON.stringify({
+                        narrative: input.trim(),
+                        patient: user ? { name: user.name, email: user.email } : {},
+                      }),
                     });
                     const data = await res.json();
                     setTriageResult(data.result || data);

@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import users from "./routes/users.js";
 import healthcard from "./routes/healthcard.js";
 import triage from "./routes/triage.js";
+import incidents from "./routes/incidents.js";
 import feedback from "./routes/feedback.js";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -70,6 +71,7 @@ app.post("/api/vitals/update", async (req, res) => {
 app.use("/api/users", users);
 app.use("/api/healthcard", healthcard);
 app.use("/api/triage", triage);
+app.use("/api/incidents", incidents);
 app.use("/api/feedback", feedback);
 
 app.get("/api/distances", async (req, res) => {
