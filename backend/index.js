@@ -38,7 +38,10 @@ app.get("/api/distances", async (req, res) => {
     return res.status(400).json({ error: "Missing origins or destinations" });
   }
   try {
-    const apiKey = "AIzaSyCKqQCSCZoUCMSTkN1hzYOWm44bwClhDsE";
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "Google Maps API key not configured" });
+    }
     const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origins)}&destinations=${encodeURIComponent(destinations)}&units=metric&key=${apiKey}`;
     const response = await fetch(url);
     const data = await response.json();
