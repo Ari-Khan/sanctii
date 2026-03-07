@@ -224,9 +224,8 @@ function MazeUI({ onNavigate }) {
         <div style={{ fontFamily: "'Fraunces', serif", fontSize: 13, fontStyle: "italic", color: T.muted, letterSpacing: "0.1em" }}>
           medical intelligence platform
         </div>
-        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 300, color: T.redText, letterSpacing: "0.05em", display: 'flex', alignItems: 'center' }}>
+        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 300, color: T.redText, letterSpacing: "0.05em" }}>
           Sanctii
-          <img src="/heart.svg" alt="heart icon" style={{ width: 24, height: 24, marginLeft: 8 }} />
         </div>
       </div>
 
