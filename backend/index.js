@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import users from "./routes/users.js";
+import healthcard from "./routes/healthcard.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -13,8 +14,8 @@ const app = express();
 
 console.log("Checking MONGO_URI in main:", !!process.env.MONGO_URI);
 
-app.use(cors({ origin: "http://localhost:5176", credentials: true }));
-app.use(express.json());
+app.use(cors({ origin: ["http://localhost:5176", "http://localhost:5173", "http://localhost:3000"], credentials: true }));
+app.use(express.json({ limit: "20mb" }));
 
 // Optional Mongo connection
 if (process.env.MONGO_URI) {
@@ -29,6 +30,7 @@ if (process.env.MONGO_URI) {
 }
 
 app.use("/api/users", users);
+app.use("/api/healthcard", healthcard);
 
 app.get("/api/distances", async (req, res) => {
   const { origins, destinations } = req.query;
