@@ -1722,56 +1722,97 @@ function ApptCard({ appt, onDragStart }) {
   );
 }
 
-// Grid card — absolutely positioned, height driven by duration
-function GridCard({ appt, onDragStart, onRemove, onChangeDur }) {
-  const slotHeight = SLOT_H; // px per 30 min
-  const cardH      = (appt.dur / 30) * slotHeight - 4;
-  const fmtTime    = (h, m) => `${String(h).padStart(2,"0")}:${m===0?"00":"30"}`;
-  const endMin     = appt.hour * 60 + appt.min + appt.dur;
-  const endH       = Math.floor(endMin / 60);
-  const endM       = endMin % 60;
+// Grid card — absolutely positioned, height driven by duration, bottom-edge drag-resizable
+function GridCard({ appt, onDragStart, onRemove, onSetDur }) {
+  const [tempDur,    setTempDur]    = useState(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef({ startY:0, startDur:0, latest:appt.dur });
+
+  const activeDur = tempDur ?? appt.dur;
+  const cardH     = (activeDur / 30) * SLOT_H - 4;
+  const fmtTime   = (h, m) => `${String(h).padStart(2,"0")}:${m===0?"00":"30"}`;
+  const endMin    = appt.hour * 60 + appt.min + activeDur;
+  const endH      = Math.floor(endMin / 60);
+  const endM      = endMin % 60;
+
+  const onResizeDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = { startY: e.clientY, startDur: appt.dur, latest: appt.dur };
+    setIsResizing(true);
+
+    const onMove = (ev) => {
+      const deltaPx    = ev.clientY - resizeRef.current.startY;
+      const deltaSlots = Math.round(deltaPx / SLOT_H);
+      const newDur     = Math.max(30, resizeRef.current.startDur + deltaSlots * 30);
+      resizeRef.current.latest = newDur;
+      setTempDur(newDur);
+    };
+
+    const onUp = () => {
+      onSetDur(appt.id, resizeRef.current.latest);
+      setTempDur(null);
+      setIsResizing(false);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup",   onUp);
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup",   onUp);
+  };
 
   return (
     <div
-      draggable
-      onDragStart={e => onDragStart(e, appt.id)}
+      draggable={!isResizing}
+      onDragStart={e => { if (!isResizing) onDragStart(e, appt.id); }}
       style={{
         position:"absolute", top:2, left:2, right:2,
         height: cardH,
         borderRadius:8,
         background:`${appt.color}20`,
-        border:`1.5px solid ${appt.color}66`,
-        cursor:"grab",
+        border:`1.5px solid ${appt.color}${isResizing?"aa":"66"}`,
+        cursor: isResizing ? "ns-resize" : "grab",
         userSelect:"none",
-        zIndex:2,
+        zIndex: isResizing ? 10 : 2,
         display:"flex",
         flexDirection:"column",
-        padding:"5px 7px",
+        padding:"5px 7px 2px",
         overflow:"hidden",
         boxSizing:"border-box",
+        boxShadow: isResizing ? `0 4px 18px ${appt.color}44` : "none",
+        transition: isResizing ? "none" : "box-shadow .15s",
       }}
-      onMouseEnter={e=>e.currentTarget.style.boxShadow=`0 2px 12px ${appt.color}33`}
-      onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}
+      onMouseEnter={e=>{ if(!isResizing) e.currentTarget.style.boxShadow=`0 2px 12px ${appt.color}33`; }}
+      onMouseLeave={e=>{ if(!isResizing) e.currentTarget.style.boxShadow="none"; }}
     >
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:4 }}>
         <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:10, color:appt.color, lineHeight:1.2, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{appt.patient}</div>
-        <button onClick={e=>{e.stopPropagation();onRemove(appt.id);}} style={{ background:"none", border:"none", cursor:"pointer", fontSize:9, color:T.inkFaint, padding:0, lineHeight:1, flexShrink:0 }}>✕</button>
+        <button onClick={e=>{e.stopPropagation();onRemove(appt.id);}}
+          style={{ background:"none", border:"none", cursor:"pointer", fontSize:9, color:T.inkFaint, padding:0, lineHeight:1, flexShrink:0 }}>✕</button>
       </div>
-      {cardH > 28 && <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:9, color:T.inkMid, marginTop:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{appt.type}</div>}
-      {cardH > 44 && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7.5, color:T.inkFaint, marginTop:2, letterSpacing:"0.04em" }}>{appt.doctor}</div>}
-      {cardH > 30 && (
-        <div style={{ marginTop:"auto", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7.5, color:appt.color, letterSpacing:"0.04em" }}>
-            {fmtTime(appt.hour,appt.min)} – {fmtTime(endH,endM)} · {appt.dur}min
-          </span>
-          <div style={{ display:"flex", gap:2 }}>
-            <button onClick={e=>{e.stopPropagation();onChangeDur(appt.id,-30);}}
-              style={{ background:`${appt.color}22`, border:`1px solid ${appt.color}44`, borderRadius:4, cursor:"pointer", fontSize:8, color:appt.color, width:16, height:16, display:"flex", alignItems:"center", justifyContent:"center", padding:0, lineHeight:1 }}>−</button>
-            <button onClick={e=>{e.stopPropagation();onChangeDur(appt.id,+30);}}
-              style={{ background:`${appt.color}22`, border:`1px solid ${appt.color}44`, borderRadius:4, cursor:"pointer", fontSize:8, color:appt.color, width:16, height:16, display:"flex", alignItems:"center", justifyContent:"center", padding:0, lineHeight:1 }}>+</button>
-          </div>
+      {cardH > 30 && <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:9, color:T.inkMid, marginTop:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{appt.type}</div>}
+      {cardH > 48 && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7.5, color:T.inkFaint, marginTop:2, letterSpacing:"0.04em" }}>{appt.doctor}</div>}
+      {cardH > 26 && (
+        <div style={{ marginTop:"auto", fontFamily:"'DM Mono',monospace", fontSize:7.5, color:appt.color, letterSpacing:"0.04em", paddingBottom:12 }}>
+          {fmtTime(appt.hour, appt.min)} – {fmtTime(endH, endM)} · {activeDur}min
         </div>
       )}
+
+      {/* ── Resize handle ── */}
+      <div
+        onMouseDown={onResizeDown}
+        title="Drag to resize"
+        style={{
+          position:"absolute", bottom:0, left:0, right:0, height:12,
+          cursor:"ns-resize",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          borderTop:`1px solid ${appt.color}30`,
+          borderBottomLeftRadius:8, borderBottomRightRadius:8,
+          background: isResizing ? `${appt.color}25` : `${appt.color}10`,
+        }}
+      >
+        <div style={{ width:24, height:2.5, borderRadius:2, background:`${appt.color}${isResizing?"99":"44"}` }}/>
+      </div>
     </div>
   );
 }
@@ -1800,8 +1841,8 @@ function SchedulePage() {
     });
   };
 
-  const changeDur = (id, delta) => setAppts(prev => prev.map(a =>
-    a.id === id ? { ...a, dur: Math.max(30, a.dur + delta) } : a
+  const setDur = (id, newDur) => setAppts(prev => prev.map(a =>
+    a.id === id ? { ...a, dur: Math.max(30, newDur) } : a
   ));
 
   const onDragStart = (e, id) => {
@@ -1962,7 +2003,7 @@ function SchedulePage() {
                             appt={startAppt}
                             onDragStart={onDragStart}
                             onRemove={removeAppt}
-                            onChangeDur={changeDur}
+                            onSetDur={setDur}
                           />
                         )}
                       </div>
