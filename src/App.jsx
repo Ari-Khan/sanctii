@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
+import { useNavigate } from "react-router-dom";
+import { getPersistedRole, setPersistedRole } from "./pages/Login";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const T = {
@@ -154,7 +157,7 @@ function makeSVG(keys){
   return d;
 }
 
-function MazeUI({onNavigate}){
+function MazeUI({onNavigate,onSignIn}){
   const[hov,setHov]=useState(null);
   const[path,setPath]=useState([]);
   useEffect(()=>{setPath(hov&&hov!=="center"?bfs("center",hov):[]);},[hov]);
@@ -190,8 +193,8 @@ function MazeUI({onNavigate}){
         </div>
 
         <div style={{display:"flex",gap:10}}>
-          <button className="btn-ghost" onClick={()=>onNavigate("login")} style={{fontSize:12,padding:"8px 20px"}}>Sign In</button>
-          <button className="btn-primary" onClick={()=>onNavigate("login")} style={{fontSize:12,padding:"9px 22px"}}>Get Started →</button>
+          <button className="btn-ghost" onClick={()=>onSignIn?.()} style={{fontSize:12,padding:"8px 20px"}}>Sign In</button>
+          <button className="btn-primary" onClick={()=>onSignIn?.()} style={{fontSize:12,padding:"9px 22px"}}>Get Started →</button>
         </div>
       </div>
 
@@ -270,7 +273,7 @@ function MazeUI({onNavigate}){
 }
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
-function LoginPage({onBack,onLogin}){
+function LoginPage({onBack,onLogin,onAuth0Login}){
   const[mode,setMode]=useState("card");
   const[scanning,setScanning]=useState(false);
   const[scanned,setScanned]=useState(false);
@@ -393,7 +396,7 @@ function LoginPage({onBack,onLogin}){
               <div style={{display:"flex",alignItems:"center",gap:12}}>
                 <div style={{flex:1,height:1,background:T.border}}/><span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.inkFaint,letterSpacing:"0.12em",textTransform:"uppercase"}}>or</span><div style={{flex:1,height:1,background:T.border}}/>
               </div>
-              <button onClick={()=>onLogin(role)} style={{width:"100%",padding:"12px 0",borderRadius:10,border:`1.5px solid ${T.border}`,background:T.surfaceHard,cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontWeight:500,fontSize:13,color:T.ink,display:"flex",alignItems:"center",justifyContent:"center",gap:10,transition:"all .2s"}}
+              <button onClick={()=>onAuth0Login?.()} style={{width:"100%",padding:"12px 0",borderRadius:10,border:`1.5px solid ${T.border}`,background:T.surfaceHard,cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontWeight:500,fontSize:13,color:T.ink,display:"flex",alignItems:"center",justifyContent:"center",gap:10,transition:"all .2s"}}
                 onMouseEnter={e=>{e.currentTarget.style.borderColor=T.rose;}}
                 onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;}}>
                 <div style={{width:20,height:20,borderRadius:"50%",background:T.rose,display:"flex",alignItems:"center",justifyContent:"center",color:T.white,fontSize:11,fontWeight:700}}>A</div>
@@ -900,17 +903,58 @@ function RoomsPage({onBack}){
   );
 }
 
+// ─── ROLE PICKER (after Auth0 sign-in) ────────────────────────────────────────
+function RolePicker({onChoose}){
+  return(
+    <div style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,zIndex:100}}>
+      <BgOrbs/>
+      <div className="glass-hard" style={{padding:40,maxWidth:400,textAlign:"center"}}>
+        <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:24,color:T.ink,marginBottom:8}}>Choose your role</div>
+        <div style={{fontFamily:"'Outfit',sans-serif",fontSize:14,color:T.inkFaint,marginBottom:24}}>Are you a doctor or a patient? This will be saved for future sign-ins.</div>
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <button className="btn-primary" onClick={()=>onChoose("doctor")} style={{width:"100%",padding:"14px"}}>Doctor</button>
+          <button className="btn-ghost" onClick={()=>onChoose("patient")} style={{width:"100%",padding:"14px",borderColor:T.vital,color:T.vital}}>Patient</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ──────────────────────────────────────────────────────────────────────
 export default function App(){
   const[page,setPage]=useState("home");
-  const go=p=>setPage(p);
-  const back=()=>setPage("home");
+  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
+  const navigate = useNavigate();
+  const role = getPersistedRole();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (isAuthenticated && role) {
+      navigate(role === "doctor" ? "/doctor" : "/patient", { replace: true });
+    }
+  }, [isAuthenticated, isLoading, role, navigate]);
+
+  const go = (p) => {
+    if (p === "doctor") { navigate("/doctor"); return; }
+    if (p === "patient") { navigate("/patient"); return; }
+    if (p === "login") { loginWithRedirect({ appState: { returnTo: "/" } }); return; }
+    setPage(p);
+  };
+  const back = () => setPage("home");
+  const handleChooseRole = (chosenRole) => {
+    setPersistedRole(chosenRole);
+    navigate(chosenRole === "doctor" ? "/doctor" : "/patient", { replace: true });
+  };
+
+  if (isLoading) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Outfit',sans-serif",color:T.inkFaint}}>Loading...</div>;
+  if (isAuthenticated && !role) return <><GlobalStyle/><RolePicker onChoose={handleChooseRole}/></>;
+
   return(
     <div style={{width:"100vw",height:"100vh",overflow:"hidden",position:"relative"}}>
       <GlobalStyle/>
       <div style={{position:"fixed",top:"-50%",left:"-50%",width:"200%",height:"200%",backgroundImage:`url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E")`,pointerEvents:"none",zIndex:9999,opacity:.22}}/>
-      {page==="home"&&<MazeUI onNavigate={go}/>}
-      {page==="login"&&<LoginPage onBack={back} onLogin={()=>go("home")}/>}
+      {page==="home"&&<MazeUI onNavigate={go} onSignIn={()=>loginWithRedirect({ appState: { returnTo: "/" } })}/>}
+      {page==="login"&&<LoginPage onBack={back} onLogin={()=>go("home")} onAuth0Login={()=>loginWithRedirect({ appState: { returnTo: "/" } })}/>}
       {page==="patient"&&<PatientPortal onBack={back}/>}
       {page==="doctor"&&<DoctorPortal onBack={back}/>}
       {page==="presage"&&<PresagePage onBack={back}/>}
