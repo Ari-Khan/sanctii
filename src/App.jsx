@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import ProtectedRoute from "./auth/ProtectedRoute";
@@ -8,6 +8,7 @@ import { BgOrbs, EcgStrip, Card } from "./components/SharedUI";
 import HospitalHologram from "./components/Hologram";
 import { getPersistedRole, setPersistedRole } from "./auth/persistedRole";
 import PresagePage from "./pages/Presage";
+import ScannerPage from "./pages/ScannerPage";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const T = {
@@ -684,6 +685,15 @@ function PatientPage() {
         >
           Presage
         </button>
+        <button
+          className="btn-primary"
+          style={{ fontSize:12, padding:"8px 18px", background: "linear-gradient(135deg, #A84040 0%, #6B4040 100%)" }}
+          onClick={()=>navigate("/patient/scanner")}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Icons.card/> Scan Health Card
+          </div>
+        </button>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         <Stat label="Next Appointment" value="Mar 12" sub="09:30 AM" color={T.rose}/>
@@ -1314,6 +1324,9 @@ export default function App() {
         }/>
         <Route path="/presage" element={
           <ProtectedRoute><PresagePage PageWrap={PageWrap} /></ProtectedRoute>
+        }/>
+        <Route path="/patient/scanner" element={
+          <ProtectedRoute><ScannerPage PageWrap={PageWrap} /></ProtectedRoute>
         }/>
         <Route path="/schedule" element={
           <ProtectedRoute><SchedulePage/></ProtectedRoute>
