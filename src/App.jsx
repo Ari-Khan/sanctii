@@ -1369,20 +1369,23 @@ ${pdfText.slice(0, 12000)}`;
 function CapacityEditor({ floors, onSave }) {
   const [expanded,  setExpanded]  = useState(false);
   const [activeTab, setActiveTab] = useState(floors[0]?.id ?? "");
-  // draft holds { [floorId]: { [deptId]: capValue } }
+  // draft holds { [floorId]: { [deptId]: { cur, cap } } }
   const [draft, setDraft] = useState(() => {
     const d = {};
     floors.forEach(f => {
       d[f.id] = {};
-      f.depts.forEach(dept => { d[f.id][dept.id] = dept.cap; });
+      f.depts.forEach(dept => { d[f.id][dept.id] = { cur: dept.cur, cap: dept.cap }; });
     });
     return d;
   });
 
-  const setVal = (fid, did, val) => {
+  const setVal = (fid, did, field, val) => {
     const n = parseInt(val, 10);
     if (isNaN(n) || n < 0) return;
-    setDraft(prev => ({ ...prev, [fid]: { ...prev[fid], [did]: n } }));
+    setDraft(prev => ({
+      ...prev,
+      [fid]: { ...prev[fid], [did]: { ...prev[fid][did], [field]: n } },
+    }));
   };
 
   const apply = () => {
@@ -1390,7 +1393,8 @@ function CapacityEditor({ floors, onSave }) {
       ...f,
       depts: f.depts.map(dept => ({
         ...dept,
-        cap: draft[f.id]?.[dept.id] ?? dept.cap,
+        cur: draft[f.id]?.[dept.id]?.cur ?? dept.cur,
+        cap: draft[f.id]?.[dept.id]?.cap ?? dept.cap,
       })),
     }));
     onSave(updated);
@@ -1404,8 +1408,8 @@ function CapacityEditor({ floors, onSave }) {
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <div style={{ width:32, height:32, borderRadius:9, background:`${T.amber}18`, border:`1.5px solid ${T.amber}45`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15 }}>✏️</div>
           <div>
-            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>Edit Room Capacities</div>
-            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase" }}>Set maximum patients per room · Rebuilds 3D map</div>
+            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>Edit Room Occupancy</div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase" }}>Set current patients &amp; max capacity · Rebuilds 3D map</div>
           </div>
         </div>
         <span style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.inkFaint }}>{expanded ? "▲ hide" : "▼ expand"}</span>
@@ -1423,36 +1427,42 @@ function CapacityEditor({ floors, onSave }) {
             ))}
           </div>
 
-          {/* Room rows */}
-          {activeFloor && (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(220px, 1fr))", gap:8, marginBottom:14 }}>
-              {activeFloor.depts.map(dept => {
-                const capVal = draft[activeTab]?.[dept.id] ?? dept.cap;
-                const occ    = Math.round((dept.cur / capVal) * 100);
-                const col    = occ >= 80 ? T.rose : occ >= 50 ? T.amber : T.vital;
-                return (
-                  <div key={dept.id} style={{ padding:"9px 12px", borderRadius:9, border:`1.5px solid ${col}30`, background:`${col}08`, display:"flex", flexDirection:"column", gap:5 }}>
-                    <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:12, color:T.ink, lineHeight:1.3 }}>{dept.label}</div>
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.inkFaint }}>
-                        {dept.cur} cur · max:
-                      </span>
+          {/* Column headers */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(240px, 1fr))", gap:8, marginBottom:14 }}>
+            {activeFloor && activeFloor.depts.map(dept => {
+              const curVal = draft[activeTab]?.[dept.id]?.cur ?? dept.cur;
+              const capVal = draft[activeTab]?.[dept.id]?.cap ?? dept.cap;
+              const occ    = capVal > 0 ? Math.round((curVal / capVal) * 100) : 0;
+              const col    = occ >= 80 ? T.rose : occ >= 50 ? T.amber : T.vital;
+              return (
+                <div key={dept.id} style={{ padding:"10px 12px", borderRadius:9, border:`1.5px solid ${col}35`, background:`${col}08`, display:"flex", flexDirection:"column", gap:7 }}>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:12, color:T.ink, lineHeight:1.3 }}>{dept.label}</div>
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.06em" }}>CURRENT</div>
                       <input
-                        type="number"
-                        min={1}
-                        value={capVal}
-                        onChange={e => setVal(activeTab, dept.id, e.target.value)}
-                        style={{ width:54, padding:"3px 7px", borderRadius:6, border:`1.5px solid ${col}55`, fontFamily:"'DM Mono',monospace", fontSize:12, fontWeight:700, color:col, background:T.bgDeep, outline:"none", textAlign:"center" }}
+                        type="number" min={0} max={capVal} value={curVal}
+                        onChange={e => setVal(activeTab, dept.id, "cur", e.target.value)}
+                        style={{ width:"100%", padding:"4px 7px", borderRadius:6, border:`1.5px solid ${col}55`, fontFamily:"'DM Mono',monospace", fontSize:13, fontWeight:700, color:col, background:T.bgDeep, outline:"none", textAlign:"center", boxSizing:"border-box" }}
                       />
                     </div>
-                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:col, letterSpacing:"0.06em" }}>
-                      {dept.cur}/{capVal} · {occ}%
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:14, color:T.inkFaint, paddingTop:14 }}>/</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.06em" }}>MAX CAP</div>
+                      <input
+                        type="number" min={1} value={capVal}
+                        onChange={e => setVal(activeTab, dept.id, "cap", e.target.value)}
+                        style={{ width:"100%", padding:"4px 7px", borderRadius:6, border:`1.5px solid ${T.border}`, fontFamily:"'DM Mono',monospace", fontSize:13, fontWeight:700, color:T.inkMid, background:T.bgDeep, outline:"none", textAlign:"center", boxSizing:"border-box" }}
+                      />
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:col, letterSpacing:"0.06em" }}>
+                    {occ}% · {occ >= 80 ? "No beds available" : occ >= 50 ? "Short wait" : "Available"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
           <button className="btn-primary" onClick={apply} style={{ fontSize:12 }}>
             Apply Changes → Rebuild 3D Map
@@ -1612,63 +1622,230 @@ function HackerPage() {
 }
 
 // ─── SCHEDULE (/schedule) ─────────────────────────────────────────────────────
-function SchedulePage() {
-  const [sel, setSel] = useState(12);
-  const slots=["09:00","09:30","10:00","10:30","11:00","11:30","14:00","14:30","15:00","15:30"];
-  const taken=["09:00","10:00","14:30"];
+const APPT_COLORS = [T.rose, T.vital, T.amber, T.roseMid, T.roseDeep];
+const INIT_APPTS = [
+  { id:1,  patient:"Thomas Leclerc",  type:"Emergency Consult",    doctor:"Dr. Sharma", day:0, hour:9,  min:0,  dur:30, color:T.rose },
+  { id:2,  patient:"Maria Santos",    type:"Post-Op Review",       doctor:"Dr. Patel",  day:0, hour:10, min:30, dur:30, color:T.amber },
+  { id:3,  patient:"James Wong",      type:"Cardiology Follow-Up", doctor:"Dr. Sharma", day:1, hour:14, min:0,  dur:60, color:T.vital },
+  { id:4,  patient:"Sarah Kim",       type:"Lab Results Review",   doctor:"Dr. Chen",   day:2, hour:9,  min:0,  dur:30, color:T.vital },
+  { id:5,  patient:"Robert Green",    type:"General Check-Up",     doctor:"Dr. Patel",  day:2, hour:11, min:0,  dur:30, color:T.amber },
+  { id:6,  patient:"Anna Mueller",    type:"Specialist Referral",  doctor:"Dr. Sharma", day:3, hour:13, min:30, dur:30, color:T.roseMid },
+  { id:7,  patient:"David Park",      type:"Blood Work Review",    doctor:"Dr. Chen",   day:4, hour:10, min:0,  dur:30, color:T.rose },
+  // Unscheduled
+  { id:8,  patient:"Priya Mehta",     type:"Neurology Consult",    doctor:"Dr. Sharma", day:null, hour:null, min:null, dur:30, color:T.roseDeep },
+  { id:9,  patient:"Carlos Rivera",   type:"Pre-Op Assessment",    doctor:"Dr. Patel",  day:null, hour:null, min:null, dur:30, color:T.amber },
+  { id:10, patient:"Liu Wei",         type:"Discharge Planning",   doctor:"Dr. Chen",   day:null, hour:null, min:null, dur:30, color:T.vital },
+];
+
+const DAYS_LABEL = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
+const DAYS_SHORT = ["Mon","Tue","Wed","Thu","Fri"];
+const SLOT_H = 38; // px per 30-min row
+const HOURS = Array.from({length:20},(_,i)=>({ h:8+Math.floor(i/2), m:i%2===0?0:30 }));
+
+function ApptCard({ appt, onDragStart, compact=false }) {
+  const fmt = m => m===0?"00":"30";
   return (
-    <PageWrap title="Schedule" icon={<Icons.calendar/>} subtitle="Appointments & availability">
-      <div style={{ display:"grid", gridTemplateColumns:"1.6fr 1fr", gap:18 }}>
-        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-          <Card>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:16, color:T.ink }}>March 2026</div>
-              <div style={{ display:"flex", gap:5 }}>
-                <button className="btn-ghost" style={{ padding:"5px 11px", fontSize:12 }}>‹</button>
-                <button className="btn-ghost" style={{ padding:"5px 11px", fontSize:12 }}>›</button>
-              </div>
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2, marginBottom:6 }}>
-              {["S","M","T","W","T","F","S"].map((d,i)=>(
-                <div key={i} style={{ textAlign:"center", fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint, letterSpacing:"0.1em", paddingBottom:6 }}>{d}</div>
+    <div
+      draggable
+      onDragStart={e => onDragStart(e, appt.id)}
+      style={{
+        padding: compact?"5px 8px":"7px 10px",
+        borderRadius:8,
+        background:`${appt.color}18`,
+        border:`1.5px solid ${appt.color}55`,
+        cursor:"grab",
+        userSelect:"none",
+        marginBottom: compact?4:0,
+        transition:"box-shadow .15s",
+      }}
+      onMouseEnter={e=>e.currentTarget.style.boxShadow=`0 2px 12px ${appt.color}33`}
+      onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}
+    >
+      <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:compact?10:11, color:appt.color, lineHeight:1.2 }}>{appt.patient}</div>
+      <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:compact?9:10, color:T.inkMid, marginTop:1, lineHeight:1.3 }}>{appt.type}</div>
+      {!compact && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginTop:3, letterSpacing:"0.05em" }}>{appt.doctor} · {appt.dur}min</div>}
+      {appt.hour!==null && !compact && (
+        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:appt.color, marginTop:2 }}>
+          {String(appt.hour).padStart(2,"0")}:{fmt(appt.min)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SchedulePage() {
+  const [appts,      setAppts]      = useState(INIT_APPTS);
+  const [draggingId, setDraggingId] = useState(null);
+  const [hoverSlot,  setHoverSlot]  = useState(null);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [newForm,    setNewForm]    = useState(null); // {patient,type,doctor,color}
+
+  const unscheduled = appts.filter(a => a.day === null);
+  const scheduled   = appts.filter(a => a.day !== null);
+
+  const getAppts = (day, hour, min) =>
+    scheduled.filter(a => a.day===day && a.hour===hour && a.min===min);
+
+  const onDragStart = (e, id) => {
+    setDraggingId(id);
+    e.dataTransfer.setData("apptId", String(id));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const onDrop = (e, day, hour, min) => {
+    e.preventDefault();
+    const id = parseInt(e.dataTransfer.getData("apptId"), 10);
+    setAppts(prev => prev.map(a => a.id===id ? {...a, day, hour, min} : a));
+    setDraggingId(null); setHoverSlot(null);
+  };
+
+  const onDropQueue = (e) => {
+    e.preventDefault();
+    const id = parseInt(e.dataTransfer.getData("apptId"), 10);
+    setAppts(prev => prev.map(a => a.id===id ? {...a, day:null, hour:null, min:null} : a));
+    setDraggingId(null); setHoverSlot(null);
+  };
+
+  const removeAppt = (id) => setAppts(prev => prev.filter(a => a.id !== id));
+
+  const addAppt = () => {
+    if (!newForm?.patient?.trim()) return;
+    setAppts(prev => [...prev, {
+      id: Date.now(), patient: newForm.patient, type: newForm.type||"Appointment",
+      doctor: newForm.doctor||"Dr. Sharma", day:null, hour:null, min:null,
+      dur:30, color: newForm.color||T.rose,
+    }]);
+    setNewForm(null);
+  };
+
+  // Build week label
+  const baseDate = new Date(2026, 2, 2); // Mon Mar 2 2026
+  baseDate.setDate(baseDate.getDate() + weekOffset * 7);
+  const weekLabel = DAYS_LABEL.map((_,i) => {
+    const d = new Date(baseDate); d.setDate(baseDate.getDate()+i);
+    return d.getDate();
+  });
+
+  return (
+    <PageWrap title="Schedule" icon={<Icons.calendar/>} subtitle="Drag appointments onto the weekly grid">
+      <div style={{ display:"flex", gap:14, alignItems:"flex-start" }}>
+
+        {/* ── Unscheduled Queue ── */}
+        <div style={{ width:190, flexShrink:0 }}>
+          <Card style={{ padding:"12px 12px" }}
+            onDragOver={e=>e.preventDefault()}
+            onDrop={onDropQueue}
+          >
+            <SHead>Unscheduled</SHead>
+            <div style={{ minHeight:80, borderRadius:8, border:`1.5px dashed ${unscheduled.length===0&&draggingId?T.vital:T.border}`, padding:6, background:unscheduled.length===0&&draggingId?`${T.vital}08`:"transparent", transition:"all .2s" }}>
+              {unscheduled.length===0 && !draggingId && (
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint, textAlign:"center", padding:"20px 0", letterSpacing:"0.06em" }}>All scheduled</div>
+              )}
+              {unscheduled.map(a => (
+                <div key={a.id} style={{ position:"relative" }}>
+                  <ApptCard appt={a} onDragStart={onDragStart} compact/>
+                  <button onClick={()=>removeAppt(a.id)} style={{ position:"absolute", top:4, right:4, background:"none", border:"none", cursor:"pointer", fontSize:10, color:T.inkFaint, lineHeight:1, padding:2 }}>✕</button>
+                </div>
               ))}
-              {Array.from({length:35},(_,i)=>{ const n=i-6; const day=n>0&&n<=31?n:null; const isSel=day===sel; const hasAppt=[3,12,18,24].includes(day);
-                return <div key={i} onClick={()=>day&&setSel(day)} style={{ padding:"7px 0", textAlign:"center", borderRadius:8, cursor:day?"pointer":"default", background:isSel?`linear-gradient(135deg,${T.rose},${T.roseDeep})`:"transparent", color:isSel?T.white:day?T.ink:T.border, fontFamily:"'Outfit',sans-serif", fontWeight:isSel?700:400, fontSize:13, transition:"all .15s", position:"relative" }}>
-                  {day}{hasAppt&&!isSel&&<div style={{ position:"absolute", bottom:3, left:"50%", transform:"translateX(-50%)", width:4, height:4, borderRadius:"50%", background:T.rose }}/>}
-                </div>;
-              })}
             </div>
-          </Card>
-          <Card>
-            <SHead>Available Slots — Mar {sel}</SHead>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:7 }}>
-              {slots.map(s=>{ const busy=taken.includes(s); return (
-                <button key={s} disabled={busy} style={{ padding:"9px 0", borderRadius:9, cursor:busy?"not-allowed":"pointer", border:`1.5px solid ${busy?T.border:T.rose}`, background:busy?T.bgDeep:T.roseTint, fontFamily:"'DM Mono',monospace", fontSize:10, letterSpacing:"0.05em", color:busy?T.inkFaint:T.rose, opacity:busy?.4:1, transition:"all .15s" }}
-                  onMouseEnter={e=>{ if(!busy){ e.currentTarget.style.background=T.rose; e.currentTarget.style.color=T.white; } }}
-                  onMouseLeave={e=>{ if(!busy){ e.currentTarget.style.background=T.roseTint; e.currentTarget.style.color=T.rose; } }}
-                >{s}</button>
-              ); })}
+
+            <div style={{ marginTop:10 }}>
+              {newForm ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <input placeholder="Patient name" value={newForm.patient||""} onChange={e=>setNewForm(f=>({...f,patient:e.target.value}))}
+                    style={{ padding:"5px 8px", borderRadius:7, border:`1.5px solid ${T.border}`, fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.ink, background:T.bgDeep, outline:"none" }} />
+                  <input placeholder="Appointment type" value={newForm.type||""} onChange={e=>setNewForm(f=>({...f,type:e.target.value}))}
+                    style={{ padding:"5px 8px", borderRadius:7, border:`1.5px solid ${T.border}`, fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.ink, background:T.bgDeep, outline:"none" }} />
+                  <input placeholder="Doctor" value={newForm.doctor||""} onChange={e=>setNewForm(f=>({...f,doctor:e.target.value}))}
+                    style={{ padding:"5px 8px", borderRadius:7, border:`1.5px solid ${T.border}`, fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.ink, background:T.bgDeep, outline:"none" }} />
+                  <div style={{ display:"flex", gap:4 }}>
+                    {APPT_COLORS.map(c=>(
+                      <div key={c} onClick={()=>setNewForm(f=>({...f,color:c}))} style={{ width:16, height:16, borderRadius:"50%", background:c, cursor:"pointer", border:`2px solid ${newForm.color===c?"#fff":"transparent"}`, outline:`2px solid ${newForm.color===c?c:"transparent"}` }}/>
+                    ))}
+                  </div>
+                  <div style={{ display:"flex", gap:5 }}>
+                    <button className="btn-primary" onClick={addAppt} style={{ flex:1, fontSize:10, padding:"5px 0" }}>Add</button>
+                    <button className="btn-ghost" onClick={()=>setNewForm(null)} style={{ flex:1, fontSize:10, padding:"5px 0" }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button className="btn-ghost" onClick={()=>setNewForm({patient:"",type:"",doctor:"",color:T.rose})}
+                  style={{ width:"100%", fontSize:10, padding:"6px 0" }}>+ New Appointment</button>
+              )}
             </div>
           </Card>
         </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-          <Card accent={T.rose}>
-            <SHead>Upcoming</SHead>
-            {[["Mar 12","09:30","Dr. Sharma","Cardiology",T.rose],["Mar 18","14:00","Dr. Patel","Lab Work",T.vital]].map(([date,time,dr,dept,c],i)=>(
-              <div key={i} style={{ padding:"11px 13px", marginBottom:8, borderRadius:9, background:`${c}08`, border:`1px solid ${c}28` }}>
-                <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:c }}>{date} · {time}</div>
-                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, marginTop:1 }}>{dr} — {dept}</div>
+
+        {/* ── Weekly Grid ── */}
+        <div style={{ flex:1, minWidth:0 }}>
+          <Card style={{ padding:"12px 14px" }}>
+            {/* Week nav */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+              <button className="btn-ghost" style={{ fontSize:12, padding:"5px 12px" }} onClick={()=>setWeekOffset(w=>w-1)}>‹ Prev</button>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>
+                Week of Mar {weekLabel[0]}–{weekLabel[4]}, 2026
               </div>
-            ))}
-          </Card>
-          <Card>
-            <SHead>Current Wait Times</SHead>
-            {[["Emergency","4 min",T.vital],["General Practice","18 min",T.rose],["Specialist","32 min",T.amber],["Lab / Diagnostics","11 min",T.vital]].map(([k,v,c])=>(
-              <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid ${T.border}` }}>
-                <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.ink }}>{k}</span>
-                <div style={{ padding:"3px 9px", borderRadius:6, background:`${c}14`, fontFamily:"'DM Mono',monospace", fontSize:10, color:c, letterSpacing:"0.05em" }}>{v}</div>
+              <button className="btn-ghost" style={{ fontSize:12, padding:"5px 12px" }} onClick={()=>setWeekOffset(w=>w+1)}>Next ›</button>
+            </div>
+
+            {/* Grid */}
+            <div style={{ display:"flex", overflow:"auto" }}>
+              {/* Time column */}
+              <div style={{ width:44, flexShrink:0 }}>
+                <div style={{ height:36 }}/>{/* header spacer */}
+                {HOURS.map(({h,m},i) => (
+                  <div key={i} style={{ height:SLOT_H, display:"flex", alignItems:"flex-start", paddingTop:3, justifyContent:"flex-end", paddingRight:7 }}>
+                    {m===0 && <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.05em" }}>{String(h).padStart(2,"0")}:00</span>}
+                  </div>
+                ))}
               </div>
-            ))}
+
+              {/* Day columns */}
+              {DAYS_SHORT.map((day, di) => (
+                <div key={di} style={{ flex:1, minWidth:100, borderLeft:`1px solid ${T.border}` }}>
+                  {/* Day header */}
+                  <div style={{ height:36, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", borderBottom:`1px solid ${T.border}`, background:T.surfaceHard }}>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em" }}>{day.toUpperCase()}</div>
+                    <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:16, color:T.ink, lineHeight:1 }}>{weekLabel[di]}</div>
+                  </div>
+
+                  {/* Time slots */}
+                  {HOURS.map(({h,m}, si) => {
+                    const slotAppts = getAppts(di, h, m);
+                    const isHov = hoverSlot?.day===di && hoverSlot?.hour===h && hoverSlot?.min===m;
+                    const isHour = m===0;
+                    return (
+                      <div key={si}
+                        onDragOver={e=>{ e.preventDefault(); setHoverSlot({day:di,hour:h,min:m}); }}
+                        onDragLeave={()=>setHoverSlot(null)}
+                        onDrop={e=>onDrop(e,di,h,m)}
+                        style={{
+                          height: SLOT_H,
+                          borderBottom: `1px ${isHour?"solid":"dashed"} ${T.border}`,
+                          background: isHov ? `${T.vital}10` : "transparent",
+                          transition:"background .1s",
+                          padding:"2px 3px",
+                          position:"relative",
+                          boxSizing:"border-box",
+                        }}
+                      >
+                        {isHov && slotAppts.length===0 && (
+                          <div style={{ position:"absolute", inset:2, borderRadius:6, border:`1.5px dashed ${T.vital}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.vital, letterSpacing:"0.08em" }}>DROP</span>
+                          </div>
+                        )}
+                        {slotAppts.map(a => (
+                          <div key={a.id} style={{ position:"relative" }}>
+                            <ApptCard appt={a} onDragStart={onDragStart} compact/>
+                            <button onClick={()=>removeAppt(a.id)} style={{ position:"absolute", top:3, right:3, background:"none", border:"none", cursor:"pointer", fontSize:9, color:T.inkFaint, lineHeight:1, padding:2 }}>✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </Card>
         </div>
       </div>
