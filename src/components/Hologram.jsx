@@ -1,6 +1,50 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+
+// ─── Facts per floor ──────────────────────────────────────────────────────────
+const FLOOR_FACTS = {
+  Emergency: {
+    title: "Golden Hour — Emergency",
+    facts: [
+      "The first 60 min after major trauma are critical — immediate action can cut mortality by up to 85%.",
+      "Rapid hemorrhage control and airway management are the top priorities in the golden window.",
+      "Trauma centers that receive patients within the golden hour see significantly better outcomes.",
+    ],
+  },
+  Radiology: {
+    title: "Imaging Speed Saves Lives",
+    facts: [
+      "CT scans can detect internal bleeding in under 5 minutes — crucial for golden-time decisions.",
+      "Every 10-minute delay in stroke imaging costs ~1 week of disability-free life.",
+      "Point-of-care ultrasound (POCUS) can guide emergency decisions within seconds.",
+    ],
+  },
+  Surgery: {
+    title: "Surgical Golden Window",
+    facts: [
+      "Every minute without stroke treatment destroys ~1.9 million neurons.",
+      "Surgical intervention within 3–6 hours of symptom onset dramatically improves outcomes.",
+      "For ruptured aortic aneurysm, survival drops under 50% without surgery within 6 hours.",
+    ],
+  },
+  Cardiology: {
+    title: "Time Is Muscle",
+    facts: [
+      "Each minute of STEMI (heart attack) delay destroys ~2 billion cardiomyocytes.",
+      "Door-to-balloon time under 90 min is the global benchmark for saving heart tissue.",
+      "Bystander CPR doubles or triples cardiac arrest survival before paramedics arrive.",
+    ],
+  },
+  ICU: {
+    title: "ICU & Sepsis Golden Hour",
+    facts: [
+      "Sepsis survival drops ~7.6% for each hour antibiotics are delayed.",
+      "Early goal-directed therapy in the first 6 hours of sepsis reduces mortality by up to 16%.",
+      "Rapid response teams activating within 1 hour of deterioration cut ICU admissions by 30%.",
+    ],
+  },
+};
 
 // Holographic colour palette
 const C = {
@@ -78,9 +122,51 @@ function makeLabel(text, color = "#5BAA8A") {
   return sprite;
 }
 
+// ─── Tooltip component ────────────────────────────────────────────────────────
+function Tooltip({ info, mousePos }) {
+  if (!info) return null;
+  const { title, facts } = info;
+  const fact = facts[Math.floor(Date.now() / 1000) % facts.length];
+
+  return (
+    <div style={{
+      position: "fixed",
+      left: mousePos.x + 18,
+      top:  mousePos.y - 10,
+      maxWidth: 300,
+      background: "rgba(4, 20, 18, 0.92)",
+      border: "1px solid rgba(91, 170, 138, 0.55)",
+      borderRadius: 10,
+      padding: "12px 16px",
+      color: "#d0f0e6",
+      fontFamily: "'DM Mono', monospace",
+      fontSize: 13,
+      lineHeight: 1.55,
+      pointerEvents: "none",
+      zIndex: 1000,
+      backdropFilter: "blur(6px)",
+      boxShadow: "0 0 24px rgba(91,170,138,0.25), 0 2px 8px rgba(0,0,0,0.6)",
+    }}>
+      <div style={{ fontWeight: 700, marginBottom: 8, color: "#7ee8c0", fontSize: 14 }}>
+        {title}
+      </div>
+      <div style={{ opacity: 0.9 }}>{fact}</div>
+      <div style={{ marginTop: 8, fontSize: 11, opacity: 0.45, letterSpacing: "0.05em" }}>
+        HOVER TO EXPLORE · HEALTHCARE DATA
+      </div>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function HospitalHologram() {
-  const mountRef = useRef(null);
+  const mountRef   = useRef(null);
+  const tooltipRef = useRef({ setInfo: null });
+
+  const [tooltipInfo, setTooltipInfo] = useState(null);
+  const [mousePos,    setMousePos]    = useState({ x: 0, y: 0 });
+
+  tooltipRef.current.setInfo = setTooltipInfo;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -160,6 +246,9 @@ export default function HospitalHologram() {
       { y: 9.6, label: "Cardiology", color: "#D4974A" },
       { y:12.0, label: "ICU",        color: "#5BAA8A" },
     ];
+    // Collect label sprites + hit meshes for raycasting
+    const labelTargets = [];
+
     FLOORS.forEach(({ y, label, color }) => {
       const line = holoBox(6.1, 0.06, 5.1, parseInt(color.replace("#","0x")), 0.3, 0);
       line.position.set(0, y, 0);
@@ -167,7 +256,19 @@ export default function HospitalHologram() {
 
       const sprite = makeLabel(label, color);
       sprite.position.set(-4.6, y + 0.9, 0);
+      sprite.userData.floorLabel = label;
       hospital.add(sprite);
+      labelTargets.push(sprite);
+
+      // Invisible hit-target plane for easier picking
+      const hitMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(3.4, 0.8),
+        new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
+      );
+      hitMesh.position.set(-4.6, y + 0.9, 0);
+      hitMesh.userData.floorLabel = label;
+      hospital.add(hitMesh);
+      labelTargets.push(hitMesh);
     });
 
     // Window grid (front face)
@@ -328,6 +429,32 @@ export default function HospitalHologram() {
     renderer.domElement.addEventListener("pointerdown", () => { controls.autoRotate = false; });
     renderer.domElement.addEventListener("pointerup",   () => { controls.autoRotate = true; });
 
+    // ── Raycaster for hover ──────────────────────────────────────────────────
+    const raycaster = new THREE.Raycaster();
+    const mouse     = new THREE.Vector2();
+
+    const onMouseMove = (e) => {
+      const rect = mount.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+      mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(labelTargets, false);
+
+      if (hits.length > 0) {
+        const label = hits[0].object.userData.floorLabel;
+        if (label && FLOOR_FACTS[label]) {
+          tooltipRef.current.setInfo(FLOOR_FACTS[label]);
+          mount.style.cursor = "pointer";
+          return;
+        }
+      }
+      tooltipRef.current.setInfo(null);
+      mount.style.cursor = "grab";
+    };
+
+    mount.addEventListener("mousemove", onMouseMove);
+
     // ── Animation loop ───────────────────────────────────────────────────────
     let frame;
     const clock = new THREE.Clock();
@@ -391,6 +518,7 @@ export default function HospitalHologram() {
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
+      mount.removeEventListener("mousemove", onMouseMove);
       controls.dispose();
       renderer.dispose();
       if (mount.contains(renderer.domElement)) {
@@ -400,11 +528,15 @@ export default function HospitalHologram() {
   }, []);
 
   return (
-    <div
-      ref={mountRef}
-      style={{ width: "100%", height: "100%", cursor: "grab" }}
-      onMouseDown={e => { e.currentTarget.style.cursor = "grabbing"; }}
-      onMouseUp={e   => { e.currentTarget.style.cursor = "grab"; }}
-    />
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <div
+        ref={mountRef}
+        style={{ width: "100%", height: "100%", cursor: "grab" }}
+        onMouseMove={e => setMousePos({ x: e.clientX, y: e.clientY })}
+        onMouseDown={e => { e.currentTarget.style.cursor = "grabbing"; }}
+        onMouseUp={e   => { e.currentTarget.style.cursor = "grab"; }}
+      />
+      <Tooltip info={tooltipInfo} mousePos={mousePos} />
+    </div>
   );
 }
