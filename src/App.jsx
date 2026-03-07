@@ -656,6 +656,15 @@ function PatientPage() {
   const navigate = useNavigate();
   const displayName = user?.name || user?.email?.split("@")[0] || "Patient";
   const initials = displayName.split(" ").map(n=>n[0]).join("").toUpperCase().slice(0,2);
+  const [healthcard, setHealthcard] = useState(null);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    fetch(`http://localhost:3001/api/healthcard?email=${encodeURIComponent(user.email)}`)
+      .then(r => { if (r.ok) return r.json(); throw new Error("none"); })
+      .then(card => setHealthcard(card))
+      .catch(() => setHealthcard(null));
+  }, [user?.email]);
 
   return (
     <PageWrap title="Patient Portal" icon={<Icons.user/>} subtitle="Personal health dashboard"
@@ -752,15 +761,40 @@ function PatientPage() {
               }
               <div>
                 <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>{displayName}</div>
-                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase", marginTop:2 }}>HC-4821-0039-JM</div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase", marginTop:2 }}>
+                  {healthcard?.card_number || "No health card on file"}
+                </div>
               </div>
             </div>
-            {[["Blood Type","A+"],["Weight","74 kg"],["Height","178 cm"],["Allergies","Penicillin"]].map(([k,v])=>(
-              <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${T.border}` }}>
-                <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint }}>{k}</span>
-                <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:12, color:T.ink }}>{v}</span>
+            {healthcard ? (
+              <>
+                {[
+                  ["Full Name", healthcard.full_name],
+                  ["Card Number", healthcard.card_number],
+                  ["Date of Birth", healthcard.date_of_birth],
+                  ["Gender", healthcard.gender],
+                  ["Province", healthcard.province],
+                  ["Expiry Date", healthcard.expiry_date],
+                ].filter(([,v]) => v).map(([k,v])=>(
+                  <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${T.border}` }}>
+                    <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint }}>{k}</span>
+                    <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:12, color:T.ink }}>{v}</span>
+                  </div>
+                ))}
+                <button className="btn-ghost" onClick={()=>navigate("/patient/scanner")} style={{ marginTop:10, fontSize:11, padding:"7px 14px", width:"100%" }}>
+                  Update Health Card
+                </button>
+              </>
+            ) : (
+              <div style={{ textAlign:"center", padding:"16px 0" }}>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, marginBottom:12 }}>No health card information on file</div>
+                <button className="btn-primary" onClick={()=>navigate("/patient/scanner")} style={{ fontSize:12, padding:"9px 20px" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <Icons.card/> Scan or Enter Health Card
+                  </div>
+                </button>
               </div>
-            ))}
+            )}
           </Card>
           <Card accent={T.rose} style={{ borderColor:`${T.rose}28` }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
