@@ -85,9 +85,6 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
 
         const center = getCenter();
         const map = new Map(containerRef.current, {
-
-        const center = getCenter();
-        const map = new Map(containerRef.current, {
           center,
           zoom: 10,
           tilt: 45,
