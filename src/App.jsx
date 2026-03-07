@@ -251,24 +251,46 @@ function LoginPage() {
 // ─── MAZE CONFIG ──────────────────────────────────────────────────────────────
 const NODES = {
   center:    { x:50, y:50, label:"Health Center", icon:"cross", isCenter:true, col:T.roseMid },
-  patient:   { x:32, y:28, label:"Patient Portal", icon:"user", path:"/patient", col:T.rose },
-  doctor:    { x:68, y:28, label:"Doctor Portal", icon:"stethoscope", path:"/doctor", col:T.roseDeep },
-  schedule:  { x:82, y:54, label:"Scheduling", icon:"calendar", path:"/schedule", col:T.amber },
-  presage:   { x:18, y:54, label:"Presage AI", icon:"brain", path:"/presage", col:T.roseMid },
-  hospital:  { x:34, y:78, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
-  rooms:     { x:66, y:78, label:"Room Map", icon:"grid", path:"/rooms", col:T.vital },
+  patient:   { x:26, y:25, label:"Patient Portal", icon:"user", path:"/patient", col:T.rose },
+  doctor:    { x:76, y:25, label:"Doctor Portal", icon:"stethoscope", path:"/doctor", col:T.roseDeep },
+  schedule:  { x:26, y:76, label:"Scheduling", icon:"calendar", path:"/schedule", col:T.amber },
+  presage:   { x:(50-18)+50, y:50-8, label:"Presage AI", icon:"brain", path:"/presage", col:T.roseMid },
+  hospital:  { x:38, y:80, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
+  rooms:     { x:76, y:76, label:"Room Map", icon:"grid", path:"/rooms", col:T.vital },
 };
 
 const EDGES = [
-  { from:"center", to:"patient", wp:[{x:40,y:35}] },
-  { from:"center", to:"doctor",  wp:[{x:60,y:35}] },
-  { from:"center", to:"schedule" },
-  { from:"center", to:"presage" },
+  { from:"center", to:"patient" },
+  { from:"center", to:"doctor" },
   { from:"center", to:"hospital" },
   { from:"center", to:"rooms" },
-  { from:"patient",to:"presage" },
-  { from:"doctor", to:"schedule" },
-  { from:"hospital",to:"rooms" },
+  { from:"center", to:"presage" },
+  { from:"center", to:"schedule" },
+  
+  { from:"patient", to:"presage" },
+  { from:"doctor",  to:"schedule" },
+  { from:"hospital", to:"rooms" },
+];
+
+const PATIENT_EDGES = [
+  { from:"center", to:"patient" },
+  { from:"center", to:"hospital" },
+  { from:"center", to:"presage" },
+  { from:"patient", to:"presage" },
+  { from:"patient", to:"hospital" },
+  { from:"hospital", to:"presage" },
+];
+
+const DOCTOR_EDGES = [
+  { from:"center", to:"doctor" },
+  { from:"center", to:"schedule" },
+  { from:"center", to:"rooms" },
+  { from:"center", to:"patient" },
+  { from:"doctor", to:"patient" },
+  { from:"doctor", to:"rooms" },
+  { from:"rooms", to:"schedule" },
+  { from:"schedule", to:"patient" },
+
 ];
 
 const DECOS = [
@@ -276,12 +298,12 @@ const DECOS = [
   "M 5 95 L 15 95", "M 5 95 L 5 85", "M 95 95 L 85 95", "M 95 95 L 95 85",
 ];
 
-function bfs(start, end) {
+function bfs(start, end, edgesToUse = EDGES) {
   const q=[[start]], seen=new Set([start]);
   while(q.length){
     const p=q.shift(), curr=p[p.length-1];
     if(curr===end) return p;
-    (EDGES.filter(e=>e.from===curr||e.to===curr)).forEach(e=>{
+    (edgesToUse.filter(e=>e.from===curr||e.to===curr)).forEach(e=>{
       const next=e.from===curr?e.to:e.from;
       if(!seen.has(next)){ seen.add(next); q.push([...p,next]); }
     });
@@ -316,7 +338,13 @@ function MazePage() {
   const persistedRole = getPersistedRole();
   const activeRole = persistedRole || roles[0] || null;
 
-  useEffect(()=>{ setPath(hov&&hov!=="center" ? bfs("center",hov) : []); }, [hov]);
+  const activeEdges = (() => {
+    if (activeRole === ROLE.PATIENT) return PATIENT_EDGES;
+    if (activeRole === ROLE.DOCTOR) return DOCTOR_EDGES;
+    return EDGES;
+  })();
+
+  useEffect(()=>{ setPath(hov&&hov!=="center" ? bfs("center", hov, activeEdges) : []); }, [hov, activeEdges]);
 
   const pd = makeSVGPath(path);
   const ac = hov ? NODES[hov]?.col||T.rose : T.rose;
@@ -402,7 +430,7 @@ function MazePage() {
             </marker>
           </defs>
           {DECOS.map((d,i)=><path key={i} d={d} fill="none" stroke={T.border} strokeWidth=".7" strokeLinecap="round" opacity=".8"/>)}
-          {EDGES.map((e,i)=>{ const f=NODES[e.from],t=NODES[e.to]; let d=`M ${f.x} ${f.y}`; (e.wp||[]).forEach(w=>{ d+=` L ${w.x} ${w.y}`; }); d+=` L ${t.x} ${t.y}`; return <path key={i} d={d} fill="none" stroke={T.border} strokeWidth=".6" strokeDasharray="1.5 2" opacity=".55"/>; })}
+          {activeEdges.map((e,i)=>{ const f=NODES[e.from],t=NODES[e.to]; let d=`M ${f.x} ${f.y}`; (e.wp||[]).forEach(w=>{ d+=` L ${w.x} ${w.y}`; }); d+=` L ${t.x} ${t.y}`; return <path key={i} d={d} fill="none" stroke={T.border} strokeWidth=".6" strokeDasharray="1.5 2" opacity=".55"/>; })}
           {pd && <>
             <path d={pd} fill="none" stroke={ac} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" opacity=".15" filter="url(#glow)"/>
             <path d={pd} fill="none" stroke={ac} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" markerEnd="url(#arr)" strokeDasharray="400" style={{ animation:"pathAnim .45s cubic-bezier(.4,0,.2,1) forwards" }}/>
