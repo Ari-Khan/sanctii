@@ -154,7 +154,7 @@ function makeSVG(keys){
   return d;
 }
 
-function MazeUI({onNavigate,onLogout}){
+function MazeUI({onNavigate, onLogout, role}){
   const[hov,setHov]=useState(null);
   const[path,setPath]=useState([]);
   useEffect(()=>{setPath(hov&&hov!=="center"?bfs("center",hov):[]);},[hov]);
@@ -189,7 +189,12 @@ function MazeUI({onNavigate,onLogout}){
           ))}
         </div>
 
-        <div style={{display:"flex",gap:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          {role && (
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.inkFaint,letterSpacing:"0.1em",textTransform:"uppercase",padding:"4px 10px",borderRadius:6,background:T.bgDeep}}>
+              {role}
+            </div>
+          )}
           <button className="btn-ghost" onClick={onLogout} style={{fontSize:12,padding:"8px 20px"}}>Log Out</button>
         </div>
       </div>
@@ -537,7 +542,7 @@ function PresagePage({onBack}){
           />
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12}}>
             <span style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.inkFaint,letterSpacing:"0.1em",textTransform:"uppercase"}}>Powered by Claude · Not medical advice</span>
-            <button className="btn-primary" onClick={analyze} disabled={loading||!input.trim()} style={{opacity:loading||!input.trim()?.5:1,cursor:loading||!input.trim()?"not-allowed":"pointer"}}>
+            <button className="btn-primary" onClick={analyze} disabled={loading||!input.trim()} style={{opacity:loading||!input.trim()?0.5:1,cursor:loading||!input.trim()?"not-allowed":"pointer"}}>
               {loading?"Analyzing...":"Analyze with Presage →"}
             </button>
           </div>
@@ -637,7 +642,7 @@ function SchedulePage({onBack}){
               {slots.map(s=>{
                 const busy=taken.includes(s);
                 return(
-                  <button key={s} disabled={busy} style={{padding:"9px 0",borderRadius:9,cursor:busy?"not-allowed":"pointer",border:`1.5px solid ${busy?T.border:T.rose}`,background:busy?T.bgDeep:T.roseTint,fontFamily:"'DM Mono',monospace",fontSize:10,letterSpacing:"0.05em",color:busy?T.inkFaint:T.rose,opacity:busy?.4:1,transition:"all .15s"}}
+                  <button key={s} disabled={busy} style={{padding:"9px 0",borderRadius:9,cursor:busy?"not-allowed":"pointer",border:`1.5px solid ${busy?T.border:T.rose}`,background:busy?T.bgDeep:T.roseTint,fontFamily:"'DM Mono',monospace",fontSize:10,letterSpacing:"0.05em",color:busy?T.inkFaint:T.rose,opacity:busy?0.4:1,transition:"all .15s"}}
                     onMouseEnter={e=>{if(!busy){e.currentTarget.style.background=T.rose;e.currentTarget.style.color=T.white;}}}
                     onMouseLeave={e=>{if(!busy){e.currentTarget.style.background=T.roseTint;e.currentTarget.style.color=T.rose;}}}
                   >{s}</button>
@@ -671,7 +676,7 @@ function SchedulePage({onBack}){
   );
 }
 
-// ─── HOSPITAL ────────────────────────────────────────────────────────────────
+// ─── HOSPITAL ─────────────────────────────────────────────────────────────────
 function HospitalPage({onBack}){
   return(
     <PageWrap title="Find Hospital" icon={<Icons.mapPin/>} subtitle="Nearest facilities & live routing" onBack={onBack}>
@@ -761,22 +766,23 @@ function RoomsPage({onBack}){
   );
 }
 
-// ─── APP ──────────────────────────────────────────────────────────────────────
-export default function App({onLogout}){
+// ─── LANDING (MAIN APP) ───────────────────────────────────────────────────────
+export default function Landing({ role, onLogout }) {
   const[page,setPage]=useState("home");
   const go=p=>setPage(p);
   const back=()=>setPage("home");
+
   return(
     <div style={{width:"100vw",height:"100vh",overflow:"hidden",position:"relative"}}>
       <GlobalStyle/>
       <div style={{position:"fixed",top:"-50%",left:"-50%",width:"200%",height:"200%",backgroundImage:`url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E")`,pointerEvents:"none",zIndex:9999,opacity:.22}}/>
-      {page==="home"&&<MazeUI onNavigate={go} onLogout={onLogout}/>}
-      {page==="patient"&&<PatientPortal onBack={back}/>}
-      {page==="doctor"&&<DoctorPortal onBack={back}/>}
-      {page==="presage"&&<PresagePage onBack={back}/>}
-      {page==="schedule"&&<SchedulePage onBack={back}/>}
-      {page==="hospital"&&<HospitalPage onBack={back}/>}
-      {page==="rooms"&&<RoomsPage onBack={back}/>}
+      {page==="home"    && <MazeUI onNavigate={go} onLogout={onLogout} role={role}/>}
+      {page==="patient" && <PatientPortal onBack={back}/>}
+      {page==="doctor"  && <DoctorPortal onBack={back}/>}
+      {page==="presage" && <PresagePage onBack={back}/>}
+      {page==="schedule"&& <SchedulePage onBack={back}/>}
+      {page==="hospital"&& <HospitalPage onBack={back}/>}
+      {page==="rooms"   && <RoomsPage onBack={back}/>}
     </div>
   );
 }
