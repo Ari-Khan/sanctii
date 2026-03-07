@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { useAuth0 } from "@auth0/auth0-react";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import { getUserRoles, ROLE } from "./auth/roles";
@@ -776,9 +778,702 @@ function PatientPage() {
   );
 }
 
+// ─── NYGH FLOOR PLAN ──────────────────────────────────────────────────────────
+// Schematic based on North York General Hospital, 4001 Leslie St, Toronto
+// Department layout sourced from nygh.on.ca/areas-care
+// Occupancy colours: red ≥80% (full), amber 50-79% (busy/short wait), green <50% (open)
+
+// SVG canvas: x 0-100, y 0-50.  4-unit corridors between every room.
+// cur = current patients; cap = maximum capacity. occ% derived as cur/cap*100.
+// Coordinates: x 0-100 (width), y 0-50 (depth). 4-unit gaps between all rooms.
+// Layout based on North York General Hospital, 4001 Leslie St, Toronto.
+const NYGH_FLOORS = [
+  { id:"g", label:"Ground", name:"Ground Floor — Emergency & Diagnostics",
+    depts:[
+      // Emergency wing (left block)
+      { id:"ed-triage",  label:"ED Triage",       x:2,  y:2,  w:22, h:10, cur:18, cap:20 },
+      { id:"ed-waiting", label:"ED Waiting",       x:2,  y:16, w:22, h:10, cur:32, cap:40 },
+      { id:"ed-exambay", label:"ED Exam Bays",     x:2,  y:30, w:22, h:18, cur:26, cap:30 },
+      { id:"trauma",     label:"Trauma / Resus",   x:28, y:2,  w:14, h:46, cur:3,  cap:4  },
+      // Diagnostics (centre)
+      { id:"ct",         label:"CT Scanner",       x:46, y:2,  w:12, h:21, cur:2,  cap:3  },
+      { id:"us",         label:"Ultrasound",       x:46, y:27, w:12, h:21, cur:3,  cap:4  },
+      // Services (right)
+      { id:"lab",        label:"Lab / Pathology",  x:62, y:2,  w:12, h:21, cur:12, cap:20 },
+      { id:"phm",        label:"Pharmacy",         x:62, y:27, w:12, h:21, cur:14, cap:25 },
+      { id:"lobby",      label:"Main Lobby",       x:78, y:2,  w:20, h:21, cur:40, cap:80 },
+      { id:"reg",        label:"Registration",     x:78, y:27, w:20, h:21, cur:8,  cap:15 },
+    ],
+  },
+  { id:"1", label:"Floor 1", name:"Floor 1 — Medical Imaging & Outpatient Clinics",
+    depts:[
+      // Imaging (left block, full height — these rooms are large & specialised)
+      { id:"mri1",   label:"MRI Suite 1",      x:2,  y:2,  w:12, h:21, cur:1,  cap:1  },
+      { id:"mri2",   label:"MRI Suite 2",      x:2,  y:27, w:12, h:21, cur:1,  cap:1  },
+      { id:"ct1",    label:"CT Suite 1",       x:18, y:2,  w:12, h:21, cur:1,  cap:1  },
+      { id:"ct2",    label:"CT Suite 2",       x:18, y:27, w:12, h:21, cur:1,  cap:2  },
+      { id:"xray",   label:"X-Ray / Fluoro",   x:34, y:2,  w:12, h:21, cur:6,  cap:10 },
+      { id:"nuc",    label:"Nuclear Medicine", x:34, y:27, w:12, h:21, cur:3,  cap:6  },
+      // Outpatient clinics (right)
+      { id:"frac",   label:"Fracture Clinic",  x:50, y:2,  w:14, h:21, cur:14, cap:20 },
+      { id:"orth",   label:"Orthopaedics",     x:50, y:27, w:14, h:21, cur:10, cap:18 },
+      { id:"opd-a",  label:"Outpatient A",     x:68, y:2,  w:14, h:21, cur:18, cap:24 },
+      { id:"opd-b",  label:"Outpatient B",     x:68, y:27, w:14, h:21, cur:15, cap:20 },
+      { id:"opd-c",  label:"Specialist Clinic",x:86, y:2,  w:12, h:46, cur:22, cap:30 },
+    ],
+  },
+  { id:"2", label:"Floor 2", name:"Floor 2 — Surgery & Perioperative Care",
+    depts:[
+      // Operating Rooms (each OR fits 1 patient at a time)
+      { id:"or1",   label:"OR 1",             x:2,  y:2,  w:10, h:21, cur:1,  cap:1  },
+      { id:"or2",   label:"OR 2",             x:2,  y:27, w:10, h:21, cur:0,  cap:1  },
+      { id:"or3",   label:"OR 3",             x:16, y:2,  w:10, h:21, cur:1,  cap:1  },
+      { id:"or4",   label:"OR 4",             x:16, y:27, w:10, h:21, cur:1,  cap:1  },
+      { id:"or5",   label:"OR 5",             x:30, y:2,  w:10, h:21, cur:0,  cap:1  },
+      { id:"or6",   label:"OR 6",             x:30, y:27, w:10, h:21, cur:1,  cap:1  },
+      { id:"or7",   label:"OR 7",             x:44, y:2,  w:10, h:21, cur:1,  cap:1  },
+      { id:"or8",   label:"OR 8",             x:44, y:27, w:10, h:21, cur:0,  cap:1  },
+      // Perioperative
+      { id:"pacu",  label:"Recovery (PACU)",  x:58, y:2,  w:14, h:21, cur:7,  cap:12 },
+      { id:"preop", label:"Pre-Op Assess.",   x:58, y:27, w:14, h:21, cur:9,  cap:15 },
+      { id:"endo",  label:"Endoscopy",        x:76, y:2,  w:12, h:21, cur:4,  cap:6  },
+      { id:"daysx", label:"Day Surgery",      x:76, y:27, w:12, h:21, cur:8,  cap:14 },
+      { id:"steril",label:"Sterile Supply",   x:92, y:2,  w:6,  h:46, cur:3,  cap:8  },
+    ],
+  },
+  { id:"3", label:"Floor 3", name:"Floor 3 — Cardiology & Internal Medicine",
+    depts:[
+      // Cardiology
+      { id:"cath1",  label:"Cath Lab 1",       x:2,  y:2,  w:12, h:21, cur:1,  cap:2  },
+      { id:"cath2",  label:"Cath Lab 2",       x:2,  y:27, w:12, h:21, cur:2,  cap:2  },
+      { id:"card-w", label:"Cardiology Ward",  x:18, y:2,  w:18, h:46, cur:20, cap:24 },
+      { id:"stepdn", label:"Cardiac Step-Down",x:40, y:2,  w:14, h:21, cur:10, cap:14 },
+      { id:"echo",   label:"Echocardiography", x:40, y:27, w:14, h:21, cur:4,  cap:6  },
+      // Internal Medicine
+      { id:"intm",   label:"Internal Medicine",x:58, y:2,  w:14, h:21, cur:14, cap:20 },
+      { id:"geri",   label:"Geriatrics",       x:58, y:27, w:14, h:21, cur:12, cap:18 },
+      // Doctor offices / support
+      { id:"dr-off", label:"Doctors' Offices", x:76, y:2,  w:12, h:21, cur:6,  cap:12 },
+      { id:"conf",   label:"Conference Room",  x:76, y:27, w:12, h:21, cur:2,  cap:20 },
+      { id:"chrt",   label:"Charting Station", x:92, y:2,  w:6,  h:46, cur:4,  cap:8  },
+    ],
+  },
+  { id:"4", label:"Floor 4", name:"Floor 4 — ICU, CCU & Maternity",
+    depts:[
+      // Critical Care
+      { id:"icu",   label:"ICU",               x:2,  y:2,  w:22, h:46, cur:17, cap:20 },
+      { id:"ccu",   label:"CCU",               x:28, y:2,  w:12, h:21, cur:7,  cap:10 },
+      { id:"hdu",   label:"High Dependency",   x:28, y:27, w:12, h:21, cur:5,  cap:8  },
+      // Maternity
+      { id:"ld",    label:"Labour & Delivery", x:44, y:2,  w:12, h:21, cur:5,  cap:8  },
+      { id:"birth", label:"Birthing Suites",   x:44, y:27, w:12, h:21, cur:3,  cap:6  },
+      { id:"nicu",  label:"NICU",              x:60, y:2,  w:12, h:21, cur:8,  cap:10 },
+      { id:"mat-w", label:"Maternity Ward",    x:60, y:27, w:12, h:21, cur:11, cap:16 },
+      // Paediatrics
+      { id:"pae-w", label:"Paediatrics Ward",  x:76, y:2,  w:12, h:21, cur:10, cap:16 },
+      { id:"pae-oc",label:"Paed. Outpatient",  x:76, y:27, w:12, h:21, cur:8,  cap:12 },
+      { id:"nurs",  label:"Nursery",           x:92, y:2,  w:6,  h:46, cur:6,  cap:10 },
+    ],
+  },
+  { id:"5", label:"Floor 5", name:"Floor 5 — Mental Health, Oncology & Rehab",
+    depts:[
+      // Mental Health
+      { id:"mh-ac", label:"MH Acute Unit",    x:2,  y:2,  w:16, h:21, cur:16, cap:20 },
+      { id:"mh-op", label:"MH Outpatient",    x:2,  y:27, w:16, h:21, cur:8,  cap:12 },
+      { id:"mh-dr", label:"Psychiatrist Ofcs",x:22, y:2,  w:10, h:46, cur:5,  cap:8  },
+      // Oncology
+      { id:"chemo", label:"Chemotherapy",     x:36, y:2,  w:14, h:21, cur:10, cap:16 },
+      { id:"onc-w", label:"Oncology Ward",    x:36, y:27, w:14, h:21, cur:9,  cap:14 },
+      { id:"rad",   label:"Radiation Therapy",x:54, y:2,  w:12, h:21, cur:4,  cap:6  },
+      { id:"pall",  label:"Palliative Care",  x:54, y:27, w:12, h:21, cur:8,  cap:12 },
+      // Rehab & Reactivation
+      { id:"physio",label:"Physiotherapy",    x:70, y:2,  w:12, h:21, cur:12, cap:18 },
+      { id:"occ",   label:"Occupational Ther.",x:70, y:27, w:12, h:21, cur:9,  cap:14 },
+      { id:"react", label:"Reactivation Care",x:86, y:2,  w:12, h:46, cur:14, cap:20 },
+    ],
+  },
+];
+
+// Floor world-Y positions — defined at module level so both useEffects can read them
+const FLOOR_Y_MAP = { g:0, "1":2.2, "2":4.4, "3":6.6, "4":8.8, "5":11.0 };
+const FLOOR_CENTER_Y = 5.5;
+
+function occ3dColor(occ) {
+  if (occ >= 80) return 0xD4706A;
+  if (occ >= 50) return 0xD4974A;
+  return 0x5BAA8A;
+}
+function occ3dHex(occ) {
+  if (occ >= 80) return "#D4706A";
+  if (occ >= 50) return "#D4974A";
+  return "#5BAA8A";
+}
+
+function NyghFloorPlan({ floors = NYGH_FLOORS }) {
+  // Compute Y positions dynamically so any uploaded floor plan works
+  const floorYMap = {};
+  floors.forEach((f, i) => { floorYMap[f.id] = i * 2.2; });
+  const floorCenterY = ((floors.length - 1) * 2.2) / 2;
+
+  const mountRef      = useRef(null);
+  const tooltipRef    = useRef({ setInfo: null });
+  const controlsRef   = useRef(null);
+  const floorGroupsRef= useRef({});    // floorId → THREE.Group
+  const camTargetRef  = useRef(new THREE.Vector3(0, floorCenterY, 0));
+  const [tooltipInfo, setTooltipInfo] = useState(null);
+  const [mousePos,    setMousePos]    = useState({ x: 0, y: 0 });
+  const [activeFloor, setActiveFloor] = useState(null);
+  const activeRef = useRef(null); // mirrors activeFloor for use inside animation loop
+
+  tooltipRef.current.setInfo = setTooltipInfo;
+  activeRef.current = activeFloor;
+
+  // Isolate / reveal floors whenever activeFloor changes
+  useEffect(() => {
+    Object.entries(floorGroupsRef.current).forEach(([id, grp]) => {
+      grp.visible = activeFloor === null || activeFloor === id;
+    });
+    const fy = activeFloor !== null ? floorYMap[activeFloor] : floorCenterY;
+    camTargetRef.current.set(0, fy + 0.4, 0);
+  }, [activeFloor]);
+
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+
+    let W = mount.clientWidth  || mount.offsetWidth  || 700;
+    let H = mount.clientHeight || mount.offsetHeight || 420;
+
+    const scene  = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 200);
+    camera.position.set(12, 14, 18);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
+    mount.appendChild(renderer.domElement);
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function holoBox(w, h, d, color, edgeOp = 0.85, fillOp = 0.04) {
+      const geo     = new THREE.BoxGeometry(w, h, d);
+      const edges   = new THREE.EdgesGeometry(geo);
+      const edgeMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: edgeOp, blending: THREE.AdditiveBlending, depthWrite: false });
+      const fillMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: fillOp, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+      const g = new THREE.Group();
+      g.add(new THREE.LineSegments(edges, edgeMat));
+      g.add(new THREE.Mesh(geo, fillMat));
+      return g;
+    }
+
+    function makeSprite(text, color = "#5BAA8A", canvasW = 220, fontSize = 14) {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvasW; canvas.height = 32;
+      const ctx = canvas.getContext("2d");
+      ctx.font = `bold ${fontSize}px 'DM Mono', monospace`;
+      ctx.fillStyle = color;
+      ctx.fillText(text.toUpperCase(), 4, 22);
+      const tex = new THREE.CanvasTexture(canvas);
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.82, blending: THREE.AdditiveBlending, depthWrite: false });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(canvasW / 32, 1, 1);
+      return sprite;
+    }
+
+    // ── Constants ─────────────────────────────────────────────────────────────
+    // SVG 0-100 → 3D -5..5  (scale 0.1, offset -5)
+    // SVG 0-50  → 3D -2.5..2.5 (scale 0.1, offset -2.5)
+    // Gap between rooms in SVG = 4 units → 0.4 units in 3D (clear separation)
+    const SC = 0.1, OX = -5, OZ = -2.5;
+    const BOX_H   = 0.30;
+    const PLATE_H = 0.07;
+    const INSET   = 0.12; // gap inset per side
+
+    const deptMaterials = []; // { floorId, edgeMat, fillMat, edgeOp, fillOp }
+    const deptHitMeshes = []; // for raycasting
+
+    floors.forEach(floor => {
+      const fy  = floorYMap[floor.id];
+      const grp = new THREE.Group();
+
+      // Floor plate (slightly wider than dept area)
+      const plate = holoBox(10.5, PLATE_H, 5.5, 0x5BAA8A, 0.28, 0.03);
+      plate.position.set(0, fy, 0);
+      grp.add(plate);
+
+      // Floor label on the left
+      const floorLbl = makeSprite(floor.label, "#5BAA8A", 160, 13);
+      floorLbl.position.set(-7.4, fy + 0.35, 0);
+      floorLbl.scale.set(3.2, 0.72, 1);
+      grp.add(floorLbl);
+
+      floor.depts.forEach(dept => {
+        const occ      = Math.round((dept.cur / dept.cap) * 100);
+        const color    = occ3dColor(occ);
+        const colorHex = occ3dHex(occ);
+
+        // Map SVG → 3D with inset gap
+        const cx = (dept.x + dept.w / 2) * SC + OX;
+        const cz = (dept.y + dept.h / 2) * SC + OZ;
+        const w  = dept.w * SC - INSET;
+        const d  = dept.h * SC - INSET;
+
+        const edgeOp = 0.88, fillOp = 0.07;
+        const geo     = new THREE.BoxGeometry(w, BOX_H, d);
+        const edges   = new THREE.EdgesGeometry(geo);
+        const edgeMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: edgeOp, blending: THREE.AdditiveBlending, depthWrite: false });
+        const fillMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: fillOp, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+        const deptGrp = new THREE.Group();
+        deptGrp.add(new THREE.LineSegments(edges, edgeMat));
+        deptGrp.add(new THREE.Mesh(geo, fillMat));
+        deptGrp.position.set(cx, fy + BOX_H / 2, cz);
+        grp.add(deptGrp);
+
+        deptMaterials.push({ floorId: floor.id, edgeMat, fillMat, edgeOp, fillOp });
+
+        // Dept name label
+        const lbl = makeSprite(dept.label, colorHex, 200, 12);
+        lbl.position.set(cx, fy + BOX_H + 0.36, cz);
+        lbl.scale.set(Math.max(w * 1.1, 1.9), 0.44, 1);
+        grp.add(lbl);
+
+        // Capacity label "cur / cap"
+        const pplLbl = makeSprite(`${dept.cur} / ${dept.cap}`, colorHex, 130, 12);
+        pplLbl.position.set(cx, fy + BOX_H + 0.74, cz);
+        pplLbl.scale.set(Math.max(w * 0.85, 1.3), 0.36, 1);
+        grp.add(pplLbl);
+
+        // Invisible hit mesh for raycasting
+        const hitMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(w, BOX_H + 0.3, d),
+          new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }),
+        );
+        hitMesh.position.set(cx, fy + BOX_H / 2, cz);
+        hitMesh.userData = { floorId: floor.id, label: dept.label, cur: dept.cur, cap: dept.cap, occ };
+        grp.add(hitMesh);
+        deptHitMeshes.push(hitMesh);
+      });
+
+      scene.add(grp);
+      floorGroupsRef.current[floor.id] = grp;
+    });
+
+    // ── Ground grid ───────────────────────────────────────────────────────────
+    const grid = new THREE.GridHelper(24, 24, 0x5BAA8A, 0x5BAA8A);
+    grid.material.opacity = 0.05;
+    grid.material.transparent = true;
+    grid.position.y = -0.5;
+    scene.add(grid);
+
+    // ── Ground glow rings ─────────────────────────────────────────────────────
+    [6, 10].forEach((r, i) => {
+      const geo = new THREE.RingGeometry(r - 0.06, r, 64);
+      const mat = new THREE.MeshBasicMaterial({ color: i === 0 ? 0xD4706A : 0x5BAA8A, transparent: true, opacity: i === 0 ? 0.3 : 0.15, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+      const ring = new THREE.Mesh(geo, mat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = -0.48;
+      scene.add(ring);
+    });
+
+    // ── Particles ─────────────────────────────────────────────────────────────
+    const N = 90;
+    const pPos   = new Float32Array(N * 3);
+    const pSpeed = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r     = 9 + Math.random() * 10;
+      pPos[i*3]   = Math.cos(angle) * r;
+      pPos[i*3+1] = Math.random() * (floorCenterY * 2 + 2);
+      pPos[i*3+2] = Math.sin(angle) * r;
+      pSpeed[i]   = 0.007 + Math.random() * 0.012;
+    }
+    const pGeo = new THREE.BufferGeometry();
+    pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+    scene.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x5BAA8A, size: 0.07, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false })));
+
+    // ── OrbitControls ─────────────────────────────────────────────────────────
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping   = true;
+    controls.dampingFactor   = 0.04;
+    controls.minDistance     = 5;
+    controls.maxDistance     = 45;
+    controls.maxPolarAngle   = Math.PI * 0.54;
+    controls.autoRotate      = true;
+    controls.autoRotateSpeed = 0.45;
+    controls.target.set(0, floorCenterY, 0);
+    controlsRef.current = controls;
+    renderer.domElement.addEventListener("pointerdown", () => { controls.autoRotate = false; });
+    renderer.domElement.addEventListener("pointerup",   () => { controls.autoRotate = true; });
+
+    // ── Raycaster ─────────────────────────────────────────────────────────────
+    const raycaster = new THREE.Raycaster();
+    const mouse     = new THREE.Vector2();
+    const onMouseMove = (e) => {
+      const rect = mount.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+      mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(deptHitMeshes, false);
+      if (hits.length > 0) {
+        const ud = hits[0].object.userData;
+        tooltipRef.current.setInfo({ label: ud.label, cur: ud.cur, cap: ud.cap, occ: ud.occ, color: occ3dHex(ud.occ), msg: ud.occ >= 80 ? "No beds available" : ud.occ >= 50 ? "Short wait — filling up" : "Beds available" });
+        mount.style.cursor = "pointer";
+      } else {
+        tooltipRef.current.setInfo(null);
+        mount.style.cursor = "grab";
+      }
+    };
+    mount.addEventListener("mousemove", onMouseMove);
+
+    // ── Animation ─────────────────────────────────────────────────────────────
+    let frame;
+    const clock   = new THREE.Clock();
+    const posAttr = pGeo.attributes.position;
+    const animate = () => {
+      frame = requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      deptMaterials.forEach(({ floorId, edgeMat, fillMat, edgeOp, fillOp }) => {
+        const active = activeRef.current;
+        const on     = active === null || active === floorId;
+        const pulse  = on ? 0.8 + Math.sin(t * 1.6) * 0.18 : 1;
+        edgeMat.opacity = on ? edgeOp * pulse : 0.08;
+        fillMat.opacity = on ? fillOp * pulse : 0.01;
+      });
+      for (let i = 0; i < N; i++) {
+        posAttr.array[i*3+1] += pSpeed[i];
+        if (posAttr.array[i*3+1] > floorCenterY * 2 + 2) posAttr.array[i*3+1] = 0;
+      }
+      posAttr.needsUpdate = true;
+      controls.target.lerp(camTargetRef.current, 0.06);
+      controls.update();
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    const onResize = () => {
+      W = mount.clientWidth  || mount.offsetWidth  || 700;
+      H = mount.clientHeight || mount.offsetHeight || 420;
+      if (W === 0 || H === 0) return;
+      camera.aspect = W / H;
+      camera.updateProjectionMatrix();
+      renderer.setSize(W, H);
+    };
+    window.addEventListener("resize", onResize);
+    const ro = new ResizeObserver(() => onResize());
+    ro.observe(mount);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onResize);
+      ro.disconnect();
+      mount.removeEventListener("mousemove", onMouseMove);
+      controls.dispose();
+      renderer.dispose();
+      if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
+    };
+  }, []);
+
+  return (
+    <Card style={{ marginTop:18 }}>
+      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:12, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>NYGH Floor Plan — 3D</div>
+          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase", marginTop:2 }}>
+            North York General · 4001 Leslie St · Drag to rotate · Hover for details
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:14, alignItems:"center", flexWrap:"wrap" }}>
+          {[["Full (≥80% cap)",T.rose],["Busy (50–79%)",T.amber],["Available (<50%)",T.vital]].map(([l,c])=>(
+            <div key={l} style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <div style={{ width:10, height:10, borderRadius:3, background:c, opacity:.85 }}/>
+              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.06em" }}>{l}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:5, marginBottom:10, flexWrap:"wrap" }}>
+        <button onClick={()=>setActiveFloor(null)}
+          style={{ padding:"5px 13px", borderRadius:7, border:`1.5px solid ${activeFloor===null?T.rose:T.border}`, background:activeFloor===null?T.roseTint:"transparent", fontFamily:"'DM Mono',monospace", fontSize:9, color:activeFloor===null?T.rose:T.inkFaint, cursor:"pointer", letterSpacing:"0.07em", transition:"all .15s" }}>
+          All Floors
+        </button>
+        {floors.map(f=>(
+          <button key={f.id} onClick={()=>setActiveFloor(activeFloor===f.id?null:f.id)}
+            style={{ padding:"5px 13px", borderRadius:7, border:`1.5px solid ${activeFloor===f.id?T.rose:T.border}`, background:activeFloor===f.id?T.roseTint:"transparent", fontFamily:"'DM Mono',monospace", fontSize:9, color:activeFloor===f.id?T.rose:T.inkFaint, cursor:"pointer", letterSpacing:"0.07em", transition:"all .15s" }}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ position:"relative" }}>
+        <div
+          ref={mountRef}
+          style={{ width:"100%", height:420, borderRadius:12, overflow:"hidden", background:"linear-gradient(135deg,rgba(4,16,12,.96),rgba(6,18,14,.92))", cursor:"grab" }}
+          onMouseMove={e=>setMousePos({ x:e.clientX, y:e.clientY })}
+          onMouseDown={e=>{ e.currentTarget.style.cursor="grabbing"; }}
+          onMouseUp={e=>{ e.currentTarget.style.cursor="grab"; }}
+        />
+        {tooltipInfo && (
+          <div style={{ position:"fixed", left:mousePos.x+18, top:mousePos.y-10, minWidth:158, background:"rgba(4,20,18,.93)", border:`1px solid ${tooltipInfo.color}55`, borderRadius:9, padding:"10px 14px", pointerEvents:"none", zIndex:1000, backdropFilter:"blur(6px)", boxShadow:`0 0 22px ${tooltipInfo.color}22,0 2px 8px rgba(0,0,0,.5)` }}>
+            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:12, color:"#fff", marginBottom:3 }}>{tooltipInfo.label}</div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:tooltipInfo.color, letterSpacing:"0.06em" }}>{tooltipInfo.cur} / {tooltipInfo.cap} patients</div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:"rgba(255,255,255,.5)", marginTop:3, letterSpacing:"0.04em" }}>{tooltipInfo.msg}</div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// ─── FLOOR PLAN PDF UPLOADER ──────────────────────────────────────────────────
+async function extractPdfText(file) {
+  const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += `\n--- Page ${i} ---\n` + content.items.map(it => it.str).join(" ");
+  }
+  return text.trim();
+}
+
+function FloorPlanUploader({ onFloors }) {
+  const [apiKey,   setApiKey]   = useState(() => localStorage.getItem("groq_fp_key") || "");
+  const [file,     setFile]     = useState(null);
+  const [status,   setStatus]   = useState("idle");
+  const [errMsg,   setErrMsg]   = useState("");
+  const [expanded, setExpanded] = useState(false);
+
+  const saveKey = (k) => { setApiKey(k); localStorage.setItem("groq_fp_key", k); };
+
+  const analyze = async () => {
+    if (!file || !apiKey.trim()) return;
+    setStatus("loading"); setErrMsg("");
+    try {
+      const pdfText = await extractPdfText(file);
+      if (!pdfText) throw new Error("Could not extract text from PDF. Make sure it is a text-based PDF, not a scanned image.");
+
+      const prompt = `You are a hospital floor plan parser. Below is the extracted text from a hospital floor plan PDF. Identify all floors and rooms/departments.
+
+Return ONLY valid JSON (no markdown, no extra text) in this exact schema:
+[
+  {
+    "id": "g",
+    "label": "Ground Floor",
+    "name": "Ground Floor — <main departments>",
+    "depts": [
+      { "id": "dept-slug", "label": "Department Name", "x": 0, "y": 0, "w": 30, "h": 20, "occ": 50, "cap": 20 }
+    ]
+  }
+]
+
+Rules:
+- x/y/w/h use a 0-100 (x-axis) by 0-50 (y-axis) coordinate space. Distribute rooms logically, leave 4-unit gaps between them.
+- occ is estimated occupancy % (0-100). Default 50 if unknown.
+- cap is estimated patient capacity based on room type.
+- id must be lowercase URL-safe slugs (no spaces).
+- Include every floor as a separate array entry, ordered ground to top.
+- If floor count is unclear, create at least one floor with all detected rooms.
+
+PDF TEXT:
+${pdfText.slice(0, 12000)}`;
+
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey.trim()}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          temperature: 0.2,
+          max_tokens: 4096,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+
+      if (!res.ok) { const t = await res.text(); throw new Error(t); }
+      const data   = await res.json();
+      const raw    = data.choices?.[0]?.message?.content || "[]";
+      const json   = raw.replace(/```json|```/g, "").trim();
+      const floors = JSON.parse(json);
+      if (!Array.isArray(floors) || floors.length === 0) throw new Error("No floors extracted. Try a different PDF.");
+      onFloors(floors);
+      setStatus("done");
+    } catch (e) {
+      setErrMsg(e.message?.slice(0, 220) || "Unknown error");
+      setStatus("error");
+    }
+  };
+
+  return (
+    <Card style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }} onClick={() => setExpanded(x => !x)}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: T.roseTint, border: `1.5px solid ${T.rose}45`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>📄</div>
+          <div>
+            <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14, color: T.ink }}>Upload Hospital Floor Plan PDF</div>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: T.inkFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>Powered by Groq AI · Free · Updates 3D hologram</div>
+          </div>
+        </div>
+        <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.inkFaint }}>{expanded ? "▲ hide" : "▼ expand"}</span>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: 14, borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid, marginBottom: 5 }}>Groq API Key <span style={{ color: T.vital, fontSize: 11 }}>(free — no credit card)</span></div>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={e => saveKey(e.target.value)}
+              placeholder="gsk_…"
+              style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1.5px solid ${T.border}`, fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.ink, background: T.bgDeep, outline: "none", boxSizing: "border-box" }}
+            />
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: T.inkFaint, marginTop: 4, letterSpacing: "0.06em" }}>Saved in localStorage · Get a free key at console.groq.com</div>
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid, marginBottom: 5 }}>Floor Plan PDF <span style={{ color: T.inkFaint, fontSize: 11 }}>(must be text-based, not scanned)</span></div>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, border: `1.5px dashed ${file ? T.vital : T.border}`, background: file ? T.vitalPale : "transparent", cursor: "pointer" }}>
+              <input type="file" accept=".pdf" style={{ display: "none" }} onChange={e => { setFile(e.target.files[0]); setStatus("idle"); }} />
+              <span style={{ fontSize: 18 }}>{file ? "✅" : "📁"}</span>
+              <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, color: file ? T.vital : T.inkFaint }}>
+                {file ? file.name : "Click to choose a PDF…"}
+              </span>
+            </label>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              className="btn-primary"
+              onClick={analyze}
+              disabled={!file || !apiKey.trim() || status === "loading"}
+              style={{ opacity: (!file || !apiKey.trim() || status === "loading") ? 0.5 : 1, cursor: (!file || !apiKey.trim() || status === "loading") ? "not-allowed" : "pointer" }}
+            >
+              {status === "loading" ? "Extracting & Analyzing…" : "Analyze & Update 3D Map →"}
+            </button>
+            {status === "done"  && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.vital }}>✓ Floor plan updated!</span>}
+            {status === "error" && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.rose }}>✗ {errMsg}</span>}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── CAPACITY EDITOR ──────────────────────────────────────────────────────────
+function CapacityEditor({ floors, onSave }) {
+  const [expanded,  setExpanded]  = useState(false);
+  const [activeTab, setActiveTab] = useState(floors[0]?.id ?? "");
+  // draft holds { [floorId]: { [deptId]: capValue } }
+  const [draft, setDraft] = useState(() => {
+    const d = {};
+    floors.forEach(f => {
+      d[f.id] = {};
+      f.depts.forEach(dept => { d[f.id][dept.id] = dept.cap; });
+    });
+    return d;
+  });
+
+  const setVal = (fid, did, val) => {
+    const n = parseInt(val, 10);
+    if (isNaN(n) || n < 0) return;
+    setDraft(prev => ({ ...prev, [fid]: { ...prev[fid], [did]: n } }));
+  };
+
+  const apply = () => {
+    const updated = floors.map(f => ({
+      ...f,
+      depts: f.depts.map(dept => ({
+        ...dept,
+        cap: draft[f.id]?.[dept.id] ?? dept.cap,
+      })),
+    }));
+    onSave(updated);
+  };
+
+  const activeFloor = floors.find(f => f.id === activeTab);
+
+  return (
+    <Card style={{ marginBottom: 16 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer" }} onClick={() => setExpanded(x => !x)}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:32, height:32, borderRadius:9, background:`${T.amber}18`, border:`1.5px solid ${T.amber}45`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15 }}>✏️</div>
+          <div>
+            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>Edit Room Capacities</div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase" }}>Set maximum patients per room · Rebuilds 3D map</div>
+          </div>
+        </div>
+        <span style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.inkFaint }}>{expanded ? "▲ hide" : "▼ expand"}</span>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop:14, borderTop:`1px solid ${T.border}`, paddingTop:14 }}>
+          {/* Floor tabs */}
+          <div style={{ display:"flex", gap:5, marginBottom:14, flexWrap:"wrap" }}>
+            {floors.map(f => (
+              <button key={f.id} onClick={() => setActiveTab(f.id)}
+                style={{ padding:"4px 12px", borderRadius:6, border:`1.5px solid ${activeTab===f.id?T.amber:T.border}`, background:activeTab===f.id?`${T.amber}15`:"transparent", fontFamily:"'DM Mono',monospace", fontSize:9, color:activeTab===f.id?T.amber:T.inkFaint, cursor:"pointer", letterSpacing:"0.07em" }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Room rows */}
+          {activeFloor && (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(220px, 1fr))", gap:8, marginBottom:14 }}>
+              {activeFloor.depts.map(dept => {
+                const capVal = draft[activeTab]?.[dept.id] ?? dept.cap;
+                const occ    = Math.round((dept.cur / capVal) * 100);
+                const col    = occ >= 80 ? T.rose : occ >= 50 ? T.amber : T.vital;
+                return (
+                  <div key={dept.id} style={{ padding:"9px 12px", borderRadius:9, border:`1.5px solid ${col}30`, background:`${col}08`, display:"flex", flexDirection:"column", gap:5 }}>
+                    <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:12, color:T.ink, lineHeight:1.3 }}>{dept.label}</div>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.inkFaint }}>
+                        {dept.cur} cur · max:
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={capVal}
+                        onChange={e => setVal(activeTab, dept.id, e.target.value)}
+                        style={{ width:54, padding:"3px 7px", borderRadius:6, border:`1.5px solid ${col}55`, fontFamily:"'DM Mono',monospace", fontSize:12, fontWeight:700, color:col, background:T.bgDeep, outline:"none", textAlign:"center" }}
+                      />
+                    </div>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:col, letterSpacing:"0.06em" }}>
+                      {dept.cur}/{capVal} · {occ}%
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <button className="btn-primary" onClick={apply} style={{ fontSize:12 }}>
+            Apply Changes → Rebuild 3D Map
+          </button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // ─── DOCTOR PORTAL (/doctor) ──────────────────────────────────────────────────
 function DoctorPage() {
   const navigate = useNavigate();
+  const [hospitalFloors, setHospitalFloors] = useState(NYGH_FLOORS);
+  const [floorKey,       setFloorKey]       = useState(0);
+
+  const handleFloors = (floors) => {
+    setHospitalFloors(floors);
+    setFloorKey(k => k + 1);
+  };
+
   return (
     <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Sharma">
       <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
@@ -817,6 +1512,9 @@ function DoctorPage() {
           Doctor information
         </button>
       </div>
+      <FloorPlanUploader onFloors={handleFloors}/>
+      <CapacityEditor floors={hospitalFloors} onSave={handleFloors}/>
+      <NyghFloorPlan key={floorKey} floors={hospitalFloors}/>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         <Stat label="Today's Patients" value="12" color={T.rose}/>
         <Stat label="Pending Reviews" value="4" color={T.amber}/>
