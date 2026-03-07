@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "echo \"Backend listening at http://localhost:3001\" && nodemon index.js"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",

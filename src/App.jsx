@@ -27,6 +27,7 @@ const T = {
   rosePale:     "#EEBABA",
   roseGlow:     "rgba(212,112,106,0.35)",
   roseTint:     "rgba(212,112,106,0.08)",
+  blue:         "#6B9FD4",
   vital:        "#5BAA8A",
   vitalPale:    "rgba(91,170,138,0.15)",
   amber:        "#D4974A",
@@ -258,11 +259,11 @@ function LoginPage() {
 const NODES = {
   center:    { x:50, y:50, label:"Health Center", icon:"cross", isCenter:true, col:T.roseMid },
   patient:   { x:26, y:25, label:"Patient Portal", icon:"user", path:"/patient", col:T.rose },
-  doctor:    { x:76, y:25, label:"Doctor Portal", icon:"stethoscope", path:"/doctor", col:T.roseDeep },
+  doctor:    { x:76, y:25, label:"Doctor Portal", icon:"stethoscope", path:"/doctor", col:T.blue },
   schedule:  { x:26, y:76, label:"Scheduling", icon:"calendar", path:"/schedule", col:T.amber },
-  presage:   { x:76, y:76, label:"Presage AI", icon:"brain", path:"/presage", col:T.roseMid },
+  presage:   { x:76, y:76, label:"Presage AI", icon:"brain", path:"/presage", col:T.amber },
   hospital:  { x:26, y:76, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
-  feedback:  { x:76, y:25, label:"Doctor Feedback", icon:"stethoscope", path:"/patient/feedback", col:T.roseDeep },
+  feedback:  { x:76, y:25, label:"Doctor Feedback", icon:"heart", path:"/patient/feedback", col:T.blue },
   rooms:     { x:76, y:76, label:"Room Map", icon:"grid", path:"/rooms", col:T.vital },
 };
 
@@ -280,14 +281,14 @@ const EDGES = [
 ];
 
 const PATIENT_EDGES = [
-  { from:"center", to:"patient" },
-  { from:"center", to:"hospital" },
-  { from:"center", to:"presage" },
-  { from:"center", to:"feedback" },
-  { from:"patient", to:"presage" },
-  { from:"patient", to:"hospital" },
-  { from:"hospital", to:"feedback" },
-  { from:"presage", to:"feedback" },
+  { from:"center", to:"patient" },       // spoke top-left
+  { from:"center", to:"feedback" },      // spoke top-right
+  { from:"center", to:"hospital" },      // spoke bottom-left
+  { from:"center", to:"presage" },       // spoke bottom-right
+  { from:"patient", to:"feedback" },     // top edge
+  { from:"feedback", to:"presage" },     // right edge
+  { from:"presage", to:"hospital" },     // bottom edge
+  { from:"hospital", to:"patient" },     // left edge
 ];
 
 const DOCTOR_EDGES = [
@@ -437,9 +438,12 @@ function MazePage() {
             <marker id="arr" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
               <polygon points="0 0,5 2.5,0 5" fill={ac} opacity=".9"/>
             </marker>
+            <marker id="arr-edge" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+              <polygon points="0 0,5 2.5,0 5" fill="context-stroke"/>
+            </marker>
           </defs>
           {DECOS.map((d,i)=><path key={i} d={d} fill="none" stroke={T.border} strokeWidth=".7" strokeLinecap="round" opacity=".8"/>)}
-          {activeEdges.map((e,i)=>{ const f=NODES[e.from],t=NODES[e.to]; let d=`M ${f.x} ${f.y}`; (e.wp||[]).forEach(w=>{ d+=` L ${w.x} ${w.y}`; }); d+=` L ${t.x} ${t.y}`; return <path key={i} d={d} fill="none" stroke={T.border} strokeWidth=".6" strokeDasharray="1.5 2" opacity=".55"/>; })}
+          {activeEdges.map((e,i)=>{ const f=NODES[e.from],t=NODES[e.to]; const col=NODES[e.to]?.col||T.rose; const isConnected=hov&&(e.from===hov||e.to===hov); let d=`M ${f.x} ${f.y}`; (e.wp||[]).forEach(w=>{ d+=` L ${w.x} ${w.y}`; }); d+=` L ${t.x} ${t.y}`; return <path key={i} d={d} fill="none" stroke={col} strokeWidth={isConnected?".9":".6"} strokeDasharray="1.5 2" opacity={isConnected?.85:.3} markerEnd="url(#arr-edge)"/>; })}
           {pd && <>
             <path d={pd} fill="none" stroke={ac} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" opacity=".15" filter="url(#glow)"/>
             <path d={pd} fill="none" stroke={ac} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" markerEnd="url(#arr)" strokeDasharray="400" style={{ animation:"pathAnim .45s cubic-bezier(.4,0,.2,1) forwards" }}/>
@@ -484,13 +488,14 @@ function MazePage() {
               <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:isCenter?700:500, fontSize:isCenter?11:9, color:isHov?col:inPath?col:isCenter?T.inkMid:T.inkFaint, textAlign:"center", whiteSpace:"nowrap", transition:"color .2s", letterSpacing:isCenter?"-0.01em":"0.02em" }}>
                 {activeRole === ROLE.PATIENT && key === "patient" && "Patient information"}
                 {activeRole === ROLE.PATIENT && key === "hospital" && "Nearest hospital map"}
-                {activeRole === ROLE.PATIENT && key === "presage" && "Presage"}
+                {activeRole === ROLE.PATIENT && key === "presage" && "Presage AI"}
+                {activeRole === ROLE.PATIENT && key === "feedback" && "Doctor Feedback"}
                 {activeRole === ROLE.DOCTOR && key === "rooms" && "Room assignment"}
                 {activeRole === ROLE.DOCTOR && key === "schedule" && "Scheduling"}
                 {activeRole === ROLE.DOCTOR && key === "patient" && "Patient info (severity)"}
                 {activeRole === ROLE.DOCTOR && key === "doctor" && "Doctor information"}
                 {!activeRole && node.label}
-                {activeRole && !["patient","hospital","presage","rooms","schedule","doctor"].includes(key) && node.label}
+                {activeRole && !["patient","hospital","presage","feedback","rooms","schedule","doctor"].includes(key) && node.label}
               </div>
               {isHov && <div style={{ position:"absolute", top:"calc(100% + 8px)", background:T.ink, color:T.white, padding:"5px 12px", borderRadius:8, fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.1em", textTransform:"uppercase", whiteSpace:"nowrap", animation:"fadeIn .15s ease", boxShadow:"0 4px 16px rgba(0,0,0,.2)", zIndex:30 }}>Click to enter →</div>}
             </div>
@@ -721,7 +726,7 @@ function PatientPage() {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         <Stat label="Next Appointment" value="Mar 12" sub="09:30 AM" color={T.rose}/>
         <Stat label="Active Scripts" value="3" color={T.roseMid}/>
-        <Stat label="Last Visit" value="Feb 18" sub="Dr. Sharma"/>
+        <Stat label="Last Visit" value="Feb 18" sub="Dr. Roberts"/>
         <Stat label="Health Score" value="87" sub="Excellent" color={T.vital}/>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1.6fr 1fr", gap:16 }}>
@@ -749,7 +754,7 @@ function PatientPage() {
           </Card>
           <Card>
             <SHead>Recent Activity</SHead>
-            {[{date:"Feb 18",event:"General Checkup",doctor:"Dr. Sharma",type:"visit"},{date:"Feb 02",event:"Blood Work Results",doctor:"Lab Dept.",type:"lab"},{date:"Jan 29",event:"Prescription Renewed",doctor:"Dr. Sharma",type:"rx"},{date:"Jan 15",event:"Chest X-Ray",doctor:"Radiology",type:"imaging"}].map((item,i)=>{
+            {[{date:"Feb 18",event:"General Checkup",doctor:"Dr. Roberts",type:"visit"},{date:"Feb 02",event:"Blood Work Results",doctor:"Lab Dept.",type:"lab"},{date:"Jan 29",event:"Prescription Renewed",doctor:"Dr. Roberts",type:"rx"},{date:"Jan 15",event:"Chest X-Ray",doctor:"Radiology",type:"imaging"}].map((item,i)=>{
               const c={visit:T.vital,lab:T.rose,rx:T.amber,imaging:"#6B8FDF"}[item.type];
               return (
                 <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"9px 0", borderBottom:i<3?`1px solid ${T.border}`:"none" }}>

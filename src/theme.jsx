@@ -11,6 +11,8 @@ export const T = {
   rosePale:     "#EEBABA",
   roseGlow:     "rgba(212,112,106,0.35)",
   roseTint:     "rgba(212,112,106,0.08)",
+  blue:         "#6B9FD4",
+  bluePale:     "rgba(107,159,212,0.15)",
   vital:        "#5BAA8A",
   vitalPale:    "rgba(91,170,138,0.15)",
   amber:        "#D4974A",
