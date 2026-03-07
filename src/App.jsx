@@ -6,6 +6,7 @@ import { getUserRoles, ROLE } from "./auth/roles";
 import { Icons } from "./theme";
 import { BgOrbs, EcgStrip, Card } from "./components/SharedUI";
 import HospitalHologram from "./components/Hologram";
+import HospitalMap3D from "./components/HospitalMap3D";
 import { getPersistedRole, setPersistedRole } from "./auth/persistedRole";
 import PresagePage from "./pages/Presage";
 import ScannerPage from "./pages/ScannerPage";
@@ -1020,6 +1021,7 @@ function HospitalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sortOrder, setSortOrder] = useState('asc');
+  const [selectedHospital, setSelectedHospital] = useState(null);
 
   const hospitalColors = [T.vital, T.rose, T.amber, T.vital, T.vital, T.rose, T.amber, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber];
 
@@ -1276,7 +1278,7 @@ function HospitalPage() {
             </button>
           </div>
           {sortedHospitals.length > 0 ? sortedHospitals.map((h,i)=>(
-            <Card key={i} onClick={()=>{}} accent={h.col} style={{ padding:"16px 18px" }}>
+            <Card key={i} onClick={()=>setSelectedHospital(i)} accent={h.col} style={{ padding:"16px 18px", outline: selectedHospital === i ? `2px solid ${h.col}` : "none", outlineOffset: -2 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:9 }}>
                 <div>
                   <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>{h.name}</div>
@@ -1296,21 +1298,13 @@ function HospitalPage() {
             <div style={{ textAlign: 'center', padding: '20px', fontFamily:"'Outfit',sans-serif", color: T.inkFaint }}>No hospitals found</div>
           )}
         </div>
-        <div style={{ minHeight:400, borderRadius:20, overflow:"hidden", background:`linear-gradient(135deg,${T.bgDeep} 0%,#E8D8CC 100%)`, border:`1px solid ${T.border}`, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", height:400 }}>
-          <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%", opacity:.12 }} viewBox="0 0 400 400">
-            {Array.from({length:9},(_,i)=>(<g key={i}><line x1={i*50} y1="0" x2={i*50} y2="400" stroke={T.rose} strokeWidth=".8"/><line x1="0" y1={i*50} x2="400" y2={i*50} stroke={T.rose} strokeWidth=".8"/></g>))}
-            <path d="M 80 200 L 200 200 L 200 120 L 300 120" fill="none" stroke={T.rose} strokeWidth="3" strokeLinecap="round"/>
-            <path d="M 40 280 L 160 280 L 200 200" fill="none" stroke={T.amber} strokeWidth="2.5" strokeLinecap="round"/>
-            <circle cx="200" cy="200" r="10" fill={T.rose} opacity=".6"/>
-            <circle cx="300" cy="120" r="8" fill={T.vital} opacity=".7"/>
-            <circle cx="40" cy="280" r="8" fill={T.amber} opacity=".7"/>
-          </svg>
-          <div style={{ textAlign:"center", zIndex:1 }}>
-            <div style={{ width:60, height:60, borderRadius:18, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, margin:"0 auto 14px", animation:"float 3s ease-in-out infinite" }}><Icons.mapPin/></div>
-            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:18, color:T.ink }}>Interactive Hospital Map</div>
-            <div style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic", fontSize:13, color:T.inkFaint, marginTop:5 }}>Three.js 3D visualization with live routing</div>
-            <button className="btn-primary" style={{ marginTop:18, fontSize:13 }}>Enable Location →</button>
-          </div>
+        <div style={{ minHeight:500, height:500, borderRadius:20, overflow:"hidden", border:`1px solid ${T.border}`, position:"relative" }}>
+          <HospitalMap3D
+            hospitals={sortedHospitals}
+            userLocation={userLocation}
+            selectedHospital={selectedHospital}
+            onSelectHospital={setSelectedHospital}
+          />
         </div>
       </div>
     </PageWrap>
