@@ -4,11 +4,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import users from "./routes/users.js";
 import healthcard from "./routes/healthcard.js";
-<<<<<<< HEAD
 import triage from "./routes/triage.js";
-=======
 import feedback from "./routes/feedback.js";
->>>>>>> refs/remotes/origin/main
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -72,11 +69,8 @@ app.post("/api/vitals/update", async (req, res) => {
 // --- 3. EXISTING ROUTES ---
 app.use("/api/users", users);
 app.use("/api/healthcard", healthcard);
-<<<<<<< HEAD
 app.use("/api/triage", triage);
-=======
 app.use("/api/feedback", feedback);
->>>>>>> refs/remotes/origin/main
 
 app.get("/api/distances", async (req, res) => {
   const { origins, destinations } = req.query;
@@ -84,14 +78,10 @@ app.get("/api/distances", async (req, res) => {
     return res.status(400).json({ error: "Missing origins or destinations" });
   }
   try {
-<<<<<<< HEAD
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY || "AIzaSyCKqQCSCZoUCMSTkN1hzYOWm44bwClhDsE";
-=======
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
       return res.status(500).json({ error: "Google Maps API key not configured" });
     }
->>>>>>> refs/remotes/origin/main
     const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origins)}&destinations=${encodeURIComponent(destinations)}&units=metric&key=${apiKey}`;
     const response = await fetch(url);
     const data = await response.json();
