@@ -10,6 +10,7 @@ import HospitalMap3D from "./components/HospitalMap3D";
 import { getPersistedRole, setPersistedRole } from "./auth/persistedRole";
 import PresagePage from "./pages/Presage";
 import ScannerPage from "./pages/ScannerPage";
+import PatientFeedbackPage from "./pages/PatientFeedbackPage";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const T = {
@@ -91,7 +92,7 @@ function Stat({ label, value, sub, color }) {
   );
 }
 
-function SHead({ children }) {
+export function SHead({ children }) {
   return (
     <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.18em", textTransform:"uppercase", color:T.inkFaint, marginBottom:12, display:"flex", alignItems:"center", gap:8 }}>
       <div style={{ flex:1, height:1, background:T.border }}/>{children}<div style={{ flex:1, height:1, background:T.border }}/>
@@ -257,8 +258,9 @@ const NODES = {
   patient:   { x:26, y:25, label:"Patient Portal", icon:"user", path:"/patient", col:T.rose },
   doctor:    { x:76, y:25, label:"Doctor Portal", icon:"stethoscope", path:"/doctor", col:T.roseDeep },
   schedule:  { x:26, y:76, label:"Scheduling", icon:"calendar", path:"/schedule", col:T.amber },
-  presage:   { x:(50-18)+50, y:50-8, label:"Presage AI", icon:"brain", path:"/presage", col:T.roseMid },
-  hospital:  { x:38, y:80, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
+  presage:   { x:76, y:76, label:"Presage AI", icon:"brain", path:"/presage", col:T.roseMid },
+  hospital:  { x:26, y:76, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
+  feedback:  { x:76, y:25, label:"Doctor Feedback", icon:"stethoscope", path:"/patient/feedback", col:T.roseDeep },
   rooms:     { x:76, y:76, label:"Room Map", icon:"grid", path:"/rooms", col:T.vital },
 };
 
@@ -279,9 +281,11 @@ const PATIENT_EDGES = [
   { from:"center", to:"patient" },
   { from:"center", to:"hospital" },
   { from:"center", to:"presage" },
+  { from:"center", to:"feedback" },
   { from:"patient", to:"presage" },
   { from:"patient", to:"hospital" },
-  { from:"hospital", to:"presage" },
+  { from:"hospital", to:"feedback" },
+  { from:"presage", to:"feedback" },
 ];
 
 const DOCTOR_EDGES = [
@@ -355,7 +359,7 @@ function MazePage() {
   // Adjust maze buttons (nodes) based on active role
   const visibleNodeKeys = (() => {
     if (activeRole === ROLE.PATIENT) {
-      return ["center","patient","hospital","presage"];
+      return ["center","patient","hospital","presage","feedback"];
     }
     if (activeRole === ROLE.DOCTOR) {
       return ["center","rooms","schedule","patient","doctor"];
@@ -625,7 +629,7 @@ function RoleSelectionPage() {
 }
 
 // ─── PAGE WRAPPER (shared by all portals) ─────────────────────────────────────
-function PageWrap({ children, title, icon, subtitle, badge }) {
+export function PageWrap({ children, title, icon, subtitle, badge }) {
   const navigate = useNavigate();
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", background:T.bg, overflow:"hidden" }}>
@@ -814,6 +818,18 @@ function PatientPage() {
 // ─── DOCTOR PORTAL (/doctor) ──────────────────────────────────────────────────
 function DoctorPage() {
   const navigate = useNavigate();
+  const [feedback, setFeedback] = useState([]);
+  const [searchDoctor, setSearchDoctor] = useState("");
+
+  useEffect(() => {
+    fetch("http://localhost:3001/api/feedback")
+      .then(r => r.json())
+      .then(data => setFeedback(data))
+      .catch(console.error);
+  }, []);
+
+  const filteredFeedback = feedback.filter(f => searchDoctor === "" || f.doctorName.toLowerCase().includes(searchDoctor.toLowerCase()));
+
   return (
     <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Sharma">
       <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
@@ -892,27 +908,41 @@ function DoctorPage() {
         </div>
         <div id="doctor-info" style={{ display:"flex", flexDirection:"column", gap:14 }}>
           <Card>
-            <SHead>Severity Guide</SHead>
-            {[[1,T.vital,"Routine / Preventive"],[2,"#8BBF5A","Mild Symptoms"],[3,T.amber,"Moderate — Monitor"],[4,T.rose,"Urgent — Expedite"],[5,T.roseDeep,"Critical — Emergency"]].map(([n,c,l])=>(
-              <div key={n} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-                <div style={{ width:26, height:26, borderRadius:7, background:`${c}18`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:12, color:c }}>{n}</div>
-                <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid }}>{l}</span>
-              </div>
-            ))}
-          </Card>
-          <Card accent={T.vital}>
-            <SHead>Dept. Capacity</SHead>
-            {[["Emergency",85],["General",62],["Cardiology",44],["Radiology",71]].map(([dept,pct])=>(
-              <div key={dept} style={{ marginBottom:10 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid }}>{dept}</span>
-                  <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:pct>70?T.rose:T.vital }}>{pct}%</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <SHead style={{ margin: 0 }}>Doctor Feedback Directory</SHead>
+              <input 
+                type="text" 
+                placeholder="Search by doctor name..." 
+                value={searchDoctor}
+                onChange={e => setSearchDoctor(e.target.value)}
+                style={{ padding: "6px 12px", borderRadius: 100, border: `1px solid ${T.border}`, background: T.bgDeep, fontFamily: "'Outfit',sans-serif", fontSize: 12, outline: "none", width: 160 }}
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 400, overflowY: "auto", paddingRight: 6 }}>
+              {filteredFeedback.length > 0 ? filteredFeedback.map((f, i) => (
+                <div key={i} style={{ padding: 14, borderRadius: 12, background: T.surfaceHard, border: `1px solid ${T.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14, color: T.ink }}>{f.doctorName}</div>
+                      <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 11, color: T.inkFaint }}>Reviewed by {f.patientName}</div>
+                    </div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: T.inkFaint }}>{new Date(f.date).toLocaleDateString()}</div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div>
+                      <span style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 600, fontSize: 11, color: T.vital }}>What went well: </span>
+                      <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid }}>{f.liked}</span>
+                    </div>
+                    <div>
+                      <span style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 600, fontSize: 11, color: T.amber }}>Needs improvement: </span>
+                      <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid }}>{f.improved}</span>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ height:4, borderRadius:4, background:T.bgDeep, overflow:"hidden" }}>
-                  <div style={{ height:"100%", width:`${pct}%`, borderRadius:4, background:pct>70?`linear-gradient(90deg,${T.amber},${T.rose})`:`linear-gradient(90deg,${T.vital},#4A9A7A)`, transition:"width .6s ease" }}/>
-                </div>
-              </div>
-            ))}
+              )) : (
+                <div style={{ padding: "20px 0", textAlign: "center", fontFamily: "'Outfit',sans-serif", fontSize: 13, color: T.inkFaint }}>No feedback found.</div>
+              )}
+            </div>
           </Card>
         </div>
       </div>
@@ -1613,6 +1643,9 @@ export default function App() {
         }/>
         <Route path="/patient/scanner" element={
           <ProtectedRoute><ScannerPage PageWrap={PageWrap} /></ProtectedRoute>
+        }/>
+        <Route path="/patient/feedback" element={
+          <ProtectedRoute><PatientFeedbackPage/></ProtectedRoute>
         }/>
         <Route path="/schedule" element={
           <ProtectedRoute><SchedulePage/></ProtectedRoute>
