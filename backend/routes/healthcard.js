@@ -1,6 +1,6 @@
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
-import fs from "fs";
+import Healthcard from "../models/Healthcard.js";
 
 const router = express.Router();
 
@@ -50,7 +50,6 @@ function parseGeminiResponse(text) {
 }
 
 // POST /api/healthcard/scan-base64
-// Body: { image: "data:image/...;base64,XXXX" }
 router.post("/scan-base64", async (req, res) => {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -61,10 +60,9 @@ router.post("/scan-base64", async (req, res) => {
     let imageData = req.body.image;
     if (!imageData) return res.status(400).json({ detail: "No image provided" });
 
-    // Strip the data-url prefix to get pure base64 + detect mime
     let mimeType = "image/png";
     if (imageData.includes(",")) {
-      const header = imageData.split(",")[0]; // e.g. data:image/jpeg;base64
+      const header = imageData.split(",")[0];
       const mimeMatch = header.match(/data:(image\/\w+);/);
       if (mimeMatch) mimeType = mimeMatch[1];
       imageData = imageData.split(",")[1];
@@ -88,6 +86,40 @@ router.post("/scan-base64", async (req, res) => {
   } catch (err) {
     console.error("Healthcard scan error:", err);
     return res.status(500).json({ detail: err.message || "Scan failed" });
+  }
+});
+
+// POST /api/healthcard/save
+// Body: { email, full_name, card_number, ... , source: "scan"|"manual" }
+router.post("/save", async (req, res) => {
+  try {
+    const { email, ...cardData } = req.body;
+    if (!email) return res.status(400).json({ detail: "email is required" });
+
+    const card = await Healthcard.findOneAndUpdate(
+      { email },
+      { ...cardData, updatedAt: new Date() },
+      { upsert: true, new: true, runValidators: true }
+    );
+    return res.json(card);
+  } catch (err) {
+    console.error("Save healthcard error:", err);
+    return res.status(500).json({ detail: err.message });
+  }
+});
+
+// GET /api/healthcard?email=foo@bar.com
+router.get("/", async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ detail: "email query param required" });
+
+    const card = await Healthcard.findOne({ email });
+    if (!card) return res.status(404).json({ detail: "No healthcard found" });
+    return res.json(card);
+  } catch (err) {
+    console.error("Get healthcard error:", err);
+    return res.status(500).json({ detail: err.message });
   }
 });
 

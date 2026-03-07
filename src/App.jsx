@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
+import { Routes, Route, useNavigate, Navigate, useSearchParams } from "react-router-dom";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { useAuth0 } from "@auth0/auth0-react";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import { getUserRoles, ROLE } from "./auth/roles";
 import { Icons } from "./theme";
 import { BgOrbs, EcgStrip, Card } from "./components/SharedUI";
 import HospitalHologram from "./components/Hologram";
+import HospitalMap3D from "./components/HospitalMap3D";
 import { getPersistedRole, setPersistedRole } from "./auth/persistedRole";
 import PresagePage from "./pages/Presage";
 import ScannerPage from "./pages/ScannerPage";
+import PatientFeedbackPage from "./pages/PatientFeedbackPage";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const T = {
@@ -90,7 +94,7 @@ function Stat({ label, value, sub, color }) {
   );
 }
 
-function SHead({ children }) {
+export function SHead({ children }) {
   return (
     <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.18em", textTransform:"uppercase", color:T.inkFaint, marginBottom:12, display:"flex", alignItems:"center", gap:8 }}>
       <div style={{ flex:1, height:1, background:T.border }}/>{children}<div style={{ flex:1, height:1, background:T.border }}/>
@@ -256,8 +260,9 @@ const NODES = {
   patient:   { x:26, y:25, label:"Patient Portal", icon:"user", path:"/patient", col:T.rose },
   doctor:    { x:76, y:25, label:"Doctor Portal", icon:"stethoscope", path:"/doctor", col:T.roseDeep },
   schedule:  { x:26, y:76, label:"Scheduling", icon:"calendar", path:"/schedule", col:T.amber },
-  presage:   { x:(50-18)+50, y:50-8, label:"Presage AI", icon:"brain", path:"/presage", col:T.roseMid },
-  hospital:  { x:38, y:80, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
+  presage:   { x:76, y:76, label:"Presage AI", icon:"brain", path:"/presage", col:T.roseMid },
+  hospital:  { x:26, y:76, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
+  feedback:  { x:76, y:25, label:"Doctor Feedback", icon:"stethoscope", path:"/patient/feedback", col:T.roseDeep },
   rooms:     { x:76, y:76, label:"Room Map", icon:"grid", path:"/rooms", col:T.vital },
 };
 
@@ -278,9 +283,11 @@ const PATIENT_EDGES = [
   { from:"center", to:"patient" },
   { from:"center", to:"hospital" },
   { from:"center", to:"presage" },
+  { from:"center", to:"feedback" },
   { from:"patient", to:"presage" },
   { from:"patient", to:"hospital" },
-  { from:"hospital", to:"presage" },
+  { from:"hospital", to:"feedback" },
+  { from:"presage", to:"feedback" },
 ];
 
 const DOCTOR_EDGES = [
@@ -354,7 +361,7 @@ function MazePage() {
   // Adjust maze buttons (nodes) based on active role
   const visibleNodeKeys = (() => {
     if (activeRole === ROLE.PATIENT) {
-      return ["center","patient","hospital","presage"];
+      return ["center","patient","hospital","presage","feedback"];
     }
     if (activeRole === ROLE.DOCTOR) {
       return ["center","rooms","schedule","patient","doctor"];
@@ -461,8 +468,8 @@ function MazePage() {
                 if (activeRole === ROLE.DOCTOR) {
                   if (key === "rooms") navigate("/rooms");
                   else if (key === "schedule") navigate("/schedule");
-                  else if (key === "patient") navigate("/doctor"); // patient info by severity
-                  else if (key === "doctor") navigate("/doctor");  // doctor information
+                  else if (key === "patient") navigate("/doctor?tab=patients"); // patient info by severity
+                  else if (key === "doctor") navigate("/doctor?tab=floorplan");  // doctor information
                   else if (node.path) navigate(node.path);
                   return;
                 }
@@ -624,7 +631,7 @@ function RoleSelectionPage() {
 }
 
 // ─── PAGE WRAPPER (shared by all portals) ─────────────────────────────────────
-function PageWrap({ children, title, icon, subtitle, badge }) {
+export function PageWrap({ children, title, icon, subtitle, badge }) {
   const navigate = useNavigate();
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", background:T.bg, overflow:"hidden" }}>
@@ -656,6 +663,15 @@ function PatientPage() {
   const navigate = useNavigate();
   const displayName = user?.name || user?.email?.split("@")[0] || "Patient";
   const initials = displayName.split(" ").map(n=>n[0]).join("").toUpperCase().slice(0,2);
+  const [healthcard, setHealthcard] = useState(null);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    fetch(`http://localhost:3001/api/healthcard?email=${encodeURIComponent(user.email)}`)
+      .then(r => { if (r.ok) return r.json(); throw new Error("none"); })
+      .then(card => setHealthcard(card))
+      .catch(() => setHealthcard(null));
+  }, [user?.email]);
 
   return (
     <PageWrap title="Patient Portal" icon={<Icons.user/>} subtitle="Personal health dashboard"
@@ -752,15 +768,40 @@ function PatientPage() {
               }
               <div>
                 <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>{displayName}</div>
-                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase", marginTop:2 }}>HC-4821-0039-JM</div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase", marginTop:2 }}>
+                  {healthcard?.card_number || "No health card on file"}
+                </div>
               </div>
             </div>
-            {[["Blood Type","A+"],["Weight","74 kg"],["Height","178 cm"],["Allergies","Penicillin"]].map(([k,v])=>(
-              <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${T.border}` }}>
-                <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint }}>{k}</span>
-                <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:12, color:T.ink }}>{v}</span>
+            {healthcard ? (
+              <>
+                {[
+                  ["Full Name", healthcard.full_name],
+                  ["Card Number", healthcard.card_number],
+                  ["Date of Birth", healthcard.date_of_birth],
+                  ["Gender", healthcard.gender],
+                  ["Province", healthcard.province],
+                  ["Expiry Date", healthcard.expiry_date],
+                ].filter(([,v]) => v).map(([k,v])=>(
+                  <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${T.border}` }}>
+                    <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint }}>{k}</span>
+                    <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:12, color:T.ink }}>{v}</span>
+                  </div>
+                ))}
+                <button className="btn-ghost" onClick={()=>navigate("/patient/scanner")} style={{ marginTop:10, fontSize:11, padding:"7px 14px", width:"100%" }}>
+                  Update Health Card
+                </button>
+              </>
+            ) : (
+              <div style={{ textAlign:"center", padding:"16px 0" }}>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, marginBottom:12 }}>No health card information on file</div>
+                <button className="btn-primary" onClick={()=>navigate("/patient/scanner")} style={{ fontSize:12, padding:"9px 20px" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <Icons.card/> Scan or Enter Health Card
+                  </div>
+                </button>
               </div>
-            ))}
+            )}
           </Card>
           <Card accent={T.rose} style={{ borderColor:`${T.rose}28` }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
@@ -776,111 +817,931 @@ function PatientPage() {
   );
 }
 
+// ─── NYGH FLOOR PLAN ──────────────────────────────────────────────────────────
+// Schematic based on North York General Hospital, 4001 Leslie St, Toronto
+// Department layout sourced from nygh.on.ca/areas-care
+// Occupancy colours: red ≥80% (full), amber 50-79% (busy/short wait), green <50% (open)
+
+// SVG canvas: x 0-100, y 0-50.  4-unit corridors between every room.
+// cur = current patients; cap = maximum capacity. occ% derived as cur/cap*100.
+// Coordinates: x 0-100 (width), y 0-50 (depth). 4-unit gaps between all rooms.
+// Layout based on North York General Hospital, 4001 Leslie St, Toronto.
+const NYGH_FLOORS = [
+  { id:"g", label:"Ground", name:"Ground Floor — Emergency & Diagnostics",
+    depts:[
+      // Emergency wing (left block)
+      { id:"ed-triage",  label:"ED Triage",       x:2,  y:2,  w:22, h:10, cur:18, cap:20 },
+      { id:"ed-waiting", label:"ED Waiting",       x:2,  y:16, w:22, h:10, cur:32, cap:40 },
+      { id:"ed-exambay", label:"ED Exam Bays",     x:2,  y:30, w:22, h:18, cur:26, cap:30 },
+      { id:"trauma",     label:"Trauma / Resus",   x:28, y:2,  w:14, h:46, cur:3,  cap:4  },
+      // Diagnostics (centre)
+      { id:"ct",         label:"CT Scanner",       x:46, y:2,  w:12, h:21, cur:2,  cap:3  },
+      { id:"us",         label:"Ultrasound",       x:46, y:27, w:12, h:21, cur:3,  cap:4  },
+      // Services (right)
+      { id:"lab",        label:"Lab / Pathology",  x:62, y:2,  w:12, h:21, cur:12, cap:20 },
+      { id:"phm",        label:"Pharmacy",         x:62, y:27, w:12, h:21, cur:14, cap:25 },
+      { id:"lobby",      label:"Main Lobby",       x:78, y:2,  w:20, h:21, cur:40, cap:80 },
+      { id:"reg",        label:"Registration",     x:78, y:27, w:20, h:21, cur:8,  cap:15 },
+    ],
+  },
+  { id:"1", label:"Floor 1", name:"Floor 1 — Medical Imaging & Outpatient Clinics",
+    depts:[
+      // Imaging (left block, full height — these rooms are large & specialised)
+      { id:"mri1",   label:"MRI Suite 1",      x:2,  y:2,  w:12, h:21, cur:1,  cap:1  },
+      { id:"mri2",   label:"MRI Suite 2",      x:2,  y:27, w:12, h:21, cur:1,  cap:1  },
+      { id:"ct1",    label:"CT Suite 1",       x:18, y:2,  w:12, h:21, cur:1,  cap:1  },
+      { id:"ct2",    label:"CT Suite 2",       x:18, y:27, w:12, h:21, cur:1,  cap:2  },
+      { id:"xray",   label:"X-Ray / Fluoro",   x:34, y:2,  w:12, h:21, cur:6,  cap:10 },
+      { id:"nuc",    label:"Nuclear Medicine", x:34, y:27, w:12, h:21, cur:3,  cap:6  },
+      // Outpatient clinics (right)
+      { id:"frac",   label:"Fracture Clinic",  x:50, y:2,  w:14, h:21, cur:14, cap:20 },
+      { id:"orth",   label:"Orthopaedics",     x:50, y:27, w:14, h:21, cur:10, cap:18 },
+      { id:"opd-a",  label:"Outpatient A",     x:68, y:2,  w:14, h:21, cur:18, cap:24 },
+      { id:"opd-b",  label:"Outpatient B",     x:68, y:27, w:14, h:21, cur:15, cap:20 },
+      { id:"opd-c",  label:"Specialist Clinic",x:86, y:2,  w:12, h:46, cur:22, cap:30 },
+    ],
+  },
+  { id:"2", label:"Floor 2", name:"Floor 2 — Surgery & Perioperative Care",
+    depts:[
+      // Operating Rooms (each OR fits 1 patient at a time)
+      { id:"or1",   label:"OR 1",             x:2,  y:2,  w:10, h:21, cur:1,  cap:1  },
+      { id:"or2",   label:"OR 2",             x:2,  y:27, w:10, h:21, cur:0,  cap:1  },
+      { id:"or3",   label:"OR 3",             x:16, y:2,  w:10, h:21, cur:1,  cap:1  },
+      { id:"or4",   label:"OR 4",             x:16, y:27, w:10, h:21, cur:1,  cap:1  },
+      { id:"or5",   label:"OR 5",             x:30, y:2,  w:10, h:21, cur:0,  cap:1  },
+      { id:"or6",   label:"OR 6",             x:30, y:27, w:10, h:21, cur:1,  cap:1  },
+      { id:"or7",   label:"OR 7",             x:44, y:2,  w:10, h:21, cur:1,  cap:1  },
+      { id:"or8",   label:"OR 8",             x:44, y:27, w:10, h:21, cur:0,  cap:1  },
+      // Perioperative
+      { id:"pacu",  label:"Recovery (PACU)",  x:58, y:2,  w:14, h:21, cur:7,  cap:12 },
+      { id:"preop", label:"Pre-Op Assess.",   x:58, y:27, w:14, h:21, cur:9,  cap:15 },
+      { id:"endo",  label:"Endoscopy",        x:76, y:2,  w:12, h:21, cur:4,  cap:6  },
+      { id:"daysx", label:"Day Surgery",      x:76, y:27, w:12, h:21, cur:8,  cap:14 },
+      { id:"steril",label:"Sterile Supply",   x:92, y:2,  w:6,  h:46, cur:3,  cap:8  },
+    ],
+  },
+  { id:"3", label:"Floor 3", name:"Floor 3 — Cardiology & Internal Medicine",
+    depts:[
+      // Cardiology
+      { id:"cath1",  label:"Cath Lab 1",       x:2,  y:2,  w:12, h:21, cur:1,  cap:2  },
+      { id:"cath2",  label:"Cath Lab 2",       x:2,  y:27, w:12, h:21, cur:2,  cap:2  },
+      { id:"card-w", label:"Cardiology Ward",  x:18, y:2,  w:18, h:46, cur:20, cap:24 },
+      { id:"stepdn", label:"Cardiac Step-Down",x:40, y:2,  w:14, h:21, cur:10, cap:14 },
+      { id:"echo",   label:"Echocardiography", x:40, y:27, w:14, h:21, cur:4,  cap:6  },
+      // Internal Medicine
+      { id:"intm",   label:"Internal Medicine",x:58, y:2,  w:14, h:21, cur:14, cap:20 },
+      { id:"geri",   label:"Geriatrics",       x:58, y:27, w:14, h:21, cur:12, cap:18 },
+      // Doctor offices / support
+      { id:"dr-off", label:"Doctors' Offices", x:76, y:2,  w:12, h:21, cur:6,  cap:12 },
+      { id:"conf",   label:"Conference Room",  x:76, y:27, w:12, h:21, cur:2,  cap:20 },
+      { id:"chrt",   label:"Charting Station", x:92, y:2,  w:6,  h:46, cur:4,  cap:8  },
+    ],
+  },
+  { id:"4", label:"Floor 4", name:"Floor 4 — ICU, CCU & Maternity",
+    depts:[
+      // Critical Care
+      { id:"icu",   label:"ICU",               x:2,  y:2,  w:22, h:46, cur:17, cap:20 },
+      { id:"ccu",   label:"CCU",               x:28, y:2,  w:12, h:21, cur:7,  cap:10 },
+      { id:"hdu",   label:"High Dependency",   x:28, y:27, w:12, h:21, cur:5,  cap:8  },
+      // Maternity
+      { id:"ld",    label:"Labour & Delivery", x:44, y:2,  w:12, h:21, cur:5,  cap:8  },
+      { id:"birth", label:"Birthing Suites",   x:44, y:27, w:12, h:21, cur:3,  cap:6  },
+      { id:"nicu",  label:"NICU",              x:60, y:2,  w:12, h:21, cur:8,  cap:10 },
+      { id:"mat-w", label:"Maternity Ward",    x:60, y:27, w:12, h:21, cur:11, cap:16 },
+      // Paediatrics
+      { id:"pae-w", label:"Paediatrics Ward",  x:76, y:2,  w:12, h:21, cur:10, cap:16 },
+      { id:"pae-oc",label:"Paed. Outpatient",  x:76, y:27, w:12, h:21, cur:8,  cap:12 },
+      { id:"nurs",  label:"Nursery",           x:92, y:2,  w:6,  h:46, cur:6,  cap:10 },
+    ],
+  },
+  { id:"5", label:"Floor 5", name:"Floor 5 — Mental Health, Oncology & Rehab",
+    depts:[
+      // Mental Health
+      { id:"mh-ac", label:"MH Acute Unit",    x:2,  y:2,  w:16, h:21, cur:16, cap:20 },
+      { id:"mh-op", label:"MH Outpatient",    x:2,  y:27, w:16, h:21, cur:8,  cap:12 },
+      { id:"mh-dr", label:"Psychiatrist Ofcs",x:22, y:2,  w:10, h:46, cur:5,  cap:8  },
+      // Oncology
+      { id:"chemo", label:"Chemotherapy",     x:36, y:2,  w:14, h:21, cur:10, cap:16 },
+      { id:"onc-w", label:"Oncology Ward",    x:36, y:27, w:14, h:21, cur:9,  cap:14 },
+      { id:"rad",   label:"Radiation Therapy",x:54, y:2,  w:12, h:21, cur:4,  cap:6  },
+      { id:"pall",  label:"Palliative Care",  x:54, y:27, w:12, h:21, cur:8,  cap:12 },
+      // Rehab & Reactivation
+      { id:"physio",label:"Physiotherapy",    x:70, y:2,  w:12, h:21, cur:12, cap:18 },
+      { id:"occ",   label:"Occupational Ther.",x:70, y:27, w:12, h:21, cur:9,  cap:14 },
+      { id:"react", label:"Reactivation Care",x:86, y:2,  w:12, h:46, cur:14, cap:20 },
+    ],
+  },
+];
+
+// Floor world-Y positions — defined at module level so both useEffects can read them
+const FLOOR_Y_MAP = { g:0, "1":2.2, "2":4.4, "3":6.6, "4":8.8, "5":11.0 };
+const FLOOR_CENTER_Y = 5.5;
+
+function occ3dColor(occ) {
+  if (occ >= 80) return 0xD4706A;
+  if (occ >= 50) return 0xD4974A;
+  return 0x5BAA8A;
+}
+function occ3dHex(occ) {
+  if (occ >= 80) return "#D4706A";
+  if (occ >= 50) return "#D4974A";
+  return "#5BAA8A";
+}
+
+function NyghFloorPlan({ floors = NYGH_FLOORS }) {
+  // Compute Y positions dynamically so any uploaded floor plan works
+  const floorYMap = {};
+  floors.forEach((f, i) => { floorYMap[f.id] = i * 2.2; });
+  const floorCenterY = ((floors.length - 1) * 2.2) / 2;
+
+  const mountRef      = useRef(null);
+  const tooltipRef    = useRef({ setInfo: null });
+  const controlsRef   = useRef(null);
+  const floorGroupsRef= useRef({});    // floorId → THREE.Group
+  const camTargetRef  = useRef(new THREE.Vector3(0, floorCenterY, 0));
+  const [tooltipInfo, setTooltipInfo] = useState(null);
+  const [mousePos,    setMousePos]    = useState({ x: 0, y: 0 });
+  const [activeFloor, setActiveFloor] = useState(null);
+  const activeRef = useRef(null); // mirrors activeFloor for use inside animation loop
+
+  tooltipRef.current.setInfo = setTooltipInfo;
+  activeRef.current = activeFloor;
+
+  // Isolate / reveal floors whenever activeFloor changes
+  useEffect(() => {
+    Object.entries(floorGroupsRef.current).forEach(([id, grp]) => {
+      grp.visible = activeFloor === null || activeFloor === id;
+    });
+    const fy = activeFloor !== null ? floorYMap[activeFloor] : floorCenterY;
+    camTargetRef.current.set(0, fy + 0.4, 0);
+  }, [activeFloor]);
+
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+
+    let W = mount.clientWidth  || mount.offsetWidth  || 700;
+    let H = mount.clientHeight || mount.offsetHeight || 420;
+
+    const scene  = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 200);
+    camera.position.set(12, 14, 18);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
+    mount.appendChild(renderer.domElement);
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function holoBox(w, h, d, color, edgeOp = 0.85, fillOp = 0.04) {
+      const geo     = new THREE.BoxGeometry(w, h, d);
+      const edges   = new THREE.EdgesGeometry(geo);
+      const edgeMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: edgeOp, blending: THREE.AdditiveBlending, depthWrite: false });
+      const fillMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: fillOp, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+      const g = new THREE.Group();
+      g.add(new THREE.LineSegments(edges, edgeMat));
+      g.add(new THREE.Mesh(geo, fillMat));
+      return g;
+    }
+
+    function makeSprite(text, color = "#5BAA8A", canvasW = 220, fontSize = 14) {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvasW; canvas.height = 32;
+      const ctx = canvas.getContext("2d");
+      ctx.font = `bold ${fontSize}px 'DM Mono', monospace`;
+      ctx.fillStyle = color;
+      ctx.fillText(text.toUpperCase(), 4, 22);
+      const tex = new THREE.CanvasTexture(canvas);
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.82, blending: THREE.AdditiveBlending, depthWrite: false });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(canvasW / 32, 1, 1);
+      return sprite;
+    }
+
+    // ── Constants ─────────────────────────────────────────────────────────────
+    // SVG 0-100 → 3D -5..5  (scale 0.1, offset -5)
+    // SVG 0-50  → 3D -2.5..2.5 (scale 0.1, offset -2.5)
+    // Gap between rooms in SVG = 4 units → 0.4 units in 3D (clear separation)
+    const SC = 0.1, OX = -5, OZ = -2.5;
+    const BOX_H   = 0.30;
+    const PLATE_H = 0.07;
+    const INSET   = 0.12; // gap inset per side
+
+    const deptMaterials = []; // { floorId, edgeMat, fillMat, edgeOp, fillOp }
+    const deptHitMeshes = []; // for raycasting
+
+    floors.forEach(floor => {
+      const fy  = floorYMap[floor.id];
+      const grp = new THREE.Group();
+
+      // Floor plate (slightly wider than dept area)
+      const plate = holoBox(10.5, PLATE_H, 5.5, 0x5BAA8A, 0.28, 0.03);
+      plate.position.set(0, fy, 0);
+      grp.add(plate);
+
+      // Floor label on the left
+      const floorLbl = makeSprite(floor.label, "#5BAA8A", 160, 13);
+      floorLbl.position.set(-7.4, fy + 0.35, 0);
+      floorLbl.scale.set(3.2, 0.72, 1);
+      grp.add(floorLbl);
+
+      floor.depts.forEach(dept => {
+        const occ      = Math.round((dept.cur / dept.cap) * 100);
+        const color    = occ3dColor(occ);
+        const colorHex = occ3dHex(occ);
+
+        // Map SVG → 3D with inset gap
+        const cx = (dept.x + dept.w / 2) * SC + OX;
+        const cz = (dept.y + dept.h / 2) * SC + OZ;
+        const w  = dept.w * SC - INSET;
+        const d  = dept.h * SC - INSET;
+
+        const edgeOp = 0.88, fillOp = 0.07;
+        const geo     = new THREE.BoxGeometry(w, BOX_H, d);
+        const edges   = new THREE.EdgesGeometry(geo);
+        const edgeMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: edgeOp, blending: THREE.AdditiveBlending, depthWrite: false });
+        const fillMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: fillOp, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+        const deptGrp = new THREE.Group();
+        deptGrp.add(new THREE.LineSegments(edges, edgeMat));
+        deptGrp.add(new THREE.Mesh(geo, fillMat));
+        deptGrp.position.set(cx, fy + BOX_H / 2, cz);
+        grp.add(deptGrp);
+
+        deptMaterials.push({ floorId: floor.id, edgeMat, fillMat, edgeOp, fillOp });
+
+        // Dept name label
+        const lbl = makeSprite(dept.label, colorHex, 200, 12);
+        lbl.position.set(cx, fy + BOX_H + 0.36, cz);
+        lbl.scale.set(Math.max(w * 1.1, 1.9), 0.44, 1);
+        grp.add(lbl);
+
+        // Capacity label "cur / cap"
+        const pplLbl = makeSprite(`${dept.cur} / ${dept.cap}`, colorHex, 130, 12);
+        pplLbl.position.set(cx, fy + BOX_H + 0.74, cz);
+        pplLbl.scale.set(Math.max(w * 0.85, 1.3), 0.36, 1);
+        grp.add(pplLbl);
+
+        // Invisible hit mesh for raycasting
+        const hitMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(w, BOX_H + 0.3, d),
+          new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }),
+        );
+        hitMesh.position.set(cx, fy + BOX_H / 2, cz);
+        hitMesh.userData = { floorId: floor.id, label: dept.label, cur: dept.cur, cap: dept.cap, occ };
+        grp.add(hitMesh);
+        deptHitMeshes.push(hitMesh);
+      });
+
+      scene.add(grp);
+      floorGroupsRef.current[floor.id] = grp;
+    });
+
+    // ── Ground grid ───────────────────────────────────────────────────────────
+    const grid = new THREE.GridHelper(24, 24, 0x5BAA8A, 0x5BAA8A);
+    grid.material.opacity = 0.05;
+    grid.material.transparent = true;
+    grid.position.y = -0.5;
+    scene.add(grid);
+
+    // ── Ground glow rings ─────────────────────────────────────────────────────
+    [6, 10].forEach((r, i) => {
+      const geo = new THREE.RingGeometry(r - 0.06, r, 64);
+      const mat = new THREE.MeshBasicMaterial({ color: i === 0 ? 0xD4706A : 0x5BAA8A, transparent: true, opacity: i === 0 ? 0.3 : 0.15, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+      const ring = new THREE.Mesh(geo, mat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = -0.48;
+      scene.add(ring);
+    });
+
+    // ── Particles ─────────────────────────────────────────────────────────────
+    const N = 90;
+    const pPos   = new Float32Array(N * 3);
+    const pSpeed = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r     = 9 + Math.random() * 10;
+      pPos[i*3]   = Math.cos(angle) * r;
+      pPos[i*3+1] = Math.random() * (floorCenterY * 2 + 2);
+      pPos[i*3+2] = Math.sin(angle) * r;
+      pSpeed[i]   = 0.007 + Math.random() * 0.012;
+    }
+    const pGeo = new THREE.BufferGeometry();
+    pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+    scene.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x5BAA8A, size: 0.07, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false })));
+
+    // ── OrbitControls ─────────────────────────────────────────────────────────
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping   = true;
+    controls.dampingFactor   = 0.04;
+    controls.minDistance     = 5;
+    controls.maxDistance     = 45;
+    controls.maxPolarAngle   = Math.PI * 0.54;
+    controls.autoRotate      = true;
+    controls.autoRotateSpeed = 0.45;
+    controls.target.set(0, floorCenterY, 0);
+    controlsRef.current = controls;
+    renderer.domElement.addEventListener("pointerdown", () => { controls.autoRotate = false; });
+    renderer.domElement.addEventListener("pointerup",   () => { controls.autoRotate = true; });
+
+    // ── Raycaster ─────────────────────────────────────────────────────────────
+    const raycaster = new THREE.Raycaster();
+    const mouse     = new THREE.Vector2();
+    const onMouseMove = (e) => {
+      const rect = mount.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+      mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(deptHitMeshes, false);
+      if (hits.length > 0) {
+        const ud = hits[0].object.userData;
+        tooltipRef.current.setInfo({ label: ud.label, cur: ud.cur, cap: ud.cap, occ: ud.occ, color: occ3dHex(ud.occ), msg: ud.occ >= 80 ? "No beds available" : ud.occ >= 50 ? "Short wait — filling up" : "Beds available" });
+        mount.style.cursor = "pointer";
+      } else {
+        tooltipRef.current.setInfo(null);
+        mount.style.cursor = "grab";
+      }
+    };
+    mount.addEventListener("mousemove", onMouseMove);
+
+    // ── Animation ─────────────────────────────────────────────────────────────
+    let frame;
+    const clock   = new THREE.Clock();
+    const posAttr = pGeo.attributes.position;
+    const animate = () => {
+      frame = requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      deptMaterials.forEach(({ floorId, edgeMat, fillMat, edgeOp, fillOp }) => {
+        const active = activeRef.current;
+        const on     = active === null || active === floorId;
+        const pulse  = on ? 0.8 + Math.sin(t * 1.6) * 0.18 : 1;
+        edgeMat.opacity = on ? edgeOp * pulse : 0.08;
+        fillMat.opacity = on ? fillOp * pulse : 0.01;
+      });
+      for (let i = 0; i < N; i++) {
+        posAttr.array[i*3+1] += pSpeed[i];
+        if (posAttr.array[i*3+1] > floorCenterY * 2 + 2) posAttr.array[i*3+1] = 0;
+      }
+      posAttr.needsUpdate = true;
+      controls.target.lerp(camTargetRef.current, 0.06);
+      controls.update();
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    const onResize = () => {
+      W = mount.clientWidth  || mount.offsetWidth  || 700;
+      H = mount.clientHeight || mount.offsetHeight || 420;
+      if (W === 0 || H === 0) return;
+      camera.aspect = W / H;
+      camera.updateProjectionMatrix();
+      renderer.setSize(W, H);
+    };
+    window.addEventListener("resize", onResize);
+    const ro = new ResizeObserver(() => onResize());
+    ro.observe(mount);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onResize);
+      ro.disconnect();
+      mount.removeEventListener("mousemove", onMouseMove);
+      controls.dispose();
+      renderer.dispose();
+      if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
+    };
+  }, []);
+
+  return (
+    <Card style={{ marginTop:18 }}>
+      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:12, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>NYGH Floor Plan — 3D</div>
+          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase", marginTop:2 }}>
+            North York General · 4001 Leslie St · Drag to rotate · Hover for details
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:14, alignItems:"center", flexWrap:"wrap" }}>
+          {[["Full (≥80% cap)",T.rose],["Busy (50–79%)",T.amber],["Available (<50%)",T.vital]].map(([l,c])=>(
+            <div key={l} style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <div style={{ width:10, height:10, borderRadius:3, background:c, opacity:.85 }}/>
+              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.06em" }}>{l}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:5, marginBottom:10, flexWrap:"wrap" }}>
+        <button onClick={()=>setActiveFloor(null)}
+          style={{ padding:"5px 13px", borderRadius:7, border:`1.5px solid ${activeFloor===null?T.rose:T.border}`, background:activeFloor===null?T.roseTint:"transparent", fontFamily:"'DM Mono',monospace", fontSize:9, color:activeFloor===null?T.rose:T.inkFaint, cursor:"pointer", letterSpacing:"0.07em", transition:"all .15s" }}>
+          All Floors
+        </button>
+        {floors.map(f=>(
+          <button key={f.id} onClick={()=>setActiveFloor(activeFloor===f.id?null:f.id)}
+            style={{ padding:"5px 13px", borderRadius:7, border:`1.5px solid ${activeFloor===f.id?T.rose:T.border}`, background:activeFloor===f.id?T.roseTint:"transparent", fontFamily:"'DM Mono',monospace", fontSize:9, color:activeFloor===f.id?T.rose:T.inkFaint, cursor:"pointer", letterSpacing:"0.07em", transition:"all .15s" }}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ position:"relative" }}>
+        <div
+          ref={mountRef}
+          style={{ width:"100%", height:420, borderRadius:12, overflow:"hidden", background:"linear-gradient(135deg,rgba(4,16,12,.96),rgba(6,18,14,.92))", cursor:"grab" }}
+          onMouseMove={e=>setMousePos({ x:e.clientX, y:e.clientY })}
+          onMouseDown={e=>{ e.currentTarget.style.cursor="grabbing"; }}
+          onMouseUp={e=>{ e.currentTarget.style.cursor="grab"; }}
+        />
+        {tooltipInfo && (
+          <div style={{ position:"fixed", left:mousePos.x+18, top:mousePos.y-10, minWidth:158, background:"rgba(4,20,18,.93)", border:`1px solid ${tooltipInfo.color}55`, borderRadius:9, padding:"10px 14px", pointerEvents:"none", zIndex:1000, backdropFilter:"blur(6px)", boxShadow:`0 0 22px ${tooltipInfo.color}22,0 2px 8px rgba(0,0,0,.5)` }}>
+            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:12, color:"#fff", marginBottom:3 }}>{tooltipInfo.label}</div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:tooltipInfo.color, letterSpacing:"0.06em" }}>{tooltipInfo.cur} / {tooltipInfo.cap} patients</div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:"rgba(255,255,255,.5)", marginTop:3, letterSpacing:"0.04em" }}>{tooltipInfo.msg}</div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// ─── FLOOR PLAN PDF UPLOADER ──────────────────────────────────────────────────
+async function extractPdfText(file) {
+  const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += `\n--- Page ${i} ---\n` + content.items.map(it => it.str).join(" ");
+  }
+  return text.trim();
+}
+
+function FloorPlanUploader({ onFloors }) {
+  const [apiKey,   setApiKey]   = useState(() => localStorage.getItem("groq_fp_key") || "");
+  const [file,     setFile]     = useState(null);
+  const [status,   setStatus]   = useState("idle");
+  const [errMsg,   setErrMsg]   = useState("");
+  const [expanded, setExpanded] = useState(false);
+
+  const saveKey = (k) => { setApiKey(k); localStorage.setItem("groq_fp_key", k); };
+
+  const analyze = async () => {
+    if (!file || !apiKey.trim()) return;
+    setStatus("loading"); setErrMsg("");
+    try {
+      const pdfText = await extractPdfText(file);
+      if (!pdfText) throw new Error("Could not extract text from PDF. Make sure it is a text-based PDF, not a scanned image.");
+
+      const prompt = `You are a hospital floor plan parser. Below is the extracted text from a hospital floor plan PDF. Identify all floors and rooms/departments.
+
+Return ONLY valid JSON (no markdown, no extra text) in this exact schema:
+[
+  {
+    "id": "g",
+    "label": "Ground Floor",
+    "name": "Ground Floor — <main departments>",
+    "depts": [
+      { "id": "dept-slug", "label": "Department Name", "x": 0, "y": 0, "w": 30, "h": 20, "occ": 50, "cap": 20 }
+    ]
+  }
+]
+
+Rules:
+- x/y/w/h use a 0-100 (x-axis) by 0-50 (y-axis) coordinate space. Distribute rooms logically, leave 4-unit gaps between them.
+- occ is estimated occupancy % (0-100). Default 50 if unknown.
+- cap is estimated patient capacity based on room type.
+- id must be lowercase URL-safe slugs (no spaces).
+- Include every floor as a separate array entry, ordered ground to top.
+- If floor count is unclear, create at least one floor with all detected rooms.
+
+PDF TEXT:
+${pdfText.slice(0, 12000)}`;
+
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey.trim()}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          temperature: 0.2,
+          max_tokens: 4096,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+
+      if (!res.ok) { const t = await res.text(); throw new Error(t); }
+      const data   = await res.json();
+      const raw    = data.choices?.[0]?.message?.content || "[]";
+      const json   = raw.replace(/```json|```/g, "").trim();
+      const floors = JSON.parse(json);
+      if (!Array.isArray(floors) || floors.length === 0) throw new Error("No floors extracted. Try a different PDF.");
+      onFloors(floors);
+      setStatus("done");
+    } catch (e) {
+      setErrMsg(e.message?.slice(0, 220) || "Unknown error");
+      setStatus("error");
+    }
+  };
+
+  return (
+    <Card style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }} onClick={() => setExpanded(x => !x)}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: T.roseTint, border: `1.5px solid ${T.rose}45`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>📄</div>
+          <div>
+            <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14, color: T.ink }}>Upload Hospital Floor Plan PDF</div>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: T.inkFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>Powered by Groq AI · Free · Updates 3D hologram</div>
+          </div>
+        </div>
+        <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.inkFaint }}>{expanded ? "▲ hide" : "▼ expand"}</span>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: 14, borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid, marginBottom: 5 }}>Groq API Key <span style={{ color: T.vital, fontSize: 11 }}>(free — no credit card)</span></div>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={e => saveKey(e.target.value)}
+              placeholder="gsk_…"
+              style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1.5px solid ${T.border}`, fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.ink, background: T.bgDeep, outline: "none", boxSizing: "border-box" }}
+            />
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: T.inkFaint, marginTop: 4, letterSpacing: "0.06em" }}>Saved in localStorage · Get a free key at console.groq.com</div>
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid, marginBottom: 5 }}>Floor Plan PDF <span style={{ color: T.inkFaint, fontSize: 11 }}>(must be text-based, not scanned)</span></div>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, border: `1.5px dashed ${file ? T.vital : T.border}`, background: file ? T.vitalPale : "transparent", cursor: "pointer" }}>
+              <input type="file" accept=".pdf" style={{ display: "none" }} onChange={e => { setFile(e.target.files[0]); setStatus("idle"); }} />
+              <span style={{ fontSize: 18 }}>{file ? "✅" : "📁"}</span>
+              <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, color: file ? T.vital : T.inkFaint }}>
+                {file ? file.name : "Click to choose a PDF…"}
+              </span>
+            </label>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              className="btn-primary"
+              onClick={analyze}
+              disabled={!file || !apiKey.trim() || status === "loading"}
+              style={{ opacity: (!file || !apiKey.trim() || status === "loading") ? 0.5 : 1, cursor: (!file || !apiKey.trim() || status === "loading") ? "not-allowed" : "pointer" }}
+            >
+              {status === "loading" ? "Extracting & Analyzing…" : "Analyze & Update 3D Map →"}
+            </button>
+            {status === "done"  && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.vital }}>✓ Floor plan updated!</span>}
+            {status === "error" && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.rose }}>✗ {errMsg}</span>}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── CAPACITY EDITOR ──────────────────────────────────────────────────────────
+function CapacityEditor({ floors, onSave }) {
+  const [expanded,  setExpanded]  = useState(false);
+  const [activeTab, setActiveTab] = useState(floors[0]?.id ?? "");
+  // draft holds { [floorId]: { [deptId]: { cur, cap } } }
+  const [draft, setDraft] = useState(() => {
+    const d = {};
+    floors.forEach(f => {
+      d[f.id] = {};
+      f.depts.forEach(dept => { d[f.id][dept.id] = { cur: dept.cur, cap: dept.cap }; });
+    });
+    return d;
+  });
+
+  const setVal = (fid, did, field, val) => {
+    const n = parseInt(val, 10);
+    if (isNaN(n) || n < 0) return;
+    setDraft(prev => ({
+      ...prev,
+      [fid]: { ...prev[fid], [did]: { ...prev[fid][did], [field]: n } },
+    }));
+  };
+
+  const apply = () => {
+    const updated = floors.map(f => ({
+      ...f,
+      depts: f.depts.map(dept => ({
+        ...dept,
+        cur: draft[f.id]?.[dept.id]?.cur ?? dept.cur,
+        cap: draft[f.id]?.[dept.id]?.cap ?? dept.cap,
+      })),
+    }));
+    onSave(updated);
+  };
+
+  const activeFloor = floors.find(f => f.id === activeTab);
+
+  return (
+    <Card style={{ marginBottom: 16 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer" }} onClick={() => setExpanded(x => !x)}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:32, height:32, borderRadius:9, background:`${T.amber}18`, border:`1.5px solid ${T.amber}45`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15 }}>✏️</div>
+          <div>
+            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>Edit Room Occupancy</div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase" }}>Set current patients &amp; max capacity · Rebuilds 3D map</div>
+          </div>
+        </div>
+        <span style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.inkFaint }}>{expanded ? "▲ hide" : "▼ expand"}</span>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop:14, borderTop:`1px solid ${T.border}`, paddingTop:14 }}>
+          {/* Floor tabs */}
+          <div style={{ display:"flex", gap:5, marginBottom:14, flexWrap:"wrap" }}>
+            {floors.map(f => (
+              <button key={f.id} onClick={() => setActiveTab(f.id)}
+                style={{ padding:"4px 12px", borderRadius:6, border:`1.5px solid ${activeTab===f.id?T.amber:T.border}`, background:activeTab===f.id?`${T.amber}15`:"transparent", fontFamily:"'DM Mono',monospace", fontSize:9, color:activeTab===f.id?T.amber:T.inkFaint, cursor:"pointer", letterSpacing:"0.07em" }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Column headers */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(240px, 1fr))", gap:8, marginBottom:14 }}>
+            {activeFloor && activeFloor.depts.map(dept => {
+              const curVal = draft[activeTab]?.[dept.id]?.cur ?? dept.cur;
+              const capVal = draft[activeTab]?.[dept.id]?.cap ?? dept.cap;
+              const occ    = capVal > 0 ? Math.round((curVal / capVal) * 100) : 0;
+              const col    = occ >= 80 ? T.rose : occ >= 50 ? T.amber : T.vital;
+              return (
+                <div key={dept.id} style={{ padding:"10px 12px", borderRadius:9, border:`1.5px solid ${col}35`, background:`${col}08`, display:"flex", flexDirection:"column", gap:7 }}>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:12, color:T.ink, lineHeight:1.3 }}>{dept.label}</div>
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.06em" }}>CURRENT</div>
+                      <input
+                        type="number" min={0} max={capVal} value={curVal}
+                        onChange={e => setVal(activeTab, dept.id, "cur", e.target.value)}
+                        style={{ width:"100%", padding:"4px 7px", borderRadius:6, border:`1.5px solid ${col}55`, fontFamily:"'DM Mono',monospace", fontSize:13, fontWeight:700, color:col, background:T.bgDeep, outline:"none", textAlign:"center", boxSizing:"border-box" }}
+                      />
+                    </div>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:14, color:T.inkFaint, paddingTop:14 }}>/</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.06em" }}>MAX CAP</div>
+                      <input
+                        type="number" min={1} value={capVal}
+                        onChange={e => setVal(activeTab, dept.id, "cap", e.target.value)}
+                        style={{ width:"100%", padding:"4px 7px", borderRadius:6, border:`1.5px solid ${T.border}`, fontFamily:"'DM Mono',monospace", fontSize:13, fontWeight:700, color:T.inkMid, background:T.bgDeep, outline:"none", textAlign:"center", boxSizing:"border-box" }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:col, letterSpacing:"0.06em" }}>
+                    {occ}% · {occ >= 80 ? "No beds available" : occ >= 50 ? "Short wait" : "Available"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <button className="btn-primary" onClick={apply} style={{ fontSize:12 }}>
+            Apply Changes → Rebuild 3D Map
+          </button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── PATIENT DATA ─────────────────────────────────────────────────────────────
+const PATIENTS = [
+  { id:"MRN-24891", name:"Thomas Leclerc",    age:47, sex:"M", dob:"1978-04-12", room:"ED-07",   doctor:"Dr. Sharma", apptTime:"10:00", sev:4, status:"In Treatment",
+    complaint:"Acute abdominal pain, nausea × 6h", diagnosis:"Suspected appendicitis",
+    vitals:{ bp:"138/92", hr:104, temp:38.4, o2:97 },
+    allergies:["Penicillin"], meds:["Morphine 4mg IV","Ondansetron 4mg IV"], notes:"Presage AI flags possible appendicitis. Urgent surgical consult ordered." },
+  { id:"MRN-24892", name:"Jordan Mitchell",   age:60, sex:"M", dob:"1965-09-03", room:"CARD-12", doctor:"Dr. Sharma", apptTime:"09:00", sev:2, status:"Waiting",
+    complaint:"Cardiac follow-up, mild exertional dyspnea", diagnosis:"Stable angina — routine follow-up",
+    vitals:{ bp:"122/78", hr:72, temp:36.8, o2:98 },
+    allergies:[], meds:["Atorvastatin 40mg","Aspirin 81mg","Metoprolol 25mg"], notes:"Last Echo normal. Stress test booked for next month." },
+  { id:"MRN-24893", name:"Priya Nair",        age:36, sex:"F", dob:"1990-02-17", room:"OPD-03",  doctor:"Dr. Patel",  apptTime:"09:30", sev:1, status:"Waiting",
+    complaint:"Annual physical examination", diagnosis:"Routine preventive care",
+    vitals:{ bp:"118/74", hr:68, temp:36.6, o2:99 },
+    allergies:["Sulfa drugs"], meds:["Levothyroxine 50mcg"], notes:"Bloodwork ordered. BMI 23.1. No concerns." },
+  { id:"MRN-24894", name:"Mohammed Al-Amin",  age:55, sex:"M", dob:"1970-06-05", room:"INTM-08", doctor:"Dr. Sharma", apptTime:"11:00", sev:3, status:"In Treatment",
+    complaint:"Hypertension follow-up, persistent frontal headache × 2d", diagnosis:"Uncontrolled hypertension",
+    vitals:{ bp:"168/102", hr:88, temp:37.1, o2:96 },
+    allergies:["ACE inhibitors"], meds:["Amlodipine 10mg","Hydrochlorothiazide 25mg"], notes:"BP elevated despite current regimen. Considering adding losartan." },
+  { id:"MRN-24895", name:"Ana Reyes",         age:70, sex:"F", dob:"1955-11-28", room:"GERI-04", doctor:"Dr. Chen",   apptTime:"10:30", sev:1, status:"Waiting",
+    complaint:"Chronic disease management, prescription renewal", diagnosis:"T2 Diabetes & Hypertension",
+    vitals:{ bp:"134/82", hr:76, temp:36.7, o2:97 },
+    allergies:["NSAIDs"], meds:["Metformin 1000mg","Lisinopril 10mg","Amlodipine 5mg"], notes:"HbA1c 7.2% — well controlled. Foot exam completed." },
+  { id:"MRN-24896", name:"Sarah Kim",         age:41, sex:"F", dob:"1985-03-22", room:"LAB-02",  doctor:"Dr. Chen",   apptTime:"09:00", sev:1, status:"Discharged",
+    complaint:"Thyroid panel result review", diagnosis:"Hypothyroidism — stable",
+    vitals:{ bp:"116/72", hr:64, temp:36.5, o2:99 },
+    allergies:[], meds:["Levothyroxine 75mcg"], notes:"TSH 2.4 mIU/L — within range. No dose change needed." },
+  { id:"MRN-24897", name:"Robert Green",      age:63, sex:"M", dob:"1963-07-14", room:"CCU-03",  doctor:"Dr. Sharma", apptTime:"08:30", sev:5, status:"Critical",
+    complaint:"Chest pain, diaphoresis, radiating to left arm × 45min", diagnosis:"STEMI — anterior wall",
+    vitals:{ bp:"88/58", hr:118, temp:37.0, o2:91 },
+    allergies:["Heparin (HIT)"], meds:["Aspirin 325mg","Clopidogrel 600mg","Nitroglycerin IV"], notes:"Cath lab activated. PCI in progress. Family notified." },
+  { id:"MRN-24898", name:"Fatima Hassan",     age:29, sex:"F", dob:"1997-01-09", room:"LD-01",   doctor:"Dr. Patel",  apptTime:"07:45", sev:2, status:"In Treatment",
+    complaint:"Active labour, G2P1, 39+2 weeks, ROM 3h ago", diagnosis:"Active labour — term pregnancy",
+    vitals:{ bp:"126/80", hr:92, temp:36.9, o2:99 },
+    allergies:[], meds:["Oxytocin 10 units/hr IV"], notes:"Contractions q3min × 60sec. Fetal HR 142bpm — reassuring. Epidural placed." },
+];
+
+function PatientCard({ p }) {
+  const [open, setOpen] = useState(false);
+  const sc  = p.sev >= 5 ? T.roseDeep : p.sev >= 4 ? T.rose : p.sev >= 3 ? T.amber : T.vital;
+  const stc = p.status === "Critical" ? T.roseDeep : p.status === "In Treatment" ? T.amber : p.status === "Discharged" ? T.inkFaint : T.vital;
+  const VitalChip = ({ label, val, warn }) => (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"6px 10px", borderRadius:8, background:warn?`${T.rose}12`:`${T.vital}08`, border:`1px solid ${warn?T.rose:T.vital}22` }}>
+      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, fontWeight:700, color:warn?T.rose:T.ink }}>{val}</div>
+      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7.5, color:T.inkFaint, letterSpacing:"0.08em" }}>{label}</div>
+    </div>
+  );
+  return (
+    <div style={{ borderRadius:12, border:`1.5px solid ${sc}${open?"55":"22"}`, background:open?`${sc}06`:"transparent", marginBottom:8, overflow:"hidden", transition:"all .2s" }}>
+      {/* Header row */}
+      <div onClick={()=>setOpen(o=>!o)} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 14px", cursor:"pointer" }}>
+        <div style={{ width:38, height:38, borderRadius:"50%", background:`${sc}18`, border:`2px solid ${sc}44`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:14, color:sc, flexShrink:0 }}>{p.name.charAt(0)}</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:13, color:T.ink }}>{p.name}</div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.06em" }}>{p.id}</div>
+          </div>
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkFaint, marginTop:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.complaint}</div>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, flexShrink:0 }}>
+          <div style={{ display:"flex", gap:5 }}>
+            <div style={{ padding:"2px 7px", borderRadius:5, background:`${sc}15`, fontFamily:"'DM Mono',monospace", fontSize:7, color:sc, letterSpacing:"0.1em" }}>SEV {p.sev}</div>
+            <div style={{ padding:"2px 7px", borderRadius:5, background:`${stc}12`, fontFamily:"'DM Mono',monospace", fontSize:7, color:stc, letterSpacing:"0.08em" }}>{p.status.toUpperCase()}</div>
+          </div>
+          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint }}>{p.room} · {p.apptTime} · {p.doctor}</div>
+        </div>
+        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.inkFaint, marginLeft:4 }}>{open?"▲":"▼"}</div>
+      </div>
+
+      {/* Expanded details */}
+      {open && (
+        <div style={{ padding:"0 14px 14px", borderTop:`1px solid ${sc}18` }}>
+          {/* Vitals */}
+          <div style={{ display:"flex", gap:8, margin:"12px 0 10px" }}>
+            <VitalChip label="BP" val={p.vitals.bp} warn={parseInt(p.vitals.bp)>140}/>
+            <VitalChip label="HR bpm" val={p.vitals.hr} warn={p.vitals.hr>100||p.vitals.hr<55}/>
+            <VitalChip label="Temp °C" val={p.vitals.temp} warn={p.vitals.temp>37.5}/>
+            <VitalChip label="SpO₂ %" val={p.vitals.o2} warn={p.vitals.o2<95}/>
+          </div>
+          {/* Info grid */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+            <div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>DIAGNOSIS</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink, fontWeight:600 }}>{p.diagnosis}</div>
+            </div>
+            <div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>PATIENT</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink }}>{p.age}y {p.sex} · DOB {p.dob}</div>
+            </div>
+            <div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, marginBottom:3, letterSpacing:"0.08em" }}>ALLERGIES</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:p.allergies.length?T.rose:T.inkFaint }}>{p.allergies.length?p.allergies.join(", "):"None known"}</div>
+            </div>
+            <div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>MEDICATIONS</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid, lineHeight:1.5 }}>{p.meds.join(" · ")}</div>
+            </div>
+          </div>
+          {p.notes && (
+            <div style={{ padding:"8px 11px", borderRadius:8, background:`${sc}10`, border:`1px solid ${sc}25` }}>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7.5, color:sc, letterSpacing:"0.08em", marginBottom:3 }}>CLINICAL NOTE</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, lineHeight:1.5 }}>{p.notes}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── DOCTOR PORTAL (/doctor) ──────────────────────────────────────────────────
 function DoctorPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => searchParams.get("tab") === "patients" ? "patients" : "floorplan");
+  const [hospitalFloors, setHospitalFloors] = useState(NYGH_FLOORS);
+  const [floorKey,       setFloorKey]       = useState(0);
+  const [feedback,       setFeedback]       = useState([]);
+  const [searchDoctor,   setSearchDoctor]   = useState("");
+  const [searchPatient,  setSearchPatient]  = useState("");
+  const [filterSev,      setFilterSev]      = useState(0); // 0 = all
+
+  const handleFloors = (floors) => { setHospitalFloors(floors); setFloorKey(k => k + 1); };
+
+  useEffect(() => {
+    fetch("http://localhost:3001/api/feedback")
+      .then(r => r.json()).then(data => setFeedback(data)).catch(console.error);
+  }, []);
+
+  const filteredFeedback = feedback.filter(f => searchDoctor === "" || f.doctorName.toLowerCase().includes(searchDoctor.toLowerCase()));
+
+  const filteredPatients = PATIENTS
+    .filter(p => filterSev === 0 || p.sev === filterSev)
+    .filter(p => searchPatient === "" || p.name.toLowerCase().includes(searchPatient.toLowerCase()) || p.id.includes(searchPatient))
+    .sort((a, b) => b.sev - a.sev);
+
+  const TAB_BTN = (key, label) => (
+    <button onClick={()=>setTab(key)} style={{ padding:"8px 20px", borderRadius:8, border:`1.5px solid ${tab===key?T.rose:T.border}`, background:tab===key?T.roseTint:"transparent", fontFamily:"'Outfit',sans-serif", fontWeight:tab===key?700:400, fontSize:13, color:tab===key?T.rose:T.inkMid, cursor:"pointer", transition:"all .15s" }}>{label}</button>
+  );
+
   return (
-    <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Roberts">
-      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-        <button
-          className="btn-primary"
-          style={{ fontSize:12, padding:"8px 18px" }}
-          onClick={()=>navigate("/rooms")}
-        >
-          Room assignment
-        </button>
-        <button
-          className="btn-ghost"
-          style={{ fontSize:12, padding:"8px 18px" }}
-          onClick={()=>navigate("/schedule")}
-        >
-          Scheduling
-        </button>
-        <button
-          className="btn-ghost"
-          style={{ fontSize:12, padding:"8px 18px" }}
-          onClick={()=>{
-            const el = document.getElementById("doctor-queue");
-            if (el) el.scrollIntoView({ behavior:"smooth", block:"start" });
-          }}
-        >
-          Patient information (severity)
-        </button>
-        <button
-          className="btn-ghost"
-          style={{ fontSize:12, padding:"8px 18px" }}
-          onClick={()=>{
-            const el = document.getElementById("doctor-info");
-            if (el) el.scrollIntoView({ behavior:"smooth", block:"start" });
-          }}
-        >
-          Doctor information
-        </button>
+    <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Sharma">
+      {/* Top nav */}
+      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
+        {TAB_BTN("floorplan","🏥 Floor Plan")}
+        {TAB_BTN("patients","🧑‍⚕️ Patient Info")}
+        <div style={{ flex:1 }}/>
+        <button className="btn-ghost" style={{ fontSize:12, padding:"8px 18px" }} onClick={()=>navigate("/rooms")}>Room assignment</button>
+        <button className="btn-ghost" style={{ fontSize:12, padding:"8px 18px" }} onClick={()=>navigate("/schedule")}>Scheduling</button>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
-        <Stat label="Today's Patients" value="12" color={T.rose}/>
-        <Stat label="Pending Reviews" value="4" color={T.amber}/>
-        <Stat label="Avg Wait Time" value="18m" sub="−3m from yesterday" color={T.vital}/>
-        <Stat label="Critical Alerts" value="1" color={T.roseDeep}/>
-      </div>
-      <div style={{ marginBottom:18, padding:"14px 18px", borderRadius:14, background:`linear-gradient(135deg,${T.roseDeep}10,${T.roseTint})`, border:`1.5px solid ${T.rose}45`, display:"flex", alignItems:"center", gap:14 }}>
-        <div style={{ width:38, height:38, borderRadius:11, background:T.rose, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, animation:"breathe 2s ease-in-out infinite", flexShrink:0 }}><Icons.heartbeat/></div>
-        <div style={{ flex:1 }}>
-          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.roseDeep }}>Critical Alert — Thomas Leclerc</div>
-          <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, marginTop:2 }}>Presage AI flags possible appendicitis. Severity Level 4. Expedite consultation.</div>
-        </div>
-        <button className="btn-primary" style={{ fontSize:12, padding:"8px 18px", flexShrink:0 }}>View Patient →</button>
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1.4fr 1fr", gap:16 }}>
-        <div id="doctor-queue">
-        <Card>
-          <SHead>Today's Queue</SHead>
-          {[{name:"Jordan Mitchell",time:"09:00",reason:"Follow-up — cardiac",sev:2},{name:"Priya Nair",time:"09:30",reason:"Annual physical",sev:1},{name:"Thomas Leclerc",time:"10:00",reason:"Acute abdominal pain",sev:4},{name:"Ana Reyes",time:"10:30",reason:"Prescription renewal",sev:1},{name:"Mohammed Al-Amin",time:"11:00",reason:"Hypertension follow-up",sev:3}].map((p,i)=>{
-            const sc=p.sev>=4?T.roseDeep:p.sev>=3?T.amber:T.vital;
-            return (
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:i<4?`1px solid ${T.border}`:"none", cursor:"pointer", borderRadius:8, transition:"all .15s" }}
-                onMouseEnter={e=>{ e.currentTarget.style.background=T.roseTint; e.currentTarget.style.padding="10px 8px"; }}
-                onMouseLeave={e=>{ e.currentTarget.style.background="none"; e.currentTarget.style.padding="10px 0"; }}>
-                <div style={{ width:36, height:36, borderRadius:"50%", background:`${sc}15`, border:`2px solid ${sc}35`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:13, color:sc, flexShrink:0 }}>{p.name.charAt(0)}</div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:13, color:T.ink }}>{p.name}</div>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkFaint, marginTop:1 }}>{p.reason}</div>
-                </div>
-                <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-                  <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint }}>{p.time}</span>
-                  <div style={{ padding:"2px 7px", borderRadius:5, background:`${sc}15`, fontFamily:"'DM Mono',monospace", fontSize:7, color:sc, letterSpacing:"0.1em" }}>SEV {p.sev}</div>
-                </div>
+
+      {/* ── Floor Plan Tab ── */}
+      {tab === "floorplan" && (
+        <>
+          <FloorPlanUploader onFloors={handleFloors}/>
+          <CapacityEditor floors={hospitalFloors} onSave={handleFloors}/>
+          <NyghFloorPlan key={floorKey} floors={hospitalFloors}/>
+        </>
+      )}
+
+      {/* ── Patient Info Tab ── */}
+      {tab === "patients" && (
+        <>
+          {/* Stats */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:18 }}>
+            <Stat label="Today's Patients" value={PATIENTS.length} color={T.rose}/>
+            <Stat label="Critical / Urgent" value={PATIENTS.filter(p=>p.sev>=4).length} color={T.roseDeep}/>
+            <Stat label="In Treatment" value={PATIENTS.filter(p=>p.status==="In Treatment").length} color={T.amber}/>
+            <Stat label="Discharged Today" value={PATIENTS.filter(p=>p.status==="Discharged").length} color={T.vital}/>
+          </div>
+
+          {/* Critical alert banner */}
+          {PATIENTS.filter(p=>p.sev>=5).map(p=>(
+            <div key={p.id} style={{ marginBottom:14, padding:"13px 18px", borderRadius:14, background:`linear-gradient(135deg,${T.roseDeep}10,${T.roseTint})`, border:`1.5px solid ${T.rose}55`, display:"flex", alignItems:"center", gap:14 }}>
+              <div style={{ width:38, height:38, borderRadius:11, background:T.rose, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, animation:"breathe 2s ease-in-out infinite", flexShrink:0 }}><Icons.heartbeat/></div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.roseDeep }}>Critical Alert — {p.name} · {p.room}</div>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, marginTop:2 }}>{p.notes}</div>
               </div>
-            );
-          })}
-        </Card>
-        </div>
-        <div id="doctor-info" style={{ display:"flex", flexDirection:"column", gap:14 }}>
-          <Card>
-            <SHead>Severity Guide</SHead>
-            {[[1,T.vital,"Routine / Preventive"],[2,"#8BBF5A","Mild Symptoms"],[3,T.amber,"Moderate — Monitor"],[4,T.rose,"Urgent — Expedite"],[5,T.roseDeep,"Critical — Emergency"]].map(([n,c,l])=>(
-              <div key={n} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-                <div style={{ width:26, height:26, borderRadius:7, background:`${c}18`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:12, color:c }}>{n}</div>
-                <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid }}>{l}</span>
-              </div>
-            ))}
-          </Card>
-          <Card accent={T.vital}>
-            <SHead>Dept. Capacity</SHead>
-            {[["Emergency",85],["General",62],["Cardiology",44],["Radiology",71]].map(([dept,pct])=>(
-              <div key={dept} style={{ marginBottom:10 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid }}>{dept}</span>
-                  <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:pct>70?T.rose:T.vital }}>{pct}%</span>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.rose, padding:"4px 10px", borderRadius:6, border:`1px solid ${T.rose}44`, flexShrink:0 }}>SEV {p.sev} · {p.diagnosis}</div>
+            </div>
+          ))}
+
+          {/* Search + filter */}
+          <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap", alignItems:"center" }}>
+            <input value={searchPatient} onChange={e=>setSearchPatient(e.target.value)} placeholder="Search by name or MRN…"
+              style={{ padding:"7px 13px", borderRadius:9, border:`1.5px solid ${T.border}`, fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink, background:T.bgDeep, outline:"none", flex:1, minWidth:160 }}/>
+            <div style={{ display:"flex", gap:5 }}>
+              {[0,1,2,3,4,5].map(s=>(
+                <button key={s} onClick={()=>setFilterSev(s)}
+                  style={{ padding:"5px 11px", borderRadius:7, border:`1.5px solid ${filterSev===s?T.rose:T.border}`, background:filterSev===s?T.roseTint:"transparent", fontFamily:"'DM Mono',monospace", fontSize:9, color:filterSev===s?T.rose:T.inkFaint, cursor:"pointer" }}>
+                  {s===0?"All":`SEV ${s}`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Patient cards */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, alignItems:"start" }}>
+            <Card>
+              <SHead>Patient Queue — sorted by severity</SHead>
+              {filteredPatients.map(p => <PatientCard key={p.id} p={p}/>)}
+              {filteredPatients.length === 0 && <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"20px 0" }}>No patients match.</div>}
+            </Card>
+            <div id="doctor-info" style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <Card>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+                  <SHead>Doctor Feedback</SHead>
+                  <input type="text" placeholder="Search doctor…" value={searchDoctor} onChange={e=>setSearchDoctor(e.target.value)}
+                    style={{ padding:"5px 11px", borderRadius:100, border:`1px solid ${T.border}`, background:T.bgDeep, fontFamily:"'Outfit',sans-serif", fontSize:11, outline:"none", width:140 }}/>
                 </div>
-                <div style={{ height:4, borderRadius:4, background:T.bgDeep, overflow:"hidden" }}>
-                  <div style={{ height:"100%", width:`${pct}%`, borderRadius:4, background:pct>70?`linear-gradient(90deg,${T.amber},${T.rose})`:`linear-gradient(90deg,${T.vital},#4A9A7A)`, transition:"width .6s ease" }}/>
+                <div style={{ display:"flex", flexDirection:"column", gap:10, maxHeight:460, overflowY:"auto" }}>
+                  {filteredFeedback.length > 0 ? filteredFeedback.map((f,i)=>(
+                    <div key={i} style={{ padding:12, borderRadius:10, background:T.surfaceHard, border:`1px solid ${T.border}` }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                        <div>
+                          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:13, color:T.ink }}>{f.doctorName}</div>
+                          <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:10, color:T.inkFaint }}>by {f.patientName}</div>
+                        </div>
+                        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint }}>{new Date(f.date).toLocaleDateString()}</div>
+                      </div>
+                      <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid }}><span style={{ color:T.vital, fontWeight:600 }}>✓ </span>{f.liked}</div>
+                      <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid, marginTop:3 }}><span style={{ color:T.amber, fontWeight:600 }}>△ </span>{f.improved}</div>
+                    </div>
+                  )) : <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"20px 0" }}>No feedback found.</div>}
                 </div>
-              </div>
-            ))}
-          </Card>
-        </div>
-      </div>
+              </Card>
+            </div>
+          </div>
+        </>
+      )}
     </PageWrap>
   );
 }
@@ -914,63 +1775,332 @@ function HackerPage() {
 }
 
 // ─── SCHEDULE (/schedule) ─────────────────────────────────────────────────────
-function SchedulePage() {
-  const [sel, setSel] = useState(12);
-  const slots=["09:00","09:30","10:00","10:30","11:00","11:30","14:00","14:30","15:00","15:30"];
-  const taken=["09:00","10:00","14:30"];
+const APPT_COLORS = [T.rose, T.vital, T.amber, T.roseMid, T.roseDeep];
+const INIT_APPTS = [
+  { id:1,  patient:"Thomas Leclerc",  type:"Emergency Consult",    doctor:"Dr. Sharma", day:0, hour:9,  min:0,  dur:30, color:T.rose },
+  { id:2,  patient:"Maria Santos",    type:"Post-Op Review",       doctor:"Dr. Patel",  day:0, hour:10, min:30, dur:30, color:T.amber },
+  { id:3,  patient:"James Wong",      type:"Cardiology Follow-Up", doctor:"Dr. Sharma", day:1, hour:14, min:0,  dur:60, color:T.vital },
+  { id:4,  patient:"Sarah Kim",       type:"Lab Results Review",   doctor:"Dr. Chen",   day:2, hour:9,  min:0,  dur:30, color:T.vital },
+  { id:5,  patient:"Robert Green",    type:"General Check-Up",     doctor:"Dr. Patel",  day:2, hour:11, min:0,  dur:30, color:T.amber },
+  { id:6,  patient:"Anna Mueller",    type:"Specialist Referral",  doctor:"Dr. Sharma", day:3, hour:13, min:30, dur:30, color:T.roseMid },
+  { id:7,  patient:"David Park",      type:"Blood Work Review",    doctor:"Dr. Chen",   day:4, hour:10, min:0,  dur:30, color:T.rose },
+  // Unscheduled
+  { id:8,  patient:"Priya Mehta",     type:"Neurology Consult",    doctor:"Dr. Sharma", day:null, hour:null, min:null, dur:30, color:T.roseDeep },
+  { id:9,  patient:"Carlos Rivera",   type:"Pre-Op Assessment",    doctor:"Dr. Patel",  day:null, hour:null, min:null, dur:30, color:T.amber },
+  { id:10, patient:"Liu Wei",         type:"Discharge Planning",   doctor:"Dr. Chen",   day:null, hour:null, min:null, dur:30, color:T.vital },
+];
+
+const DAYS_LABEL = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
+const DAYS_SHORT = ["Mon","Tue","Wed","Thu","Fri"];
+const SLOT_H = 38; // px per 30-min row
+const HOURS = Array.from({length:20},(_,i)=>({ h:8+Math.floor(i/2), m:i%2===0?0:30 }));
+
+// Compact queue card (sidebar)
+function ApptCard({ appt, onDragStart }) {
   return (
-    <PageWrap title="Schedule" icon={<Icons.calendar/>} subtitle="Appointments & availability">
-      <div style={{ display:"grid", gridTemplateColumns:"1.6fr 1fr", gap:18 }}>
-        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-          <Card>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:16, color:T.ink }}>March 2026</div>
-              <div style={{ display:"flex", gap:5 }}>
-                <button className="btn-ghost" style={{ padding:"5px 11px", fontSize:12 }}>‹</button>
-                <button className="btn-ghost" style={{ padding:"5px 11px", fontSize:12 }}>›</button>
-              </div>
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2, marginBottom:6 }}>
-              {["S","M","T","W","T","F","S"].map((d,i)=>(
-                <div key={i} style={{ textAlign:"center", fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint, letterSpacing:"0.1em", paddingBottom:6 }}>{d}</div>
+    <div
+      draggable
+      onDragStart={e => onDragStart(e, appt.id)}
+      style={{ padding:"5px 8px", borderRadius:8, background:`${appt.color}18`, border:`1.5px solid ${appt.color}55`, cursor:"grab", userSelect:"none", marginBottom:4 }}
+      onMouseEnter={e=>e.currentTarget.style.boxShadow=`0 2px 10px ${appt.color}33`}
+      onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}
+    >
+      <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:10, color:appt.color, lineHeight:1.2 }}>{appt.patient}</div>
+      <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:9, color:T.inkMid, marginTop:1 }}>{appt.type}</div>
+    </div>
+  );
+}
+
+// Grid card — absolutely positioned, height driven by duration, bottom-edge drag-resizable
+function GridCard({ appt, onDragStart, onRemove, onSetDur }) {
+  const [tempDur,    setTempDur]    = useState(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef({ startY:0, startDur:0, latest:appt.dur });
+
+  const activeDur = tempDur ?? appt.dur;
+  const cardH     = (activeDur / 30) * SLOT_H - 4;
+  const fmtTime   = (h, m) => `${String(h).padStart(2,"0")}:${m===0?"00":"30"}`;
+  const endMin    = appt.hour * 60 + appt.min + activeDur;
+  const endH      = Math.floor(endMin / 60);
+  const endM      = endMin % 60;
+
+  const onResizeDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = { startY: e.clientY, startDur: appt.dur, latest: appt.dur };
+    setIsResizing(true);
+
+    const onMove = (ev) => {
+      const deltaPx    = ev.clientY - resizeRef.current.startY;
+      const deltaSlots = Math.round(deltaPx / SLOT_H);
+      const newDur     = Math.max(30, resizeRef.current.startDur + deltaSlots * 30);
+      resizeRef.current.latest = newDur;
+      setTempDur(newDur);
+    };
+
+    const onUp = () => {
+      onSetDur(appt.id, resizeRef.current.latest);
+      setTempDur(null);
+      setIsResizing(false);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup",   onUp);
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup",   onUp);
+  };
+
+  return (
+    <div
+      draggable={!isResizing}
+      onDragStart={e => { if (!isResizing) onDragStart(e, appt.id); }}
+      style={{
+        position:"absolute", top:2, left:2, right:2,
+        height: cardH,
+        borderRadius:8,
+        background:`${appt.color}20`,
+        border:`1.5px solid ${appt.color}${isResizing?"aa":"66"}`,
+        cursor: isResizing ? "ns-resize" : "grab",
+        userSelect:"none",
+        zIndex: isResizing ? 10 : 2,
+        display:"flex",
+        flexDirection:"column",
+        padding:"5px 7px 2px",
+        overflow:"hidden",
+        boxSizing:"border-box",
+        boxShadow: isResizing ? `0 4px 18px ${appt.color}44` : "none",
+        transition: isResizing ? "none" : "box-shadow .15s",
+      }}
+      onMouseEnter={e=>{ if(!isResizing) e.currentTarget.style.boxShadow=`0 2px 12px ${appt.color}33`; }}
+      onMouseLeave={e=>{ if(!isResizing) e.currentTarget.style.boxShadow="none"; }}
+    >
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:4 }}>
+        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:10, color:appt.color, lineHeight:1.2, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{appt.patient}</div>
+        <button onClick={e=>{e.stopPropagation();onRemove(appt.id);}}
+          style={{ background:"none", border:"none", cursor:"pointer", fontSize:9, color:T.inkFaint, padding:0, lineHeight:1, flexShrink:0 }}>✕</button>
+      </div>
+      {cardH > 30 && <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:9, color:T.inkMid, marginTop:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{appt.type}</div>}
+      {cardH > 48 && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7.5, color:T.inkFaint, marginTop:2, letterSpacing:"0.04em" }}>{appt.doctor}</div>}
+      {cardH > 26 && (
+        <div style={{ marginTop:"auto", fontFamily:"'DM Mono',monospace", fontSize:7.5, color:appt.color, letterSpacing:"0.04em", paddingBottom:12 }}>
+          {fmtTime(appt.hour, appt.min)} – {fmtTime(endH, endM)} · {activeDur}min
+        </div>
+      )}
+
+      {/* ── Resize handle ── */}
+      <div
+        onMouseDown={onResizeDown}
+        title="Drag to resize"
+        style={{
+          position:"absolute", bottom:0, left:0, right:0, height:12,
+          cursor:"ns-resize",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          borderTop:`1px solid ${appt.color}30`,
+          borderBottomLeftRadius:8, borderBottomRightRadius:8,
+          background: isResizing ? `${appt.color}25` : `${appt.color}10`,
+        }}
+      >
+        <div style={{ width:24, height:2.5, borderRadius:2, background:`${appt.color}${isResizing?"99":"44"}` }}/>
+      </div>
+    </div>
+  );
+}
+
+function SchedulePage() {
+  const [appts,      setAppts]      = useState(INIT_APPTS);
+  const [draggingId, setDraggingId] = useState(null);
+  const [hoverSlot,  setHoverSlot]  = useState(null);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [newForm,    setNewForm]    = useState(null); // {patient,type,doctor,color}
+
+  const unscheduled = appts.filter(a => a.day === null);
+  const scheduled   = appts.filter(a => a.day !== null);
+
+  // Returns appointment that STARTS in this slot
+  const getAppt = (day, hour, min) =>
+    scheduled.find(a => a.day===day && a.hour===hour && a.min===min) ?? null;
+
+  // Returns true if a multi-slot appointment from an EARLIER slot covers this slot
+  const isCovered = (day, hour, min) => {
+    const slotMin = hour * 60 + min;
+    return scheduled.some(a => {
+      if (a.day !== day) return false;
+      const startMin = a.hour * 60 + a.min;
+      return slotMin > startMin && slotMin < startMin + a.dur;
+    });
+  };
+
+  const setDur = (id, newDur) => setAppts(prev => prev.map(a =>
+    a.id === id ? { ...a, dur: Math.max(30, newDur) } : a
+  ));
+
+  const onDragStart = (e, id) => {
+    setDraggingId(id);
+    e.dataTransfer.setData("apptId", String(id));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const onDrop = (e, day, hour, min) => {
+    e.preventDefault();
+    const id = parseInt(e.dataTransfer.getData("apptId"), 10);
+    setAppts(prev => prev.map(a => a.id===id ? {...a, day, hour, min} : a));
+    setDraggingId(null); setHoverSlot(null);
+  };
+
+  const onDropQueue = (e) => {
+    e.preventDefault();
+    const id = parseInt(e.dataTransfer.getData("apptId"), 10);
+    setAppts(prev => prev.map(a => a.id===id ? {...a, day:null, hour:null, min:null} : a));
+    setDraggingId(null); setHoverSlot(null);
+  };
+
+  const removeAppt = (id) => setAppts(prev => prev.filter(a => a.id !== id));
+
+  const addAppt = () => {
+    if (!newForm?.patient?.trim()) return;
+    setAppts(prev => [...prev, {
+      id: Date.now(), patient: newForm.patient, type: newForm.type||"Appointment",
+      doctor: newForm.doctor||"Dr. Sharma", day:null, hour:null, min:null,
+      dur: newForm.dur||30, color: newForm.color||T.rose,
+    }]);
+    setNewForm(null);
+  };
+
+  // Build week label
+  const baseDate = new Date(2026, 2, 2); // Mon Mar 2 2026
+  baseDate.setDate(baseDate.getDate() + weekOffset * 7);
+  const weekLabel = DAYS_LABEL.map((_,i) => {
+    const d = new Date(baseDate); d.setDate(baseDate.getDate()+i);
+    return d.getDate();
+  });
+
+  return (
+    <PageWrap title="Schedule" icon={<Icons.calendar/>} subtitle="Drag appointments onto the weekly grid">
+      <div style={{ display:"flex", gap:14, alignItems:"flex-start" }}>
+
+        {/* ── Unscheduled Queue ── */}
+        <div style={{ width:190, flexShrink:0 }}>
+          <Card style={{ padding:"12px 12px" }}
+            onDragOver={e=>e.preventDefault()}
+            onDrop={onDropQueue}
+          >
+            <SHead>Unscheduled</SHead>
+            <div style={{ minHeight:80, borderRadius:8, border:`1.5px dashed ${unscheduled.length===0&&draggingId?T.vital:T.border}`, padding:6, background:unscheduled.length===0&&draggingId?`${T.vital}08`:"transparent", transition:"all .2s" }}>
+              {unscheduled.length===0 && !draggingId && (
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint, textAlign:"center", padding:"20px 0", letterSpacing:"0.06em" }}>All scheduled</div>
+              )}
+              {unscheduled.map(a => (
+                <div key={a.id} style={{ position:"relative" }}>
+                  <ApptCard appt={a} onDragStart={onDragStart} compact/>
+                  <button onClick={()=>removeAppt(a.id)} style={{ position:"absolute", top:4, right:4, background:"none", border:"none", cursor:"pointer", fontSize:10, color:T.inkFaint, lineHeight:1, padding:2 }}>✕</button>
+                </div>
               ))}
-              {Array.from({length:35},(_,i)=>{ const n=i-6; const day=n>0&&n<=31?n:null; const isSel=day===sel; const hasAppt=[3,12,18,24].includes(day);
-                return <div key={i} onClick={()=>day&&setSel(day)} style={{ padding:"7px 0", textAlign:"center", borderRadius:8, cursor:day?"pointer":"default", background:isSel?`linear-gradient(135deg,${T.rose},${T.roseDeep})`:"transparent", color:isSel?T.white:day?T.ink:T.border, fontFamily:"'Outfit',sans-serif", fontWeight:isSel?700:400, fontSize:13, transition:"all .15s", position:"relative" }}>
-                  {day}{hasAppt&&!isSel&&<div style={{ position:"absolute", bottom:3, left:"50%", transform:"translateX(-50%)", width:4, height:4, borderRadius:"50%", background:T.rose }}/>}
-                </div>;
-              })}
             </div>
-          </Card>
-          <Card>
-            <SHead>Available Slots — Mar {sel}</SHead>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:7 }}>
-              {slots.map(s=>{ const busy=taken.includes(s); return (
-                <button key={s} disabled={busy} style={{ padding:"9px 0", borderRadius:9, cursor:busy?"not-allowed":"pointer", border:`1.5px solid ${busy?T.border:T.rose}`, background:busy?T.bgDeep:T.roseTint, fontFamily:"'DM Mono',monospace", fontSize:10, letterSpacing:"0.05em", color:busy?T.inkFaint:T.rose, opacity:busy?.4:1, transition:"all .15s" }}
-                  onMouseEnter={e=>{ if(!busy){ e.currentTarget.style.background=T.rose; e.currentTarget.style.color=T.white; } }}
-                  onMouseLeave={e=>{ if(!busy){ e.currentTarget.style.background=T.roseTint; e.currentTarget.style.color=T.rose; } }}
-                >{s}</button>
-              ); })}
+
+            <div style={{ marginTop:10 }}>
+              {newForm ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <input placeholder="Patient name" value={newForm.patient||""} onChange={e=>setNewForm(f=>({...f,patient:e.target.value}))}
+                    style={{ padding:"5px 8px", borderRadius:7, border:`1.5px solid ${T.border}`, fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.ink, background:T.bgDeep, outline:"none" }} />
+                  <input placeholder="Appointment type" value={newForm.type||""} onChange={e=>setNewForm(f=>({...f,type:e.target.value}))}
+                    style={{ padding:"5px 8px", borderRadius:7, border:`1.5px solid ${T.border}`, fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.ink, background:T.bgDeep, outline:"none" }} />
+                  <input placeholder="Doctor" value={newForm.doctor||""} onChange={e=>setNewForm(f=>({...f,doctor:e.target.value}))}
+                    style={{ padding:"5px 8px", borderRadius:7, border:`1.5px solid ${T.border}`, fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.ink, background:T.bgDeep, outline:"none" }} />
+                  <select value={newForm.dur||30} onChange={e=>setNewForm(f=>({...f,dur:parseInt(e.target.value,10)}))}
+                    style={{ padding:"5px 8px", borderRadius:7, border:`1.5px solid ${T.border}`, fontFamily:"'DM Mono',monospace", fontSize:11, color:T.inkMid, background:T.bgDeep, outline:"none" }}>
+                    {[30,60,90,120,150,180].map(d=><option key={d} value={d}>{d} min</option>)}
+                  </select>
+                  <div style={{ display:"flex", gap:4 }}>
+                    {APPT_COLORS.map(c=>(
+                      <div key={c} onClick={()=>setNewForm(f=>({...f,color:c}))} style={{ width:16, height:16, borderRadius:"50%", background:c, cursor:"pointer", border:`2px solid ${newForm.color===c?"#fff":"transparent"}`, outline:`2px solid ${newForm.color===c?c:"transparent"}` }}/>
+                    ))}
+                  </div>
+                  <div style={{ display:"flex", gap:5 }}>
+                    <button className="btn-primary" onClick={addAppt} style={{ flex:1, fontSize:10, padding:"5px 0" }}>Add</button>
+                    <button className="btn-ghost" onClick={()=>setNewForm(null)} style={{ flex:1, fontSize:10, padding:"5px 0" }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button className="btn-ghost" onClick={()=>setNewForm({patient:"",type:"",doctor:"",color:T.rose})}
+                  style={{ width:"100%", fontSize:10, padding:"6px 0" }}>+ New Appointment</button>
+              )}
             </div>
           </Card>
         </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-          <Card accent={T.rose}>
-            <SHead>Upcoming</SHead>
-            {[["Mar 12","09:30","Dr. Roberts","Cardiology",T.rose],["Mar 18","14:00","Dr. Patel","Lab Work",T.vital]].map(([date,time,dr,dept,c],i)=>(
-              <div key={i} style={{ padding:"11px 13px", marginBottom:8, borderRadius:9, background:`${c}08`, border:`1px solid ${c}28` }}>
-                <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:c }}>{date} · {time}</div>
-                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, marginTop:1 }}>{dr} — {dept}</div>
+
+        {/* ── Weekly Grid ── */}
+        <div style={{ flex:1, minWidth:0 }}>
+          <Card style={{ padding:"12px 14px" }}>
+            {/* Week nav */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+              <button className="btn-ghost" style={{ fontSize:12, padding:"5px 12px" }} onClick={()=>setWeekOffset(w=>w-1)}>‹ Prev</button>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>
+                Week of Mar {weekLabel[0]}–{weekLabel[4]}, 2026
               </div>
-            ))}
-          </Card>
-          <Card>
-            <SHead>Current Wait Times</SHead>
-            {[["Emergency","4 min",T.vital],["General Practice","18 min",T.rose],["Specialist","32 min",T.amber],["Lab / Diagnostics","11 min",T.vital]].map(([k,v,c])=>(
-              <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid ${T.border}` }}>
-                <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.ink }}>{k}</span>
-                <div style={{ padding:"3px 9px", borderRadius:6, background:`${c}14`, fontFamily:"'DM Mono',monospace", fontSize:10, color:c, letterSpacing:"0.05em" }}>{v}</div>
+              <button className="btn-ghost" style={{ fontSize:12, padding:"5px 12px" }} onClick={()=>setWeekOffset(w=>w+1)}>Next ›</button>
+            </div>
+
+            {/* Grid */}
+            <div style={{ display:"flex", overflow:"auto" }}>
+              {/* Time column */}
+              <div style={{ width:44, flexShrink:0 }}>
+                <div style={{ height:36 }}/>{/* header spacer */}
+                {HOURS.map(({h,m},i) => (
+                  <div key={i} style={{ height:SLOT_H, display:"flex", alignItems:"flex-start", paddingTop:3, justifyContent:"flex-end", paddingRight:7 }}>
+                    {m===0 && <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.05em" }}>{String(h).padStart(2,"0")}:00</span>}
+                  </div>
+                ))}
               </div>
-            ))}
+
+              {/* Day columns */}
+              {DAYS_SHORT.map((day, di) => (
+                <div key={di} style={{ flex:1, minWidth:100, borderLeft:`1px solid ${T.border}` }}>
+                  {/* Day header */}
+                  <div style={{ height:36, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", borderBottom:`1px solid ${T.border}`, background:T.surfaceHard }}>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em" }}>{day.toUpperCase()}</div>
+                    <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:16, color:T.ink, lineHeight:1 }}>{weekLabel[di]}</div>
+                  </div>
+
+                  {/* Time slots */}
+                  {HOURS.map(({h,m}, si) => {
+                    const startAppt = getAppt(di, h, m);
+                    const covered   = !startAppt && isCovered(di, h, m);
+                    const isHov     = !covered && hoverSlot?.day===di && hoverSlot?.hour===h && hoverSlot?.min===m;
+                    const isHour    = m===0;
+                    return (
+                      <div key={si}
+                        onDragOver={e=>{ if(!covered){ e.preventDefault(); setHoverSlot({day:di,hour:h,min:m}); } }}
+                        onDragLeave={()=>setHoverSlot(null)}
+                        onDrop={e=>{ if(!covered) onDrop(e,di,h,m); }}
+                        style={{
+                          height: SLOT_H,
+                          borderBottom: `1px ${isHour?"solid":"dashed"} ${T.border}`,
+                          background: covered ? `${T.inkFaint}06` : isHov ? `${T.vital}10` : "transparent",
+                          transition:"background .1s",
+                          position:"relative",
+                          boxSizing:"border-box",
+                          overflow:"visible",
+                        }}
+                      >
+                        {isHov && !startAppt && (
+                          <div style={{ position:"absolute", inset:2, borderRadius:6, border:`1.5px dashed ${T.vital}`, display:"flex", alignItems:"center", justifyContent:"center", zIndex:1 }}>
+                            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.vital, letterSpacing:"0.08em" }}>DROP</span>
+                          </div>
+                        )}
+                        {startAppt && (
+                          <GridCard
+                            appt={startAppt}
+                            onDragStart={onDragStart}
+                            onRemove={removeAppt}
+                            onSetDur={setDur}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </Card>
         </div>
       </div>
@@ -986,6 +2116,7 @@ function HospitalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sortOrder, setSortOrder] = useState('asc');
+  const [selectedHospital, setSelectedHospital] = useState(null);
 
   const hospitalColors = [T.vital, T.rose, T.amber, T.vital, T.vital, T.rose, T.amber, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber];
 
@@ -1242,7 +2373,7 @@ function HospitalPage() {
             </button>
           </div>
           {sortedHospitals.length > 0 ? sortedHospitals.map((h,i)=>(
-            <Card key={i} onClick={()=>{}} accent={h.col} style={{ padding:"16px 18px" }}>
+            <Card key={i} onClick={()=>setSelectedHospital(i)} accent={h.col} style={{ padding:"16px 18px", outline: selectedHospital === i ? `2px solid ${h.col}` : "none", outlineOffset: -2 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:9 }}>
                 <div>
                   <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>{h.name}</div>
@@ -1262,21 +2393,13 @@ function HospitalPage() {
             <div style={{ textAlign: 'center', padding: '20px', fontFamily:"'Outfit',sans-serif", color: T.inkFaint }}>No hospitals found</div>
           )}
         </div>
-        <div style={{ minHeight:400, borderRadius:20, overflow:"hidden", background:`linear-gradient(135deg,${T.bgDeep} 0%,#E8D8CC 100%)`, border:`1px solid ${T.border}`, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", height:400 }}>
-          <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%", opacity:.12 }} viewBox="0 0 400 400">
-            {Array.from({length:9},(_,i)=>(<g key={i}><line x1={i*50} y1="0" x2={i*50} y2="400" stroke={T.rose} strokeWidth=".8"/><line x1="0" y1={i*50} x2="400" y2={i*50} stroke={T.rose} strokeWidth=".8"/></g>))}
-            <path d="M 80 200 L 200 200 L 200 120 L 300 120" fill="none" stroke={T.rose} strokeWidth="3" strokeLinecap="round"/>
-            <path d="M 40 280 L 160 280 L 200 200" fill="none" stroke={T.amber} strokeWidth="2.5" strokeLinecap="round"/>
-            <circle cx="200" cy="200" r="10" fill={T.rose} opacity=".6"/>
-            <circle cx="300" cy="120" r="8" fill={T.vital} opacity=".7"/>
-            <circle cx="40" cy="280" r="8" fill={T.amber} opacity=".7"/>
-          </svg>
-          <div style={{ textAlign:"center", zIndex:1 }}>
-            <div style={{ width:60, height:60, borderRadius:18, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, margin:"0 auto 14px", animation:"float 3s ease-in-out infinite" }}><Icons.mapPin/></div>
-            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:18, color:T.ink }}>Interactive Hospital Map</div>
-            <div style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic", fontSize:13, color:T.inkFaint, marginTop:5 }}>Three.js 3D visualization with live routing</div>
-            <button className="btn-primary" style={{ marginTop:18, fontSize:13 }}>Enable Location →</button>
-          </div>
+        <div style={{ minHeight:500, height:500, borderRadius:20, overflow:"hidden", border:`1px solid ${T.border}`, position:"relative" }}>
+          <HospitalMap3D
+            hospitals={sortedHospitals}
+            userLocation={userLocation}
+            selectedHospital={selectedHospital}
+            onSelectHospital={setSelectedHospital}
+          />
         </div>
       </div>
     </PageWrap>
@@ -1585,6 +2708,9 @@ export default function App() {
         }/>
         <Route path="/patient/scanner" element={
           <ProtectedRoute><ScannerPage PageWrap={PageWrap} /></ProtectedRoute>
+        }/>
+        <Route path="/patient/feedback" element={
+          <ProtectedRoute><PatientFeedbackPage/></ProtectedRoute>
         }/>
         <Route path="/schedule" element={
           <ProtectedRoute><SchedulePage/></ProtectedRoute>
