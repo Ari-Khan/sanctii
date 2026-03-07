@@ -1,31 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import { getUserRoles, hasRole, ROLE } from "./auth/roles";
-import HospitalHologram from "./HospitalHologram";
-
-// ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
-const T = {
-  bg:           "#F8F0E8",
-  bgDeep:       "#F0E4D4",
-  surfaceHard:  "#FFFAF4",
-  border:       "rgba(200,160,140,0.3)",
-  borderStrong: "rgba(180,100,100,0.45)",
-  rose:         "#D4706A",
-  roseMid:      "#C05858",
-  roseDeep:     "#A84040",
-  rosePale:     "#EEBABA",
-  roseGlow:     "rgba(212,112,106,0.35)",
-  roseTint:     "rgba(212,112,106,0.08)",
-  vital:        "#5BAA8A",
-  vitalPale:    "rgba(91,170,138,0.15)",
-  amber:        "#D4974A",
-  ink:          "#2A1818",
-  inkMid:       "#6B4040",
-  inkFaint:     "#A08070",
-  white:        "#FFFCF8",
-};
+import { T, Icons } from "./theme";
+import { BgOrbs, EcgStrip, Card } from "./components/SharedUI";
+import LandingPage from "./pages/Landing";
+import LoginPage from "./pages/Login";
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 const GlobalStyle = () => (
@@ -74,61 +55,7 @@ const GlobalStyle = () => (
   `}</style>
 );
 
-// ─── ICONS ────────────────────────────────────────────────────────────────────
-const Icons = {
-  cross:       () => <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8z"/></svg>,
-  heartbeat:   () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
-  heart:       () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
-  stethoscope: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>,
-  calendar:    () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
-  mapPin:      () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
-  grid:        () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
-  brain:       () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.04-4.79 3 3 0 0 1-.91-4.43 3 3 0 0 1 .5-5.32A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.04-4.79 3 3 0 0 0 .91-4.43 3 3 0 0 0-.5-5.32A2.5 2.5 0 0 0 14.5 2Z"/></svg>,
-  user:        () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-  shield:      () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-  card:        () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
-  logout:      () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-  google:      () => <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>,
-  check:       () => <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  chevron:     () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
-};
-
 // ─── SHARED PRIMITIVES ────────────────────────────────────────────────────────
-function EcgStrip({ opacity=0.1, color=T.rose, top="auto", bottom="auto" }) {
-  return (
-    <div style={{ position:"absolute", left:0, right:0, top, bottom, height:56, overflow:"hidden", pointerEvents:"none" }}>
-      <div style={{ display:"flex", animation:"ecgLoop 8s linear infinite", width:"200%" }}>
-        {[0,1].map(k=>(
-          <svg key={k} viewBox="0 0 400 56" style={{ width:"50%", flexShrink:0 }} preserveAspectRatio="none">
-            <polyline points="0,28 30,28 36,28 40,8 44,48 48,28 80,28 86,28 90,20 94,36 98,28 130,28 136,28 140,6 144,50 148,28 190,28 196,28 200,16 204,40 208,28 240,28 246,28 250,10 254,46 258,28 300,28 306,28 310,18 314,38 318,28 360,28 366,28 370,8 374,48 378,28 400,28"
-              fill="none" stroke={color} strokeWidth="1.5" opacity={opacity}/>
-          </svg>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BgOrbs() {
-  return (
-    <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none", zIndex:0 }}>
-      <div style={{ position:"absolute", top:"-15%", right:"-10%", width:520, height:520, borderRadius:"50%", background:`radial-gradient(circle,${T.rosePale}35 0%,transparent 70%)` }}/>
-      <div style={{ position:"absolute", bottom:"-20%", left:"-8%", width:620, height:620, borderRadius:"50%", background:`radial-gradient(circle,rgba(91,170,138,.1) 0%,transparent 65%)` }}/>
-      <div style={{ position:"absolute", top:"35%", left:"20%", width:320, height:320, borderRadius:"50%", background:`radial-gradient(circle,rgba(212,151,74,.06) 0%,transparent 70%)` }}/>
-    </div>
-  );
-}
-
-function Card({ children, style, accent, onClick }) {
-  const [hov, setHov] = useState(false);
-  return (
-    <div className="glass-hard" onClick={onClick}
-      onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      style={{ padding:20, cursor:onClick?"pointer":"default", borderColor:hov&&onClick?T.roseMid:accent?`${accent}35`:T.border, boxShadow:hov&&onClick?`0 8px 32px ${T.roseGlow}`:"0 2px 12px rgba(160,80,80,.05)", background:accent?`linear-gradient(145deg,${accent}06,${T.surfaceHard})`:T.surfaceHard, transition:"all .2s ease", ...style }}
-    >{children}</div>
-  );
-}
-
 function Stat({ label, value, sub, color }) {
   return (
     <Card accent={color} style={{ textAlign:"center", padding:"18px 12px" }}>
@@ -161,278 +88,65 @@ function VChart() {
   );
 }
 
-// ─── LOADING SCREEN ───────────────────────────────────────────────────────────
-function LoadingScreen() {
-  return (
-    <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:T.bg }}>
-      <BgOrbs/>
-      <EcgStrip bottom="10%" opacity={0.09}/>
-      <div style={{ zIndex:1, textAlign:"center" }}>
-        <div style={{ width:52, height:52, borderRadius:14, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, margin:"0 auto 20px", animation:"breathe 2s ease-in-out infinite" }}>
-          <Icons.cross/>
-        </div>
-        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:28, color:T.ink, letterSpacing:"-0.03em", marginBottom:16 }}>Sanctii</div>
-        <div style={{ display:"flex", gap:6, justifyContent:"center" }}>
-          {[0,1,2].map(i=>(
-            <div key={i} style={{ width:8, height:8, borderRadius:"50%", background:T.rose, animation:`pulse 1.2s ease ${i*0.2}s infinite` }}/>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── LOGIN PAGE (/login) ──────────────────────────────────────────────────────
-function LoginPage() {
-  const { loginWithRedirect, isLoading, isAuthenticated } = useAuth0();
-  const navigate = useNavigate();
-  const [cardMode, setCardMode] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [scanned, setScanned] = useState(false);
-  const [scanData, setScanData] = useState(null);
-  const [role, setRole] = useState("patient");
-  const fileRef = useRef();
-
-  // If already logged in, bounce straight to maze
-  useEffect(() => {
-    if (isAuthenticated) navigate("/app", { replace: true });
-  }, [isAuthenticated, navigate]);
-
-  const doScan = () => {
-    setScanning(true); setScanned(false);
-    setTimeout(() => {
-      setScanning(false); setScanned(true);
-      setScanData({ name:"Jordan A. Mitchell", dob:"1989-03-14", cardNo:"HC-4821-0039-JM", province:"Ontario", expiry:"2027-01-01" });
-    }, 2600);
-  };
-
-  const signIn = (connection) => {
-    loginWithRedirect({
-      authorizationParams: {
-        redirect_uri: window.location.origin,
-        ...(connection && { connection }),
-        // Pass role as a custom param so your Auth0 Action can assign it
-        sanctii_role: role,
-      },
-      appState: { returnTo: "/app" },
-    });
-  };
-
-  return (
-    <div style={{ position:"fixed", inset:0, display:"flex", overflow:"hidden" }}>
-      <BgOrbs/>
-
-      {/* ── LEFT BRAND PANEL ── */}
-      <div style={{ width:"44%", position:"relative", overflow:"hidden", background:`linear-gradient(160deg,${T.roseDeep} 0%,#7A2525 100%)`, display:"flex", flexDirection:"column", justifyContent:"center", padding:"56px 48px" }}>
-        {/* Watermark cross */}
-        <div style={{ position:"absolute", right:-80, top:"50%", transform:"translateY(-50%)", opacity:.05, color:T.white, fontSize:440, lineHeight:1, fontWeight:800, userSelect:"none" }}>+</div>
-        <EcgStrip bottom="8%" opacity={.18} color={T.white}/>
-
-        <div style={{ animation:"slideR .6s ease", zIndex:1 }}>
-          <div style={{ width:52, height:52, borderRadius:14, background:"rgba(255,255,255,.15)", display:"flex", alignItems:"center", justifyContent:"center", color:T.white, marginBottom:18, backdropFilter:"blur(8px)" }}>
-            <Icons.cross/>
-          </div>
-          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:44, color:T.white, letterSpacing:"-0.04em", lineHeight:1.05, marginBottom:10 }}>
-            Welcome<br/>to Sanctii
-          </div>
-          <div style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic", fontSize:16, color:"rgba(255,255,255,.65)", lineHeight:1.65, marginBottom:44 }}>
-            Intelligent healthcare begins<br/>before you walk through the door.
-          </div>
-        </div>
-
-        {/* Feature list */}
-        <div style={{ display:"flex", flexDirection:"column", gap:13, zIndex:1 }}>
-          {[
-            [<Icons.shield/>, "Auth0 enterprise authentication"],
-            [<Icons.card/>,   "Instant health card scanning"],
-            [<Icons.heartbeat/>, "AI-powered triage with Presage"],
-            [<Icons.mapPin/>, "Real-time hospital routing"],
-          ].map(([ic, text], i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:12, animation:`slideR .6s ease ${.1+i*.1}s both`, opacity:0 }}>
-              <div style={{ color:"rgba(255,255,255,.55)", flexShrink:0 }}>{ic}</div>
-              <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:"rgba(255,255,255,.75)", fontWeight:400 }}>{text}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Live vitals badge strip */}
-        <div style={{ marginTop:44, display:"flex", gap:14, flexWrap:"wrap", zIndex:1 }}>
-          {[["♥","72 bpm"],["⚡","98% SpO₂"],["🌡","36.6°C"]].map(([ic,v])=>(
-            <div key={v} style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", borderRadius:100, background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.12)" }}>
-              <span style={{ fontSize:10 }}>{ic}</span>
-              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:"rgba(255,255,255,.7)", letterSpacing:"0.04em" }}>{v}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── RIGHT FORM PANEL ── */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center", padding:"44px 52px", background:T.bg, overflowY:"auto" }}>
-        <div style={{ width:"100%", maxWidth:400, animation:"fadeUp .5s ease" }}>
-
-          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:28, color:T.ink, letterSpacing:"-0.03em", marginBottom:4 }}>Sign in</div>
-          <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:14, color:T.inkFaint, marginBottom:28 }}>Access your Sanctii health dashboard</div>
-
-          {/* Role selector */}
-          <div style={{ marginBottom:22 }}>
-            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.14em", textTransform:"uppercase", color:T.inkFaint, marginBottom:8 }}>I am a</div>
-            <div style={{ display:"flex", gap:5, padding:4, background:T.bgDeep, borderRadius:12 }}>
-              {[ROLE.PATIENT, ROLE.DOCTOR, ROLE.ADMIN].map(r=>(
-                <button key={r} onClick={()=>setRole(r)} style={{ flex:1, padding:"9px 0", border:"none", cursor:"pointer", borderRadius:8, fontFamily:"'Outfit',sans-serif", fontWeight:500, fontSize:12, background:role===r?T.white:"transparent", color:role===r?T.rose:T.inkFaint, boxShadow:role===r?"0 2px 8px rgba(160,80,80,.12)":"none", transition:"all .2s", textTransform:"capitalize" }}>{r}</button>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Auth buttons (default) ── */}
-          {!cardMode && (
-            <div style={{ display:"flex", flexDirection:"column", gap:11, animation:"fadeUp .3s ease" }}>
-
-              {/* Auth0 Universal Login */}
-              <button className="btn-primary"
-                onClick={() => signIn(null)}
-                disabled={isLoading}
-                style={{ width:"100%", padding:"14px 0", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}
-              >
-                <Icons.shield/>
-                {isLoading ? "Connecting…" : "Continue with Auth0 →"}
-              </button>
-
-              {/* Google Social */}
-              <button
-                onClick={() => signIn("google-oauth2")}
-                disabled={isLoading}
-                style={{ width:"100%", padding:"13px 0", borderRadius:100, border:`1.5px solid ${T.border}`, background:T.surfaceHard, cursor:"pointer", fontFamily:"'Outfit',sans-serif", fontWeight:500, fontSize:13, color:T.ink, display:"flex", alignItems:"center", justifyContent:"center", gap:10, transition:"all .2s" }}
-                onMouseEnter={e=>{ e.currentTarget.style.borderColor=T.rose; }}
-                onMouseLeave={e=>{ e.currentTarget.style.borderColor=T.border; }}
-              >
-                <Icons.google/> Continue with Google
-              </button>
-
-              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <div style={{ flex:1, height:1, background:T.border }}/>
-                <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase" }}>or</span>
-                <div style={{ flex:1, height:1, background:T.border }}/>
-              </div>
-
-              {/* Health Card */}
-              <button onClick={()=>setCardMode(true)}
-                style={{ width:"100%", padding:"13px 0", borderRadius:100, border:`1.5px solid ${T.borderStrong}`, background:"transparent", cursor:"pointer", fontFamily:"'Outfit',sans-serif", fontWeight:500, fontSize:13, color:T.inkMid, display:"flex", alignItems:"center", justifyContent:"center", gap:10, transition:"all .2s" }}
-                onMouseEnter={e=>{ e.currentTarget.style.borderColor=T.rose; e.currentTarget.style.color=T.rose; }}
-                onMouseLeave={e=>{ e.currentTarget.style.borderColor=T.borderStrong; e.currentTarget.style.color=T.inkMid; }}
-              >
-                <Icons.card/> Sign in with Health Card
-              </button>
-            </div>
-          )}
-
-          {/* ── Health Card Scanner ── */}
-          {cardMode && (
-            <div style={{ animation:"fadeUp .3s ease" }}>
-              <button onClick={()=>{ setCardMode(false); setScanned(false); setScanning(false); }}
-                style={{ background:"none", border:"none", cursor:"pointer", fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint, marginBottom:14, display:"flex", alignItems:"center", gap:6, padding:0 }}>
-                ← Back to sign-in options
-              </button>
-              <input ref={fileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={doScan}/>
-              <div onClick={()=>!scanning&&fileRef.current.click()}
-                style={{ borderRadius:16, overflow:"hidden", cursor:"pointer", border:`2px dashed ${scanned?T.vital:scanning?T.rose:T.borderStrong}`, background:scanned?"rgba(91,170,138,.08)":scanning?T.roseTint:T.bgDeep, minHeight:200, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", transition:"all .3s ease", padding:24 }}>
-                {scanning && <div style={{ position:"absolute", left:"5%", right:"5%", height:2, background:`linear-gradient(90deg,transparent,${T.rose} 30%,${T.rose} 70%,transparent)`, boxShadow:`0 0 12px ${T.roseGlow}`, animation:"scanLine 1.4s ease-in-out infinite" }}/>}
-
-                {!scanning && !scanned && <>
-                  <div style={{ marginBottom:14 }}>
-                    <svg width="70" height="46" viewBox="0 0 70 46" fill="none">
-                      <rect x="1" y="1" width="68" height="44" rx="6" fill={T.bgDeep} stroke={T.borderStrong} strokeWidth="1.5"/>
-                      <rect x="7" y="7" width="19" height="13" rx="3" fill={T.rosePale} opacity=".7"/>
-                      <line x1="33" y1="9" x2="61" y2="9" stroke={T.border} strokeWidth="2" strokeLinecap="round"/>
-                      <line x1="33" y1="15" x2="54" y2="15" stroke={T.border} strokeWidth="1.5" strokeLinecap="round"/>
-                      <line x1="7" y1="28" x2="63" y2="28" stroke={T.border} strokeWidth="1.5" strokeLinecap="round"/>
-                      <line x1="7" y1="36" x2="38" y2="36" stroke={T.border} strokeWidth="1.5" strokeLinecap="round"/>
-                      <rect x="46" y="30" width="16" height="9" rx="2" fill={T.rosePale} opacity=".5"/>
-                    </svg>
-                  </div>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:15, color:T.ink, marginBottom:5 }}>Scan your Health Card</div>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint, textAlign:"center", lineHeight:1.55, marginBottom:14 }}>Upload your provincial health card<br/>for instant OCR verification</div>
-                  <button className="btn-ghost" onClick={e=>{e.stopPropagation(); doScan();}} style={{ fontSize:11, padding:"7px 18px" }}>Demo Scan</button>
-                </>}
-
-                {scanning && <div style={{ textAlign:"center", padding:"16px 0" }}>
-                  <div style={{ width:40, height:40, borderRadius:"50%", border:`2px solid ${T.rosePale}`, borderTopColor:T.rose, animation:"spin .8s linear infinite", margin:"0 auto 14px" }}/>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:14, color:T.ink }}>Scanning card…</div>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint, marginTop:3 }}>Reading health card data via OCR</div>
-                </div>}
-
-                {scanned && scanData && <div style={{ width:"100%", animation:"fadeUp .4s ease" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
-                    <div style={{ width:22, height:22, borderRadius:"50%", background:T.vital, display:"flex", alignItems:"center", justifyContent:"center" }}><Icons.check/></div>
-                    <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:13, color:T.vital }}>Card Verified Successfully</span>
-                  </div>
-                  <div style={{ background:T.white, borderRadius:10, padding:"12px 16px", display:"flex", flexDirection:"column", gap:7 }}>
-                    {[["Name",scanData.name],["Date of Birth",scanData.dob],["Card No.",scanData.cardNo],["Province",scanData.province],["Expiry",scanData.expiry]].map(([k,v])=>(
-                      <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                        <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase" }}>{k}</span>
-                        <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, fontWeight:600, color:T.ink }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>}
-              </div>
-
-              {scanned && (
-                <button className="btn-primary" onClick={()=>signIn(null)}
-                  style={{ width:"100%", marginTop:14, padding:"13px 0", fontSize:14 }}>
-                  Continue to Sign In →
-                </button>
-              )}
-            </div>
-          )}
-
-          <div style={{ marginTop:22, fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase", textAlign:"center", lineHeight:1.8 }}>
-            Secured by Auth0 · HIPAA-aligned · SOC 2 Type II<br/>
-            By signing in you agree to Sanctii's Terms &amp; Privacy Policy
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── MAZE CONFIG ──────────────────────────────────────────────────────────────
 const NODES = {
-  center:   { x:50, y:50, label:"Sanctii",        icon:"cross",       isCenter:true },
-  patient:  { x:50, y:14, label:"Patient Portal",  icon:"user",        path:"/patient",  col:T.rose },
-  doctor:   { x:82, y:32, label:"Doctor Portal",   icon:"stethoscope", path:"/doctor",   col:T.roseMid },
-  rooms:    { x:82, y:68, label:"Room Map",         icon:"grid",        path:"/rooms",    col:T.amber },
-  hospital: { x:50, y:86, label:"Find Hospital",   icon:"mapPin",      path:"/hospital", col:T.vital },
-  presage:  { x:18, y:68, label:"Presage AI",      icon:"brain",       path:"/presage",  col:"#8B6FBF" },
-  schedule: { x:18, y:32, label:"Schedule",        icon:"calendar",    path:"/schedule", col:T.roseMid },
+  center:    { x:50, y:50, label:"Health Center", icon:"cross", isCenter:true, col:T.roseMid },
+  patient:   { x:32, y:28, label:"Patient Portal", icon:"user", path:"/patient", col:T.rose },
+  doctor:    { x:68, y:28, label:"Doctor Portal", icon:"stethoscope", path:"/doctor", col:T.roseDeep },
+  schedule:  { x:82, y:54, label:"Scheduling", icon:"calendar", path:"/schedule", col:T.amber },
+  presage:   { x:18, y:54, label:"Presage AI", icon:"brain", path:"/presage", col:T.roseMid },
+  hospital:  { x:34, y:78, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
+  rooms:     { x:66, y:78, label:"Room Map", icon:"grid", path:"/rooms", col:T.vital },
 };
-const EDGES = [
-  {from:"center",to:"patient",wp:[]},{from:"center",to:"doctor",wp:[]},
-  {from:"center",to:"rooms",wp:[]},{from:"center",to:"hospital",wp:[]},
-  {from:"center",to:"presage",wp:[]},{from:"center",to:"schedule",wp:[]},
-  {from:"patient",to:"schedule",wp:[{x:18,y:14}]},
-  {from:"doctor",to:"rooms",wp:[{x:93,y:50}]},
-  {from:"hospital",to:"presage",wp:[{x:30,y:92}]},
-  {from:"schedule",to:"presage",wp:[{x:5,y:50}]},
-  {from:"patient",to:"doctor",wp:[{x:72,y:8}]},
-  {from:"rooms",to:"hospital",wp:[{x:90,y:82}]},
-];
-const DECOS=["M 22 5 L 22 22 L 38 22","M 62 5 L 78 5 L 78 18","M 93 44 L 93 56","M 80 82 L 93 82 L 93 95","M 5 62 L 5 88 L 20 88","M 5 12 L 5 28 L 14 28 L 14 44","M 36 92 L 36 96 L 64 96 L 64 92","M 56 8 L 56 4 L 44 4 L 44 14"];
 
-function bfs(from, to) {
-  const adj = {}; Object.keys(NODES).forEach(k=>{ adj[k]=[]; });
-  EDGES.forEach(e=>{ adj[e.from].push(e.to); adj[e.to].push(e.from); });
-  const vis={[from]:true}, q=[[from]];
-  while(q.length){ const p=q.shift(); if(p[p.length-1]===to) return p; (adj[p[p.length-1]]||[]).forEach(nb=>{ if(!vis[nb]){ vis[nb]=true; q.push([...p,nb]); } }); }
-  return [from,to];
+const EDGES = [
+  { from:"center", to:"patient", wp:[{x:40,y:35}] },
+  { from:"center", to:"doctor",  wp:[{x:60,y:35}] },
+  { from:"center", to:"schedule" },
+  { from:"center", to:"presage" },
+  { from:"center", to:"hospital" },
+  { from:"center", to:"rooms" },
+  { from:"patient",to:"presage" },
+  { from:"doctor", to:"schedule" },
+  { from:"hospital",to:"rooms" },
+];
+
+const DECOS = [
+  "M 5 5 L 15 5", "M 5 5 L 5 15", "M 95 5 L 85 5", "M 95 5 L 95 15",
+  "M 5 95 L 15 95", "M 5 95 L 5 85", "M 95 95 L 85 95", "M 95 95 L 95 85",
+];
+
+function bfs(start, end) {
+  const q=[[start]], seen=new Set([start]);
+  while(q.length){
+    const p=q.shift(), curr=p[p.length-1];
+    if(curr===end) return p;
+    (EDGES.filter(e=>e.from===curr||e.to===curr)).forEach(e=>{
+      const next=e.from===curr?e.to:e.from;
+      if(!seen.has(next)){ seen.add(next); q.push([...p,next]); }
+    });
+  }
+  return [];
 }
-function makeSVGPath(keys) {
-  if(keys.length<2) return "";
+
+function makeSVGPath(path) {
+  if(!path||path.length<2) return "";
   let d="";
-  keys.forEach((key,i)=>{ const n=NODES[key]; if(i===0){ d+=`M ${n.x} ${n.y}`; return; } const e=EDGES.find(e=>(e.from===keys[i-1]&&e.to===key)||(e.to===keys[i-1]&&e.from===key)); (e?.wp||[]).forEach(wp=>{ d+=` L ${wp.x} ${wp.y}`; }); d+=` L ${n.x} ${n.y}`; });
+  for(let i=0; i<path.length-1; i++){
+    const f=NODES[path[i]], t=NODES[path[i+1]];
+    const e=EDGES.find(e=>(e.from===path[i]&&e.to===path[i+1])||(e.to===path[i]&&e.from===path[i+1]));
+    if(i===0) d+=`M ${f.x} ${f.y}`;
+    if(e?.wp){
+      const rev=e.to===path[i];
+      const pts=rev?[...e.wp].reverse():e.wp;
+      pts.forEach(w=>d+=` L ${w.x} ${w.y}`);
+    }
+    d+=` L ${t.x} ${t.y}`;
+  }
   return d;
 }
 
-// ─── MAZE PAGE (/) ────────────────────────────────────────────────────────────
+// ─── MAZE PAGE ────────────────────────────────────────────────────────────────
 function MazePage() {
   const { user, logout } = useAuth0();
   const navigate = useNavigate();
@@ -1032,221 +746,6 @@ function RoomsPage() {
   );
 }
 
-// ─── LANDING PAGE (/) ─────────────────────────────────────────────────────────
-function LandingPage() {
-  const { isAuthenticated } = useAuth0();
-  const navigate = useNavigate();
-  const [scrolled, setScrolled] = useState(false);
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    if (isAuthenticated) navigate("/app", { replace: true });
-  }, [isAuthenticated, navigate]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const onScroll = () => setScrolled(el.scrollTop > 40);
-    el.addEventListener("scroll", onScroll);
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
-
-  const FEATURES = [
-    [<Icons.brain/>,       "#8B6FBF", "Presage AI Triage",   "Symptom analysis with confidence scoring — powered by Claude."],
-    [<Icons.mapPin/>,      T.vital,   "Hospital Routing",    "Nearest facility with live wait times and bed availability."],
-    [<Icons.calendar/>,    T.rose,    "Smart Scheduling",    "Book appointments, view slots, and manage your care calendar."],
-    [<Icons.stethoscope/>, T.roseMid, "Doctor Portal",       "Clinical dashboards, patient queues, and AI-flagged alerts."],
-    [<Icons.shield/>,      T.amber,   "Auth0 Security",      "Enterprise-grade authentication. HIPAA-aligned. SOC 2 Type II."],
-    [<Icons.heartbeat/>,   T.vital,   "Live Vitals",         "Real-time health monitoring integrated across all portals."],
-  ];
-
-  return (
-    <div ref={scrollRef} style={{ position:"fixed", inset:0, overflowY:"auto", background:T.bg }}>
-
-      {/* ── Sticky Nav ── */}
-      <div style={{ position:"sticky", top:0, zIndex:100, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 48px", height:66, background: scrolled ? "rgba(248,240,232,.97)" : "rgba(248,240,232,.6)", backdropFilter:"blur(20px)", borderBottom:`1px solid ${scrolled ? T.border : "transparent"}`, transition:"all .3s ease" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:11 }}>
-          <div style={{ width:36, height:36, borderRadius:10, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, animation:"breathe 3s ease-in-out infinite" }}>
-            <Icons.cross/>
-          </div>
-          <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:20, color:T.ink, letterSpacing:"-0.03em" }}>Sanctii</span>
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:24 }}>
-          {["Features","Hospitals","Presage AI"].map(l=>(
-            <span key={l} style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, cursor:"pointer", transition:"color .2s" }}
-              onMouseEnter={e=>{ e.target.style.color=T.rose; }} onMouseLeave={e=>{ e.target.style.color=T.inkFaint; }}>{l}</span>
-          ))}
-          <div style={{ width:1, height:20, background:T.border }}/>
-          <button className="btn-ghost" onClick={()=>navigate("/login")} style={{ fontSize:12, padding:"8px 18px" }}>Sign In</button>
-          <button className="btn-primary" onClick={()=>navigate("/login")} style={{ fontSize:12, padding:"9px 22px" }}>Get Started →</button>
-        </div>
-      </div>
-
-      {/* ── HERO (full viewport, split) ── */}
-      <section style={{ height:"calc(100vh - 66px)", display:"flex", position:"relative", overflow:"hidden" }}>
-
-        {/* Background orbs behind hero */}
-        <div style={{ position:"absolute", inset:0, pointerEvents:"none", zIndex:0 }}>
-          <div style={{ position:"absolute", top:"-10%", right:"35%", width:500, height:500, borderRadius:"50%", background:`radial-gradient(circle,${T.rosePale}30 0%,transparent 70%)` }}/>
-          <div style={{ position:"absolute", bottom:"-15%", left:"5%", width:400, height:400, borderRadius:"50%", background:`radial-gradient(circle,rgba(91,170,138,.1) 0%,transparent 65%)` }}/>
-        </div>
-
-        {/* ── LEFT: Text & CTAs ── */}
-        <div style={{ flex:"0 0 48%", display:"flex", flexDirection:"column", justifyContent:"center", padding:"0 56px 0 60px", position:"relative", zIndex:2 }}>
-
-          {/* Badge */}
-          <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"6px 14px", borderRadius:100, background:`${T.rose}12`, border:`1px solid ${T.rose}35`, marginBottom:26, width:"fit-content", animation:"fadeUp .4s ease" }}>
-            <div style={{ width:6, height:6, borderRadius:"50%", background:T.vital, animation:"pulse 1.5s ease infinite" }}/>
-            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.16em", textTransform:"uppercase" }}>Powered by Claude AI · Presage Engine</span>
-          </div>
-
-          {/* Headline */}
-          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:"clamp(36px,4.2vw,62px)", color:T.ink, letterSpacing:"-0.04em", lineHeight:1.06, marginBottom:16, animation:"fadeUp .5s ease" }}>
-            Healthcare,<br/>intelligently<br/>
-            <span style={{ background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>before you arrive.</span>
-          </div>
-
-          {/* Subhead */}
-          <div style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic", fontSize:"clamp(14px,1.4vw,18px)", color:T.inkFaint, lineHeight:1.75, marginBottom:36, maxWidth:420, animation:"fadeUp .6s ease" }}>
-            Sanctii connects patients, doctors, and hospitals through AI-powered triage, real-time routing, and seamless scheduling.
-          </div>
-
-          {/* CTAs */}
-          <div style={{ display:"flex", gap:12, marginBottom:44, animation:"fadeUp .7s ease" }}>
-            <button className="btn-primary" onClick={()=>navigate("/login")} style={{ fontSize:14, padding:"13px 32px" }}>
-              Start Now →
-            </button>
-            <button className="btn-ghost" onClick={()=>navigate("/login")} style={{ fontSize:14, padding:"12px 24px" }}>
-              Sign In
-            </button>
-          </div>
-
-          {/* Live vitals */}
-          <div style={{ display:"flex", gap:10, flexWrap:"wrap", animation:"fadeUp .8s ease" }}>
-            {[["♥","72 bpm",T.vital],["⚡","98% SpO₂",T.rose],["🌡","36.6°C",T.amber],["🛏","12 beds",T.vital]].map(([ic,v,c])=>(
-              <div key={v} style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 12px", borderRadius:100, background:T.surfaceHard, border:`1px solid ${T.border}`, boxShadow:"0 1px 8px rgba(160,80,80,.06)" }}>
-                <span style={{ fontSize:11 }}>{ic}</span>
-                <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:c, letterSpacing:"0.04em" }}>{v}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Scroll hint */}
-          <div style={{ position:"absolute", bottom:28, left:60, display:"flex", alignItems:"center", gap:8, opacity:.5 }}>
-            <div style={{ width:1, height:28, background:T.border }}/>
-            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.inkFaint, letterSpacing:"0.18em", textTransform:"uppercase" }}>Scroll to explore</span>
-          </div>
-        </div>
-
-        {/* ── RIGHT: 3D Hologram ── */}
-        <div style={{ flex:1, position:"relative", overflow:"hidden" }}>
-          {/* Dark gradient so hologram pops */}
-          <div style={{ position:"absolute", inset:0, background:`linear-gradient(135deg,rgba(20,8,8,.82) 0%,rgba(10,22,18,.78) 100%)`, zIndex:1 }}/>
-
-          {/* Subtle grid overlay */}
-          <div style={{ position:"absolute", inset:0, zIndex:2, pointerEvents:"none", backgroundImage:`linear-gradient(${T.vital}08 1px,transparent 1px),linear-gradient(90deg,${T.vital}08 1px,transparent 1px)`, backgroundSize:"32px 32px" }}/>
-
-          {/* Corner brackets */}
-          {[["0","0","borderTop","borderLeft"],["0","auto","borderTop","borderRight"],["auto","0","borderBottom","borderLeft"],["auto","auto","borderBottom","borderRight"]].map(([t,r,b1,b2],i)=>(
-            <div key={i} style={{ position:"absolute", top:t, right:r, bottom:i>1?0:"auto", left:i%2===0?0:"auto", width:28, height:28, [b1]:`1.5px solid ${T.vital}`, [b2]:`1.5px solid ${T.vital}`, opacity:.4, zIndex:3, margin:20 }}/>
-          ))}
-
-          {/* HUD overlay top-right */}
-          <div style={{ position:"absolute", top:20, right:20, zIndex:4, display:"flex", flexDirection:"column", gap:6 }}>
-            <div style={{ padding:"5px 10px", background:"rgba(0,0,0,.5)", borderRadius:6, border:`1px solid ${T.vital}30`, backdropFilter:"blur(8px)" }}>
-              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.vital, letterSpacing:"0.14em", textTransform:"uppercase" }}>◉ Hologram Active</span>
-            </div>
-            <div style={{ padding:"5px 10px", background:"rgba(0,0,0,.5)", borderRadius:6, border:`1px solid ${T.rose}30`, backdropFilter:"blur(8px)" }}>
-              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.rose, letterSpacing:"0.14em", textTransform:"uppercase" }}>Drag · Scroll · Interact</span>
-            </div>
-          </div>
-
-          {/* HUD bottom-left */}
-          <div style={{ position:"absolute", bottom:20, left:20, zIndex:4 }}>
-            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:"rgba(91,170,138,.5)", letterSpacing:"0.12em", textTransform:"uppercase", lineHeight:2 }}>
-              Sanctii General Hospital<br/>
-              St. Michael's · Toronto, ON<br/>
-              <span style={{ color:T.vital }}>12 beds available</span>
-            </div>
-          </div>
-
-          {/* Three.js canvas */}
-          <div style={{ position:"absolute", inset:0, zIndex:3 }}>
-            <HospitalHologram/>
-          </div>
-        </div>
-      </section>
-
-      {/* ── FEATURES SECTION ── */}
-      <section style={{ padding:"80px 60px 60px", position:"relative" }}>
-        <BgOrbs/>
-        <EcgStrip bottom={0} opacity={.05}/>
-
-        <div style={{ textAlign:"center", marginBottom:48, position:"relative", zIndex:1 }}>
-          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.18em", textTransform:"uppercase", color:T.inkFaint, marginBottom:12 }}>Platform Capabilities</div>
-          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:"clamp(28px,3vw,42px)", color:T.ink, letterSpacing:"-0.03em" }}>
-            Everything you need,<br/>
-            <span style={{ background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>in one intelligent platform.</span>
-          </div>
-        </div>
-
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:16, maxWidth:1100, margin:"0 auto", position:"relative", zIndex:1 }}>
-          {FEATURES.map(([ic,c,title,desc],i)=>(
-            <div key={i} className="glass-hard"
-              style={{ padding:"26px 22px", textAlign:"left", animation:`fadeUp .5s ease ${.05+i*.07}s both`, opacity:0, cursor:"default", transition:"all .2s ease" }}
-              onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-4px)"; e.currentTarget.style.boxShadow=`0 12px 32px ${c}22`; e.currentTarget.style.borderColor=`${c}40`; }}
-              onMouseLeave={e=>{ e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="0 2px 12px rgba(160,80,80,.05)"; e.currentTarget.style.borderColor=T.border; }}
-            >
-              <div style={{ width:42, height:42, borderRadius:12, background:`${c}18`, display:"flex", alignItems:"center", justifyContent:"center", color:c, marginBottom:14, border:`1px solid ${c}30` }}>{ic}</div>
-              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink, marginBottom:6 }}>{title}</div>
-              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint, lineHeight:1.7 }}>{desc}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── STATS BAND ── */}
-      <section style={{ padding:"40px 60px", borderTop:`1px solid ${T.border}`, borderBottom:`1px solid ${T.border}`, background:T.surfaceHard, position:"relative", zIndex:1 }}>
-        <div style={{ display:"flex", justifyContent:"center", gap:0, maxWidth:900, margin:"0 auto", flexWrap:"wrap" }}>
-          {[["98%","Triage Accuracy"],["< 2s","AI Response"],["4 Cities","Active Hospitals"],["SOC 2","Type II Certified"]].map(([val,lbl],i)=>(
-            <div key={i} style={{ flex:"1 1 180px", textAlign:"center", padding:"16px 24px", borderRight:i<3?`1px solid ${T.border}`:"none" }}>
-              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:32, color:T.rose, letterSpacing:"-0.03em" }}>{val}</div>
-              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.14em", textTransform:"uppercase", marginTop:4 }}>{lbl}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── CTA BAND ── */}
-      <section style={{ padding:"72px 60px", textAlign:"center", position:"relative" }}>
-        <div style={{ position:"absolute", inset:0, background:`radial-gradient(ellipse at center,${T.rosePale}20 0%,transparent 70%)`, pointerEvents:"none" }}/>
-        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:"clamp(26px,3vw,40px)", color:T.ink, letterSpacing:"-0.03em", marginBottom:10, position:"relative", zIndex:1 }}>
-          Ready to transform your<br/>healthcare experience?
-        </div>
-        <div style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic", fontSize:16, color:T.inkFaint, marginBottom:32, position:"relative", zIndex:1 }}>
-          Join Sanctii today — no setup required.
-        </div>
-        <button className="btn-primary" onClick={()=>navigate("/login")} style={{ fontSize:15, padding:"14px 40px", position:"relative", zIndex:1 }}>
-          Create Your Account →
-        </button>
-      </section>
-
-      {/* ── Footer ── */}
-      <div style={{ borderTop:`1px solid ${T.border}`, padding:"24px 60px", display:"flex", alignItems:"center", justifyContent:"space-between", background:T.surfaceHard }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:28, height:28, borderRadius:8, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white }}><Icons.cross/></div>
-          <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.inkMid }}>Sanctii</span>
-        </div>
-        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase", textAlign:"center" }}>
-          Secured by Auth0 · HIPAA-aligned · SOC 2 Type II · © 2026 Sanctii Health Technologies
-        </div>
-        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.inkFaint, letterSpacing:"0.1em" }}>v1.0.0</div>
-      </div>
-
-    </div>
-  );
-}
-
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const { isLoading } = useAuth0();
@@ -1254,7 +753,16 @@ export default function App() {
   if (isLoading) return (
     <>
       <GlobalStyle/>
-      <LoadingScreen/>
+      <div style={{ position:"fixed", inset:0, background:T.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <div style={{ width:120, textAlign:"center" }}>
+          <div style={{ width:42, height:42, borderRadius:12, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, margin:"0 auto 16px", animation:"breathe 2s ease-in-out infinite" }}>
+            <Icons.cross/>
+          </div>
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink, letterSpacing:"-0.01em" }}>Sanctii</div>
+          <div style={{ width:30, height:1, background:T.border, margin:"8px auto" }}/>
+          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase" }}>Securing Context</div>
+        </div>
+      </div>
     </>
   );
 
@@ -1301,3 +809,4 @@ export default function App() {
     </>
   );
 }
+
