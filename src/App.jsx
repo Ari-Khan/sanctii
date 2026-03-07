@@ -161,23 +161,23 @@ function MazeUI({onNavigate}){
   const pd=makeSVG(path);
   const ac=hov?NODES[hov]?.col||T.rose:T.rose;
 
-  return (
-    <div style={{
-      width: "100%", height: "100vh",
-      display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
-      background: `radial-gradient(ellipse at 50% 50%, ${T.creamDark} 0%, ${T.cream} 70%)`,
-      position: "relative", overflow: "hidden"
-    }}>
-      {/* Header */}
-      <div style={{ position: "absolute", top: 32, left: 40, zIndex: 10 }}>
-        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 13, fontStyle: "italic", color: T.muted, letterSpacing: "0.1em" }}>
-          medical intelligence platform
+  return(
+    <div style={{position:"fixed",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>
+      <BgOrbs/>
+      <EcgStrip bottom={0} opacity={0.09}/>
+      <EcgStrip top="8%" opacity={0.05} color={T.vital}/>
+
+      {/* Top Nav */}
+      <div style={{position:"absolute",top:0,left:0,right:0,height:66,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 32px",borderBottom:`1px solid ${T.border}`,background:"rgba(248,240,232,0.85)",backdropFilter:"blur(20px)",zIndex:50}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:38,height:38,borderRadius:11,background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`,display:"flex",alignItems:"center",justifyContent:"center",color:T.white,animation:"breathe 3s ease-in-out infinite",flexShrink:0}}>
+            <Icons.cross/>
+          </div>
+          <div>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontWeight:800,fontSize:20,color:T.ink,letterSpacing:"-0.03em"}}>Sanctii</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.inkFaint,letterSpacing:"0.14em",textTransform:"uppercase",marginTop:-2}}>Medical Intelligence Platform</div>
+          </div>
         </div>
-        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 300, color: T.redText, letterSpacing: "0.05em" }}>
-          Sanctii
-        </div>
-      </div>
 
         {/* Live vitals */}
         <div style={{display:"flex",alignItems:"center",gap:20,padding:"7px 18px",borderRadius:100,background:"rgba(91,170,138,0.08)",border:"1px solid rgba(91,170,138,0.25)"}}>
