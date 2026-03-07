@@ -1,8 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import { getUserRoles, hasRole, ROLE } from "./auth/roles";
+import { T, Icons } from "./theme";
+import { BgOrbs, EcgStrip, Card } from "./components/SharedUI";
+import LandingPage from "./pages/Landing";
+import LoginPage from "./pages/Login";
 import HospitalHologram from "./HospitalHologram";
 import { getPersistedRole, setPersistedRole } from "./auth/persistedRole";
 
@@ -75,61 +79,7 @@ const GlobalStyle = () => (
   `}</style>
 );
 
-// ─── ICONS ────────────────────────────────────────────────────────────────────
-const Icons = {
-  cross:       () => <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8z"/></svg>,
-  heartbeat:   () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
-  heart:       () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
-  stethoscope: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>,
-  calendar:    () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
-  mapPin:      () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
-  grid:        () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
-  brain:       () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.04-4.79 3 3 0 0 1-.91-4.43 3 3 0 0 1 .5-5.32A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.04-4.79 3 3 0 0 0 .91-4.43 3 3 0 0 0-.5-5.32A2.5 2.5 0 0 0 14.5 2Z"/></svg>,
-  user:        () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-  shield:      () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-  card:        () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
-  logout:      () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-  google:      () => <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>,
-  check:       () => <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  chevron:     () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
-};
-
 // ─── SHARED PRIMITIVES ────────────────────────────────────────────────────────
-function EcgStrip({ opacity=0.1, color=T.rose, top="auto", bottom="auto" }) {
-  return (
-    <div style={{ position:"absolute", left:0, right:0, top, bottom, height:56, overflow:"hidden", pointerEvents:"none" }}>
-      <div style={{ display:"flex", animation:"ecgLoop 8s linear infinite", width:"200%" }}>
-        {[0,1].map(k=>(
-          <svg key={k} viewBox="0 0 400 56" style={{ width:"50%", flexShrink:0 }} preserveAspectRatio="none">
-            <polyline points="0,28 30,28 36,28 40,8 44,48 48,28 80,28 86,28 90,20 94,36 98,28 130,28 136,28 140,6 144,50 148,28 190,28 196,28 200,16 204,40 208,28 240,28 246,28 250,10 254,46 258,28 300,28 306,28 310,18 314,38 318,28 360,28 366,28 370,8 374,48 378,28 400,28"
-              fill="none" stroke={color} strokeWidth="1.5" opacity={opacity}/>
-          </svg>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BgOrbs() {
-  return (
-    <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none", zIndex:0 }}>
-      <div style={{ position:"absolute", top:"-15%", right:"-10%", width:520, height:520, borderRadius:"50%", background:`radial-gradient(circle,${T.rosePale}35 0%,transparent 70%)` }}/>
-      <div style={{ position:"absolute", bottom:"-20%", left:"-8%", width:620, height:620, borderRadius:"50%", background:`radial-gradient(circle,rgba(91,170,138,.1) 0%,transparent 65%)` }}/>
-      <div style={{ position:"absolute", top:"35%", left:"20%", width:320, height:320, borderRadius:"50%", background:`radial-gradient(circle,rgba(212,151,74,.06) 0%,transparent 70%)` }}/>
-    </div>
-  );
-}
-
-function Card({ children, style, accent, onClick }) {
-  const [hov, setHov] = useState(false);
-  return (
-    <div className="glass-hard" onClick={onClick}
-      onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      style={{ padding:20, cursor:onClick?"pointer":"default", borderColor:hov&&onClick?T.roseMid:accent?`${accent}35`:T.border, boxShadow:hov&&onClick?`0 8px 32px ${T.roseGlow}`:"0 2px 12px rgba(160,80,80,.05)", background:accent?`linear-gradient(145deg,${accent}06,${T.surfaceHard})`:T.surfaceHard, transition:"all .2s ease", ...style }}
-    >{children}</div>
-  );
-}
-
 function Stat({ label, value, sub, color }) {
   return (
     <Card accent={color} style={{ textAlign:"center", padding:"18px 12px" }}>
@@ -298,42 +248,63 @@ function LoginPage() {
 
 // ─── MAZE CONFIG ──────────────────────────────────────────────────────────────
 const NODES = {
-  center:   { x:50, y:50, label:"Sanctii",        icon:"cross",       isCenter:true },
-  patient:  { x:50, y:14, label:"Patient Portal",  icon:"user",        path:"/patient",  col:T.rose },
-  doctor:   { x:82, y:32, label:"Doctor Portal",   icon:"stethoscope", path:"/doctor",   col:T.roseMid },
-  rooms:    { x:82, y:68, label:"Room Map",         icon:"grid",        path:"/rooms",    col:T.amber },
-  hospital: { x:50, y:86, label:"Find Hospital",   icon:"mapPin",      path:"/hospital", col:T.vital },
-  presage:  { x:18, y:68, label:"Presage AI",      icon:"brain",       path:"/presage",  col:"#8B6FBF" },
-  schedule: { x:18, y:32, label:"Schedule",        icon:"calendar",    path:"/schedule", col:T.roseMid },
+  center:    { x:50, y:50, label:"Health Center", icon:"cross", isCenter:true, col:T.roseMid },
+  patient:   { x:32, y:28, label:"Patient Portal", icon:"user", path:"/patient", col:T.rose },
+  doctor:    { x:68, y:28, label:"Doctor Portal", icon:"stethoscope", path:"/doctor", col:T.roseDeep },
+  schedule:  { x:82, y:54, label:"Scheduling", icon:"calendar", path:"/schedule", col:T.amber },
+  presage:   { x:18, y:54, label:"Presage AI", icon:"brain", path:"/presage", col:T.roseMid },
+  hospital:  { x:34, y:78, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
+  rooms:     { x:66, y:78, label:"Room Map", icon:"grid", path:"/rooms", col:T.vital },
 };
-const EDGES = [
-  {from:"center",to:"patient",wp:[]},{from:"center",to:"doctor",wp:[]},
-  {from:"center",to:"rooms",wp:[]},{from:"center",to:"hospital",wp:[]},
-  {from:"center",to:"presage",wp:[]},{from:"center",to:"schedule",wp:[]},
-  {from:"patient",to:"schedule",wp:[{x:18,y:14}]},
-  {from:"doctor",to:"rooms",wp:[{x:93,y:50}]},
-  {from:"hospital",to:"presage",wp:[{x:30,y:92}]},
-  {from:"schedule",to:"presage",wp:[{x:5,y:50}]},
-  {from:"patient",to:"doctor",wp:[{x:72,y:8}]},
-  {from:"rooms",to:"hospital",wp:[{x:90,y:82}]},
-];
-const DECOS=["M 22 5 L 22 22 L 38 22","M 62 5 L 78 5 L 78 18","M 93 44 L 93 56","M 80 82 L 93 82 L 93 95","M 5 62 L 5 88 L 20 88","M 5 12 L 5 28 L 14 28 L 14 44","M 36 92 L 36 96 L 64 96 L 64 92","M 56 8 L 56 4 L 44 4 L 44 14"];
 
-function bfs(from, to) {
-  const adj = {}; Object.keys(NODES).forEach(k=>{ adj[k]=[]; });
-  EDGES.forEach(e=>{ adj[e.from].push(e.to); adj[e.to].push(e.from); });
-  const vis={[from]:true}, q=[[from]];
-  while(q.length){ const p=q.shift(); if(p[p.length-1]===to) return p; (adj[p[p.length-1]]||[]).forEach(nb=>{ if(!vis[nb]){ vis[nb]=true; q.push([...p,nb]); } }); }
-  return [from,to];
+const EDGES = [
+  { from:"center", to:"patient", wp:[{x:40,y:35}] },
+  { from:"center", to:"doctor",  wp:[{x:60,y:35}] },
+  { from:"center", to:"schedule" },
+  { from:"center", to:"presage" },
+  { from:"center", to:"hospital" },
+  { from:"center", to:"rooms" },
+  { from:"patient",to:"presage" },
+  { from:"doctor", to:"schedule" },
+  { from:"hospital",to:"rooms" },
+];
+
+const DECOS = [
+  "M 5 5 L 15 5", "M 5 5 L 5 15", "M 95 5 L 85 5", "M 95 5 L 95 15",
+  "M 5 95 L 15 95", "M 5 95 L 5 85", "M 95 95 L 85 95", "M 95 95 L 95 85",
+];
+
+function bfs(start, end) {
+  const q=[[start]], seen=new Set([start]);
+  while(q.length){
+    const p=q.shift(), curr=p[p.length-1];
+    if(curr===end) return p;
+    (EDGES.filter(e=>e.from===curr||e.to===curr)).forEach(e=>{
+      const next=e.from===curr?e.to:e.from;
+      if(!seen.has(next)){ seen.add(next); q.push([...p,next]); }
+    });
+  }
+  return [];
 }
-function makeSVGPath(keys) {
-  if(keys.length<2) return "";
+
+function makeSVGPath(path) {
+  if(!path||path.length<2) return "";
   let d="";
-  keys.forEach((key,i)=>{ const n=NODES[key]; if(i===0){ d+=`M ${n.x} ${n.y}`; return; } const e=EDGES.find(e=>(e.from===keys[i-1]&&e.to===key)||(e.to===keys[i-1]&&e.from===key)); (e?.wp||[]).forEach(wp=>{ d+=` L ${wp.x} ${wp.y}`; }); d+=` L ${n.x} ${n.y}`; });
+  for(let i=0; i<path.length-1; i++){
+    const f=NODES[path[i]], t=NODES[path[i+1]];
+    const e=EDGES.find(e=>(e.from===path[i]&&e.to===path[i+1])||(e.to===path[i]&&e.from===path[i+1]));
+    if(i===0) d+=`M ${f.x} ${f.y}`;
+    if(e?.wp){
+      const rev=e.to===path[i];
+      const pts=rev?[...e.wp].reverse():e.wp;
+      pts.forEach(w=>d+=` L ${w.x} ${w.y}`);
+    }
+    d+=` L ${t.x} ${t.y}`;
+  }
   return d;
 }
 
-// ─── MAZE PAGE (/) ────────────────────────────────────────────────────────────
+// ─── MAZE PAGE ────────────────────────────────────────────────────────────────
 function MazePage() {
   const { user, logout } = useAuth0();
   const navigate = useNavigate();
@@ -1360,7 +1331,16 @@ export default function App() {
   if (isLoading) return (
     <>
       <GlobalStyle/>
-      <LoadingScreen/>
+      <div style={{ position:"fixed", inset:0, background:T.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <div style={{ width:120, textAlign:"center" }}>
+          <div style={{ width:42, height:42, borderRadius:12, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, margin:"0 auto 16px", animation:"breathe 2s ease-in-out infinite" }}>
+            <Icons.cross/>
+          </div>
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink, letterSpacing:"-0.01em" }}>Sanctii</div>
+          <div style={{ width:30, height:1, background:T.border, margin:"8px auto" }}/>
+          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase" }}>Securing Context</div>
+        </div>
+      </div>
     </>
   );
 
@@ -1410,3 +1390,4 @@ export default function App() {
     </>
   );
 }
+
