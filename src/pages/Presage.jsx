@@ -161,21 +161,43 @@ export default function PresagePage({ PageWrap }) {
     setLoading(true);
     setTriageResult(null);
     try {
-      const res = await fetch(`${API_BASE}/api/triage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          narrative: input.trim(),
-          patient: user ? { name: user.name, email: user.email } : {},
-          nearestHospital: nearestHospital
-            ? { name: nearestHospital.name, address: nearestHospital.address, distanceKm: nearestHospital.distance }
-            : null,
-        }),
-      });
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) { setTriageResult("Error: VITE_GEMINI_API_KEY not set in .env"); setLoading(false); return; }
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{
+              role: "user",
+              parts: [{ text: `You are a clinical triage assistant. A patient reports the following symptoms:\n"""\n${input.trim()}\n"""\nProvide a rating of EMERGENCY, URGENT, or ROUTINE with a brief 1-2 sentence explanation. Respond ONLY in this format: [SEVERITY]: [EXPLANATION]` }]
+            }]
+          }),
+        }
+      );
       const data = await res.json();
-      setTriageResult(data.result || data);
+      if (data.error) { setTriageResult(`Error: ${data.error.message}`); setLoading(false); return; }
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Error: No response";
+      setTriageResult(text);
+
+      // Save URGENT/EMERGENCY to doctor DB in background (non-blocking)
+      const upper = text.toUpperCase();
+      const cat = upper.startsWith("EMERGENCY") ? "emergency" : upper.startsWith("URGENT") ? "urgent" : null;
+      if (cat) {
+        fetch(`${API_BASE}/api/triage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            narrative: input.trim(),
+            patient: user ? { name: user.name, email: user.email } : {},
+            nearestHospital: nearestHospital ? { name: nearestHospital.name, address: nearestHospital.address, distanceKm: nearestHospital.distance } : null,
+          }),
+        }).catch(() => {});
+      }
     } catch (e) {
-      setTriageResult("Error: Request failed");
+      setTriageResult("Error: " + (e.message || "Request failed"));
     } finally {
       setLoading(false);
     }
