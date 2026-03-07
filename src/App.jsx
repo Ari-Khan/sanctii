@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
+import { Routes, Route, useNavigate, Navigate, useSearchParams } from "react-router-dom";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -468,8 +468,8 @@ function MazePage() {
                 if (activeRole === ROLE.DOCTOR) {
                   if (key === "rooms") navigate("/rooms");
                   else if (key === "schedule") navigate("/schedule");
-                  else if (key === "patient") navigate("/doctor"); // patient info by severity
-                  else if (key === "doctor") navigate("/doctor");  // doctor information
+                  else if (key === "patient") navigate("/doctor?tab=patients"); // patient info by severity
+                  else if (key === "doctor") navigate("/doctor?tab=floorplan");  // doctor information
                   else if (node.path) navigate(node.path);
                   return;
                 }
@@ -1624,7 +1624,8 @@ function PatientCard({ p }) {
 // ─── DOCTOR PORTAL (/doctor) ──────────────────────────────────────────────────
 function DoctorPage() {
   const navigate = useNavigate();
-  const [tab,            setTab]            = useState("floorplan"); // "floorplan" | "patients"
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => searchParams.get("tab") === "patients" ? "patients" : "floorplan");
   const [hospitalFloors, setHospitalFloors] = useState(NYGH_FLOORS);
   const [floorKey,       setFloorKey]       = useState(0);
   const [feedback,       setFeedback]       = useState([]);
