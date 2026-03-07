@@ -8,9 +8,11 @@ import { getUserRoles, ROLE } from "./auth/roles";
 import { Icons } from "./theme";
 import { BgOrbs, EcgStrip, Card } from "./components/SharedUI";
 import HospitalHologram from "./components/Hologram";
+import HospitalMap3D from "./components/HospitalMap3D";
 import { getPersistedRole, setPersistedRole } from "./auth/persistedRole";
 import PresagePage from "./pages/Presage";
 import ScannerPage from "./pages/ScannerPage";
+import PatientFeedbackPage from "./pages/PatientFeedbackPage";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const T = {
@@ -92,7 +94,7 @@ function Stat({ label, value, sub, color }) {
   );
 }
 
-function SHead({ children }) {
+export function SHead({ children }) {
   return (
     <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.18em", textTransform:"uppercase", color:T.inkFaint, marginBottom:12, display:"flex", alignItems:"center", gap:8 }}>
       <div style={{ flex:1, height:1, background:T.border }}/>{children}<div style={{ flex:1, height:1, background:T.border }}/>
@@ -258,8 +260,9 @@ const NODES = {
   patient:   { x:26, y:25, label:"Patient Portal", icon:"user", path:"/patient", col:T.rose },
   doctor:    { x:76, y:25, label:"Doctor Portal", icon:"stethoscope", path:"/doctor", col:T.roseDeep },
   schedule:  { x:26, y:76, label:"Scheduling", icon:"calendar", path:"/schedule", col:T.amber },
-  presage:   { x:(50-18)+50, y:50-8, label:"Presage AI", icon:"brain", path:"/presage", col:T.roseMid },
-  hospital:  { x:38, y:80, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
+  presage:   { x:76, y:76, label:"Presage AI", icon:"brain", path:"/presage", col:T.roseMid },
+  hospital:  { x:26, y:76, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
+  feedback:  { x:76, y:25, label:"Doctor Feedback", icon:"stethoscope", path:"/patient/feedback", col:T.roseDeep },
   rooms:     { x:76, y:76, label:"Room Map", icon:"grid", path:"/rooms", col:T.vital },
 };
 
@@ -280,9 +283,11 @@ const PATIENT_EDGES = [
   { from:"center", to:"patient" },
   { from:"center", to:"hospital" },
   { from:"center", to:"presage" },
+  { from:"center", to:"feedback" },
   { from:"patient", to:"presage" },
   { from:"patient", to:"hospital" },
-  { from:"hospital", to:"presage" },
+  { from:"hospital", to:"feedback" },
+  { from:"presage", to:"feedback" },
 ];
 
 const DOCTOR_EDGES = [
@@ -356,7 +361,7 @@ function MazePage() {
   // Adjust maze buttons (nodes) based on active role
   const visibleNodeKeys = (() => {
     if (activeRole === ROLE.PATIENT) {
-      return ["center","patient","hospital","presage"];
+      return ["center","patient","hospital","presage","feedback"];
     }
     if (activeRole === ROLE.DOCTOR) {
       return ["center","rooms","schedule","patient","doctor"];
@@ -626,7 +631,7 @@ function RoleSelectionPage() {
 }
 
 // ─── PAGE WRAPPER (shared by all portals) ─────────────────────────────────────
-function PageWrap({ children, title, icon, subtitle, badge }) {
+export function PageWrap({ children, title, icon, subtitle, badge }) {
   const navigate = useNavigate();
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", background:T.bg, overflow:"hidden" }}>
@@ -658,6 +663,15 @@ function PatientPage() {
   const navigate = useNavigate();
   const displayName = user?.name || user?.email?.split("@")[0] || "Patient";
   const initials = displayName.split(" ").map(n=>n[0]).join("").toUpperCase().slice(0,2);
+  const [healthcard, setHealthcard] = useState(null);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    fetch(`http://localhost:3001/api/healthcard?email=${encodeURIComponent(user.email)}`)
+      .then(r => { if (r.ok) return r.json(); throw new Error("none"); })
+      .then(card => setHealthcard(card))
+      .catch(() => setHealthcard(null));
+  }, [user?.email]);
 
   return (
     <PageWrap title="Patient Portal" icon={<Icons.user/>} subtitle="Personal health dashboard"
@@ -754,15 +768,40 @@ function PatientPage() {
               }
               <div>
                 <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>{displayName}</div>
-                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase", marginTop:2 }}>HC-4821-0039-JM</div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase", marginTop:2 }}>
+                  {healthcard?.card_number || "No health card on file"}
+                </div>
               </div>
             </div>
-            {[["Blood Type","A+"],["Weight","74 kg"],["Height","178 cm"],["Allergies","Penicillin"]].map(([k,v])=>(
-              <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${T.border}` }}>
-                <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint }}>{k}</span>
-                <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:12, color:T.ink }}>{v}</span>
+            {healthcard ? (
+              <>
+                {[
+                  ["Full Name", healthcard.full_name],
+                  ["Card Number", healthcard.card_number],
+                  ["Date of Birth", healthcard.date_of_birth],
+                  ["Gender", healthcard.gender],
+                  ["Province", healthcard.province],
+                  ["Expiry Date", healthcard.expiry_date],
+                ].filter(([,v]) => v).map(([k,v])=>(
+                  <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${T.border}` }}>
+                    <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint }}>{k}</span>
+                    <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:12, color:T.ink }}>{v}</span>
+                  </div>
+                ))}
+                <button className="btn-ghost" onClick={()=>navigate("/patient/scanner")} style={{ marginTop:10, fontSize:11, padding:"7px 14px", width:"100%" }}>
+                  Update Health Card
+                </button>
+              </>
+            ) : (
+              <div style={{ textAlign:"center", padding:"16px 0" }}>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, marginBottom:12 }}>No health card information on file</div>
+                <button className="btn-primary" onClick={()=>navigate("/patient/scanner")} style={{ fontSize:12, padding:"9px 20px" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <Icons.card/> Scan or Enter Health Card
+                  </div>
+                </button>
               </div>
-            ))}
+            )}
           </Card>
           <Card accent={T.rose} style={{ borderColor:`${T.rose}28` }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
@@ -1478,11 +1517,22 @@ function DoctorPage() {
   const navigate = useNavigate();
   const [hospitalFloors, setHospitalFloors] = useState(NYGH_FLOORS);
   const [floorKey,       setFloorKey]       = useState(0);
+  const [feedback,       setFeedback]       = useState([]);
+  const [searchDoctor,   setSearchDoctor]   = useState("");
 
   const handleFloors = (floors) => {
     setHospitalFloors(floors);
     setFloorKey(k => k + 1);
   };
+
+  useEffect(() => {
+    fetch("http://localhost:3001/api/feedback")
+      .then(r => r.json())
+      .then(data => setFeedback(data))
+      .catch(console.error);
+  }, []);
+
+  const filteredFeedback = feedback.filter(f => searchDoctor === "" || f.doctorName.toLowerCase().includes(searchDoctor.toLowerCase()));
 
   return (
     <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Sharma">
@@ -1565,27 +1615,41 @@ function DoctorPage() {
         </div>
         <div id="doctor-info" style={{ display:"flex", flexDirection:"column", gap:14 }}>
           <Card>
-            <SHead>Severity Guide</SHead>
-            {[[1,T.vital,"Routine / Preventive"],[2,"#8BBF5A","Mild Symptoms"],[3,T.amber,"Moderate — Monitor"],[4,T.rose,"Urgent — Expedite"],[5,T.roseDeep,"Critical — Emergency"]].map(([n,c,l])=>(
-              <div key={n} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-                <div style={{ width:26, height:26, borderRadius:7, background:`${c}18`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:12, color:c }}>{n}</div>
-                <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid }}>{l}</span>
-              </div>
-            ))}
-          </Card>
-          <Card accent={T.vital}>
-            <SHead>Dept. Capacity</SHead>
-            {[["Emergency",85],["General",62],["Cardiology",44],["Radiology",71]].map(([dept,pct])=>(
-              <div key={dept} style={{ marginBottom:10 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid }}>{dept}</span>
-                  <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:pct>70?T.rose:T.vital }}>{pct}%</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <SHead style={{ margin: 0 }}>Doctor Feedback Directory</SHead>
+              <input 
+                type="text" 
+                placeholder="Search by doctor name..." 
+                value={searchDoctor}
+                onChange={e => setSearchDoctor(e.target.value)}
+                style={{ padding: "6px 12px", borderRadius: 100, border: `1px solid ${T.border}`, background: T.bgDeep, fontFamily: "'Outfit',sans-serif", fontSize: 12, outline: "none", width: 160 }}
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 400, overflowY: "auto", paddingRight: 6 }}>
+              {filteredFeedback.length > 0 ? filteredFeedback.map((f, i) => (
+                <div key={i} style={{ padding: 14, borderRadius: 12, background: T.surfaceHard, border: `1px solid ${T.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14, color: T.ink }}>{f.doctorName}</div>
+                      <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 11, color: T.inkFaint }}>Reviewed by {f.patientName}</div>
+                    </div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: T.inkFaint }}>{new Date(f.date).toLocaleDateString()}</div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div>
+                      <span style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 600, fontSize: 11, color: T.vital }}>What went well: </span>
+                      <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid }}>{f.liked}</span>
+                    </div>
+                    <div>
+                      <span style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 600, fontSize: 11, color: T.amber }}>Needs improvement: </span>
+                      <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid }}>{f.improved}</span>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ height:4, borderRadius:4, background:T.bgDeep, overflow:"hidden" }}>
-                  <div style={{ height:"100%", width:`${pct}%`, borderRadius:4, background:pct>70?`linear-gradient(90deg,${T.amber},${T.rose})`:`linear-gradient(90deg,${T.vital},#4A9A7A)`, transition:"width .6s ease" }}/>
-                </div>
-              </div>
-            ))}
+              )) : (
+                <div style={{ padding: "20px 0", textAlign: "center", fontFamily: "'Outfit',sans-serif", fontSize: 13, color: T.inkFaint }}>No feedback found.</div>
+              )}
+            </div>
           </Card>
         </div>
       </div>
@@ -1642,31 +1706,70 @@ const DAYS_SHORT = ["Mon","Tue","Wed","Thu","Fri"];
 const SLOT_H = 38; // px per 30-min row
 const HOURS = Array.from({length:20},(_,i)=>({ h:8+Math.floor(i/2), m:i%2===0?0:30 }));
 
-function ApptCard({ appt, onDragStart, compact=false }) {
-  const fmt = m => m===0?"00":"30";
+// Compact queue card (sidebar)
+function ApptCard({ appt, onDragStart }) {
+  return (
+    <div
+      draggable
+      onDragStart={e => onDragStart(e, appt.id)}
+      style={{ padding:"5px 8px", borderRadius:8, background:`${appt.color}18`, border:`1.5px solid ${appt.color}55`, cursor:"grab", userSelect:"none", marginBottom:4 }}
+      onMouseEnter={e=>e.currentTarget.style.boxShadow=`0 2px 10px ${appt.color}33`}
+      onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}
+    >
+      <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:10, color:appt.color, lineHeight:1.2 }}>{appt.patient}</div>
+      <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:9, color:T.inkMid, marginTop:1 }}>{appt.type}</div>
+    </div>
+  );
+}
+
+// Grid card — absolutely positioned, height driven by duration
+function GridCard({ appt, onDragStart, onRemove, onChangeDur }) {
+  const slotHeight = SLOT_H; // px per 30 min
+  const cardH      = (appt.dur / 30) * slotHeight - 4;
+  const fmtTime    = (h, m) => `${String(h).padStart(2,"0")}:${m===0?"00":"30"}`;
+  const endMin     = appt.hour * 60 + appt.min + appt.dur;
+  const endH       = Math.floor(endMin / 60);
+  const endM       = endMin % 60;
+
   return (
     <div
       draggable
       onDragStart={e => onDragStart(e, appt.id)}
       style={{
-        padding: compact?"5px 8px":"7px 10px",
+        position:"absolute", top:2, left:2, right:2,
+        height: cardH,
         borderRadius:8,
-        background:`${appt.color}18`,
-        border:`1.5px solid ${appt.color}55`,
+        background:`${appt.color}20`,
+        border:`1.5px solid ${appt.color}66`,
         cursor:"grab",
         userSelect:"none",
-        marginBottom: compact?4:0,
-        transition:"box-shadow .15s",
+        zIndex:2,
+        display:"flex",
+        flexDirection:"column",
+        padding:"5px 7px",
+        overflow:"hidden",
+        boxSizing:"border-box",
       }}
       onMouseEnter={e=>e.currentTarget.style.boxShadow=`0 2px 12px ${appt.color}33`}
       onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}
     >
-      <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:compact?10:11, color:appt.color, lineHeight:1.2 }}>{appt.patient}</div>
-      <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:compact?9:10, color:T.inkMid, marginTop:1, lineHeight:1.3 }}>{appt.type}</div>
-      {!compact && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginTop:3, letterSpacing:"0.05em" }}>{appt.doctor} · {appt.dur}min</div>}
-      {appt.hour!==null && !compact && (
-        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:appt.color, marginTop:2 }}>
-          {String(appt.hour).padStart(2,"0")}:{fmt(appt.min)}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:4 }}>
+        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:10, color:appt.color, lineHeight:1.2, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{appt.patient}</div>
+        <button onClick={e=>{e.stopPropagation();onRemove(appt.id);}} style={{ background:"none", border:"none", cursor:"pointer", fontSize:9, color:T.inkFaint, padding:0, lineHeight:1, flexShrink:0 }}>✕</button>
+      </div>
+      {cardH > 28 && <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:9, color:T.inkMid, marginTop:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{appt.type}</div>}
+      {cardH > 44 && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7.5, color:T.inkFaint, marginTop:2, letterSpacing:"0.04em" }}>{appt.doctor}</div>}
+      {cardH > 30 && (
+        <div style={{ marginTop:"auto", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7.5, color:appt.color, letterSpacing:"0.04em" }}>
+            {fmtTime(appt.hour,appt.min)} – {fmtTime(endH,endM)} · {appt.dur}min
+          </span>
+          <div style={{ display:"flex", gap:2 }}>
+            <button onClick={e=>{e.stopPropagation();onChangeDur(appt.id,-30);}}
+              style={{ background:`${appt.color}22`, border:`1px solid ${appt.color}44`, borderRadius:4, cursor:"pointer", fontSize:8, color:appt.color, width:16, height:16, display:"flex", alignItems:"center", justifyContent:"center", padding:0, lineHeight:1 }}>−</button>
+            <button onClick={e=>{e.stopPropagation();onChangeDur(appt.id,+30);}}
+              style={{ background:`${appt.color}22`, border:`1px solid ${appt.color}44`, borderRadius:4, cursor:"pointer", fontSize:8, color:appt.color, width:16, height:16, display:"flex", alignItems:"center", justifyContent:"center", padding:0, lineHeight:1 }}>+</button>
+          </div>
         </div>
       )}
     </div>
@@ -1683,8 +1786,23 @@ function SchedulePage() {
   const unscheduled = appts.filter(a => a.day === null);
   const scheduled   = appts.filter(a => a.day !== null);
 
-  const getAppts = (day, hour, min) =>
-    scheduled.filter(a => a.day===day && a.hour===hour && a.min===min);
+  // Returns appointment that STARTS in this slot
+  const getAppt = (day, hour, min) =>
+    scheduled.find(a => a.day===day && a.hour===hour && a.min===min) ?? null;
+
+  // Returns true if a multi-slot appointment from an EARLIER slot covers this slot
+  const isCovered = (day, hour, min) => {
+    const slotMin = hour * 60 + min;
+    return scheduled.some(a => {
+      if (a.day !== day) return false;
+      const startMin = a.hour * 60 + a.min;
+      return slotMin > startMin && slotMin < startMin + a.dur;
+    });
+  };
+
+  const changeDur = (id, delta) => setAppts(prev => prev.map(a =>
+    a.id === id ? { ...a, dur: Math.max(30, a.dur + delta) } : a
+  ));
 
   const onDragStart = (e, id) => {
     setDraggingId(id);
@@ -1713,7 +1831,7 @@ function SchedulePage() {
     setAppts(prev => [...prev, {
       id: Date.now(), patient: newForm.patient, type: newForm.type||"Appointment",
       doctor: newForm.doctor||"Dr. Sharma", day:null, hour:null, min:null,
-      dur:30, color: newForm.color||T.rose,
+      dur: newForm.dur||30, color: newForm.color||T.rose,
     }]);
     setNewForm(null);
   };
@@ -1758,6 +1876,10 @@ function SchedulePage() {
                     style={{ padding:"5px 8px", borderRadius:7, border:`1.5px solid ${T.border}`, fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.ink, background:T.bgDeep, outline:"none" }} />
                   <input placeholder="Doctor" value={newForm.doctor||""} onChange={e=>setNewForm(f=>({...f,doctor:e.target.value}))}
                     style={{ padding:"5px 8px", borderRadius:7, border:`1.5px solid ${T.border}`, fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.ink, background:T.bgDeep, outline:"none" }} />
+                  <select value={newForm.dur||30} onChange={e=>setNewForm(f=>({...f,dur:parseInt(e.target.value,10)}))}
+                    style={{ padding:"5px 8px", borderRadius:7, border:`1.5px solid ${T.border}`, fontFamily:"'DM Mono',monospace", fontSize:11, color:T.inkMid, background:T.bgDeep, outline:"none" }}>
+                    {[30,60,90,120,150,180].map(d=><option key={d} value={d}>{d} min</option>)}
+                  </select>
                   <div style={{ display:"flex", gap:4 }}>
                     {APPT_COLORS.map(c=>(
                       <div key={c} onClick={()=>setNewForm(f=>({...f,color:c}))} style={{ width:16, height:16, borderRadius:"50%", background:c, cursor:"pointer", border:`2px solid ${newForm.color===c?"#fff":"transparent"}`, outline:`2px solid ${newForm.color===c?c:"transparent"}` }}/>
@@ -1811,35 +1933,38 @@ function SchedulePage() {
 
                   {/* Time slots */}
                   {HOURS.map(({h,m}, si) => {
-                    const slotAppts = getAppts(di, h, m);
-                    const isHov = hoverSlot?.day===di && hoverSlot?.hour===h && hoverSlot?.min===m;
-                    const isHour = m===0;
+                    const startAppt = getAppt(di, h, m);
+                    const covered   = !startAppt && isCovered(di, h, m);
+                    const isHov     = !covered && hoverSlot?.day===di && hoverSlot?.hour===h && hoverSlot?.min===m;
+                    const isHour    = m===0;
                     return (
                       <div key={si}
-                        onDragOver={e=>{ e.preventDefault(); setHoverSlot({day:di,hour:h,min:m}); }}
+                        onDragOver={e=>{ if(!covered){ e.preventDefault(); setHoverSlot({day:di,hour:h,min:m}); } }}
                         onDragLeave={()=>setHoverSlot(null)}
-                        onDrop={e=>onDrop(e,di,h,m)}
+                        onDrop={e=>{ if(!covered) onDrop(e,di,h,m); }}
                         style={{
                           height: SLOT_H,
                           borderBottom: `1px ${isHour?"solid":"dashed"} ${T.border}`,
-                          background: isHov ? `${T.vital}10` : "transparent",
+                          background: covered ? `${T.inkFaint}06` : isHov ? `${T.vital}10` : "transparent",
                           transition:"background .1s",
-                          padding:"2px 3px",
                           position:"relative",
                           boxSizing:"border-box",
+                          overflow:"visible",
                         }}
                       >
-                        {isHov && slotAppts.length===0 && (
-                          <div style={{ position:"absolute", inset:2, borderRadius:6, border:`1.5px dashed ${T.vital}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        {isHov && !startAppt && (
+                          <div style={{ position:"absolute", inset:2, borderRadius:6, border:`1.5px dashed ${T.vital}`, display:"flex", alignItems:"center", justifyContent:"center", zIndex:1 }}>
                             <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.vital, letterSpacing:"0.08em" }}>DROP</span>
                           </div>
                         )}
-                        {slotAppts.map(a => (
-                          <div key={a.id} style={{ position:"relative" }}>
-                            <ApptCard appt={a} onDragStart={onDragStart} compact/>
-                            <button onClick={()=>removeAppt(a.id)} style={{ position:"absolute", top:3, right:3, background:"none", border:"none", cursor:"pointer", fontSize:9, color:T.inkFaint, lineHeight:1, padding:2 }}>✕</button>
-                          </div>
-                        ))}
+                        {startAppt && (
+                          <GridCard
+                            appt={startAppt}
+                            onDragStart={onDragStart}
+                            onRemove={removeAppt}
+                            onChangeDur={changeDur}
+                          />
+                        )}
                       </div>
                     );
                   })}
@@ -1861,6 +1986,7 @@ function HospitalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sortOrder, setSortOrder] = useState('asc');
+  const [selectedHospital, setSelectedHospital] = useState(null);
 
   const hospitalColors = [T.vital, T.rose, T.amber, T.vital, T.vital, T.rose, T.amber, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber];
 
@@ -2117,7 +2243,7 @@ function HospitalPage() {
             </button>
           </div>
           {sortedHospitals.length > 0 ? sortedHospitals.map((h,i)=>(
-            <Card key={i} onClick={()=>{}} accent={h.col} style={{ padding:"16px 18px" }}>
+            <Card key={i} onClick={()=>setSelectedHospital(i)} accent={h.col} style={{ padding:"16px 18px", outline: selectedHospital === i ? `2px solid ${h.col}` : "none", outlineOffset: -2 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:9 }}>
                 <div>
                   <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>{h.name}</div>
@@ -2137,21 +2263,13 @@ function HospitalPage() {
             <div style={{ textAlign: 'center', padding: '20px', fontFamily:"'Outfit',sans-serif", color: T.inkFaint }}>No hospitals found</div>
           )}
         </div>
-        <div style={{ minHeight:400, borderRadius:20, overflow:"hidden", background:`linear-gradient(135deg,${T.bgDeep} 0%,#E8D8CC 100%)`, border:`1px solid ${T.border}`, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", height:400 }}>
-          <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%", opacity:.12 }} viewBox="0 0 400 400">
-            {Array.from({length:9},(_,i)=>(<g key={i}><line x1={i*50} y1="0" x2={i*50} y2="400" stroke={T.rose} strokeWidth=".8"/><line x1="0" y1={i*50} x2="400" y2={i*50} stroke={T.rose} strokeWidth=".8"/></g>))}
-            <path d="M 80 200 L 200 200 L 200 120 L 300 120" fill="none" stroke={T.rose} strokeWidth="3" strokeLinecap="round"/>
-            <path d="M 40 280 L 160 280 L 200 200" fill="none" stroke={T.amber} strokeWidth="2.5" strokeLinecap="round"/>
-            <circle cx="200" cy="200" r="10" fill={T.rose} opacity=".6"/>
-            <circle cx="300" cy="120" r="8" fill={T.vital} opacity=".7"/>
-            <circle cx="40" cy="280" r="8" fill={T.amber} opacity=".7"/>
-          </svg>
-          <div style={{ textAlign:"center", zIndex:1 }}>
-            <div style={{ width:60, height:60, borderRadius:18, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, margin:"0 auto 14px", animation:"float 3s ease-in-out infinite" }}><Icons.mapPin/></div>
-            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:18, color:T.ink }}>Interactive Hospital Map</div>
-            <div style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic", fontSize:13, color:T.inkFaint, marginTop:5 }}>Three.js 3D visualization with live routing</div>
-            <button className="btn-primary" style={{ marginTop:18, fontSize:13 }}>Enable Location →</button>
-          </div>
+        <div style={{ minHeight:500, height:500, borderRadius:20, overflow:"hidden", border:`1px solid ${T.border}`, position:"relative" }}>
+          <HospitalMap3D
+            hospitals={sortedHospitals}
+            userLocation={userLocation}
+            selectedHospital={selectedHospital}
+            onSelectHospital={setSelectedHospital}
+          />
         </div>
       </div>
     </PageWrap>
@@ -2460,6 +2578,9 @@ export default function App() {
         }/>
         <Route path="/patient/scanner" element={
           <ProtectedRoute><ScannerPage PageWrap={PageWrap} /></ProtectedRoute>
+        }/>
+        <Route path="/patient/feedback" element={
+          <ProtectedRoute><PatientFeedbackPage/></ProtectedRoute>
         }/>
         <Route path="/schedule" element={
           <ProtectedRoute><SchedulePage/></ProtectedRoute>
