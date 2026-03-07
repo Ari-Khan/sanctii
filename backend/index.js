@@ -7,6 +7,7 @@ import healthcard from "./routes/healthcard.js";
 import triage from "./routes/triage.js";
 import incidents from "./routes/incidents.js";
 import feedback from "./routes/feedback.js";
+import schedule from "./routes/schedule.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -73,6 +74,7 @@ app.use("/api/healthcard", healthcard);
 app.use("/api/triage", triage);
 app.use("/api/incidents", incidents);
 app.use("/api/feedback", feedback);
+app.use("/api/schedule", schedule);
 
 app.get("/api/distances", async (req, res) => {
   const { origins, destinations } = req.query;

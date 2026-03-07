@@ -87,6 +87,7 @@ export default function PresagePage({ PageWrap }) {
   const videoRef = useRef(null);
   const [userLocation, setUserLocation] = useState(null);
   const [nearestHospital, setNearestHospital] = useState(null);
+  const [booking, setBooking] = useState(null); // { slot, waitTime, procedureTime }
 
   // Geolocation + nearest hospital
   useEffect(() => {
@@ -160,6 +161,7 @@ export default function PresagePage({ PageWrap }) {
     if (!input.trim()) return;
     setLoading(true);
     setTriageResult(null);
+    setBooking(null);
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       if (!apiKey) { setTriageResult("Error: VITE_GEMINI_API_KEY not set in .env"); setLoading(false); return; }
@@ -182,19 +184,45 @@ export default function PresagePage({ PageWrap }) {
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Error: No response";
       setTriageResult(text);
 
-      // Save URGENT/EMERGENCY to doctor DB in background (non-blocking)
+      // Notify doctor + auto-schedule for URGENT/EMERGENCY
       const upper = text.toUpperCase();
       const cat = upper.startsWith("EMERGENCY") ? "emergency" : upper.startsWith("URGENT") ? "urgent" : null;
-      if (cat) {
+      if (cat && user) {
+        // Fetch patient health card
+        let healthCard = null;
+        try {
+          const hcRes = await fetch(`${API_BASE}/api/healthcard?email=${encodeURIComponent(user.email)}`);
+          if (hcRes.ok) healthCard = await hcRes.json();
+        } catch (_) {}
+
+        const patientInfo = { name: user.name, email: user.email };
+        const nh = nearestHospital ? { name: nearestHospital.name, address: nearestHospital.address, distanceKm: nearestHospital.distance } : null;
+
+        // Save triage record to doctor DB
         fetch(`${API_BASE}/api/triage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            narrative: input.trim(),
-            patient: user ? { name: user.name, email: user.email } : {},
-            nearestHospital: nearestHospital ? { name: nearestHospital.name, address: nearestHospital.address, distanceKm: nearestHospital.distance } : null,
-          }),
+          body: JSON.stringify({ narrative: input.trim(), patient: patientInfo, nearestHospital: nh }),
         }).catch(() => {});
+
+        // Auto-schedule appointment and get wait time
+        try {
+          const schRes = await fetch(`${API_BASE}/api/schedule`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              patient: user.name || user.email,
+              severity: cat,
+              healthCard,
+              symptoms: input.trim(),
+              nearestHospital: nh,
+            }),
+          });
+          if (schRes.ok) {
+            const schData = await schRes.json();
+            setBooking({ slot: schData.slot, waitTime: schData.waitTime, procedureTime: schData.procedureTime });
+          }
+        } catch (_) {}
       }
     } catch (e) {
       setTriageResult("Error: " + (e.message || "Request failed"));
@@ -274,6 +302,24 @@ export default function PresagePage({ PageWrap }) {
                         </button>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Appointment booking confirmation */}
+              {booking && (
+                <div style={{ marginBottom: 14, padding: "16px 20px", borderRadius: 14, background: `${T.vital}10`, border: `1.5px solid ${T.vital}40`, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                  <div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7.5, color: T.vital, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 4 }}>Appointment Booked</div>
+                    <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14, color: T.ink }}>{booking.slot}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7.5, color: T.inkFaint, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 4 }}>Est. Wait Time</div>
+                    <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14, color: T.amber }}>{booking.waitTime}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7.5, color: T.inkFaint, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 4 }}>Procedure Time</div>
+                    <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14, color: T.rose }}>{booking.procedureTime}</div>
                   </div>
                 </div>
               )}

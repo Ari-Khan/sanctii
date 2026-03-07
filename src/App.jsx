@@ -2008,11 +2008,36 @@ function GridCard({ appt, onDragStart, onRemove, onSetDur }) {
 }
 
 function SchedulePage() {
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
   const [appts,      setAppts]      = useState(INIT_APPTS);
   const [draggingId, setDraggingId] = useState(null);
   const [hoverSlot,  setHoverSlot]  = useState(null);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [newForm,    setNewForm]    = useState(null); // {patient,type,doctor,color}
+  const [newForm,    setNewForm]    = useState(null);
+
+  // Load backend appointments and merge with static ones
+  useEffect(() => {
+    fetch(`${API_BASE}/api/schedule`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => {
+        if (!data.length) return;
+        const backendAppts = data.map((a, i) => ({
+          id: `db-${a._id || i}`,
+          patient: a.patient || "Unknown",
+          type: a.type || "Urgent Care",
+          doctor: a.doctor || "Dr. Sharma",
+          day: a.day, hour: a.hour, min: a.min, dur: a.dur || 30,
+          color: a.color || T.rose,
+          urgent: true,
+        }));
+        setAppts(prev => {
+          const existing = new Set(prev.map(p => `${p.day}-${p.hour}-${p.min}`));
+          const newOnes = backendAppts.filter(a => a.day !== null && !existing.has(`${a.day}-${a.hour}-${a.min}`));
+          return [...prev, ...newOnes];
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   const unscheduled = appts.filter(a => a.day === null);
   const scheduled   = appts.filter(a => a.day !== null);
