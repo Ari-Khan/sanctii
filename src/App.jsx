@@ -1658,9 +1658,21 @@ function DoctorPage() {
   const fetchFeedback = () => {
     fetch("http://localhost:3001/api/feedback")
       .then(r => r.json()).then(data => setFeedback(data)).catch(console.error);
-<<<<<<< HEAD
+  };
 
-    // incident polling
+  useEffect(() => { fetchFeedback(); }, []);
+
+  const handleDeleteFeedback = (id) => {
+    if (!confirm("Are you sure you want to delete this feedback?")) return;
+    fetch(`http://localhost:3001/api/feedback/${id}`, { method: "DELETE" })
+      .then(r => {
+        if (r.ok) fetchFeedback();
+        else alert("Failed to delete feedback");
+      }).catch(console.error);
+  };
+
+  // incident polling
+  useEffect(() => {
     const fetchInc = async () => {
       try {
         const res = await fetch("http://localhost:3001/api/incidents");
@@ -1674,20 +1686,6 @@ function DoctorPage() {
     const iv = setInterval(fetchInc, 8000);
     return () => clearInterval(iv);
   }, []);
-=======
-  };
-
-  useEffect(() => { fetchFeedback(); }, []);
-
-  const handleDeleteFeedback = (id) => {
-    if (!confirm("Are you sure you want to delete this feedback?")) return;
-    fetch(`http://localhost:3001/api/feedback/${id}`, { method: "DELETE" })
-      .then(r => {
-        if (r.ok) fetchFeedback();
-        else alert("Failed to delete feedback");
-      }).catch(console.error);
-  };
->>>>>>> refs/remotes/origin/main
 
   // show notification when new incident arrives
   useEffect(() => {
