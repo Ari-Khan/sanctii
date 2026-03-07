@@ -702,6 +702,13 @@ function PatientPage() {
           Presage
         </button>
         <button
+          className="btn-ghost"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>navigate("/patient/feedback")}
+        >
+          Doctor Feedback
+        </button>
+        <button
           className="btn-primary"
           style={{ fontSize:12, padding:"8px 18px", background: "linear-gradient(135deg, #A84040 0%, #6B4040 100%)" }}
           onClick={()=>navigate("/patient/scanner")}
@@ -1548,6 +1555,14 @@ const PATIENTS = [
     allergies:[], meds:["Oxytocin 10 units/hr IV"], notes:"Contractions q3min × 60sec. Fetal HR 142bpm — reassuring. Epidural placed." },
 ];
 
+const DOCTORS = [
+  { id: "D-001", name: "Dr. Sharma", specialty: "Cardiology", status: "Active", patients: 12, rating: 4.8 },
+  { id: "D-002", name: "Dr. Patel",  specialty: "Obstetrics",  status: "Surgery", patients: 8,  rating: 4.9 },
+  { id: "D-003", name: "Dr. Chen",   specialty: "Geriatrics",  status: "Active", patients: 15, rating: 4.7 },
+  { id: "D-004", name: "Dr. Wright", specialty: "Emergency",   status: "On Break", patients: 0, rating: 4.6 },
+  { id: "D-005", name: "Dr. Kim",    specialty: "Internal Medicine", status: "Active", patients: 10, rating: 4.8 },
+];
+
 function PatientCard({ p }) {
   const [open, setOpen] = useState(false);
   const sc  = p.sev >= 5 ? T.roseDeep : p.sev >= 4 ? T.rose : p.sev >= 3 ? T.amber : T.vital;
@@ -1625,20 +1640,27 @@ function PatientCard({ p }) {
 function DoctorPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState(() => searchParams.get("tab") === "patients" ? "patients" : "floorplan");
-  const [hospitalFloors, setHospitalFloors] = useState(NYGH_FLOORS);
-  const [floorKey,       setFloorKey]       = useState(0);
+  const [tab, setTab] = useState(() => searchParams.get("tab") === "patients" ? "patients" : "doctors");
   const [feedback,       setFeedback]       = useState([]);
   const [searchDoctor,   setSearchDoctor]   = useState("");
   const [searchPatient,  setSearchPatient]  = useState("");
   const [filterSev,      setFilterSev]      = useState(0); // 0 = all
 
-  const handleFloors = (floors) => { setHospitalFloors(floors); setFloorKey(k => k + 1); };
-
-  useEffect(() => {
+  const fetchFeedback = () => {
     fetch("http://localhost:3001/api/feedback")
       .then(r => r.json()).then(data => setFeedback(data)).catch(console.error);
-  }, []);
+  };
+
+  useEffect(() => { fetchFeedback(); }, []);
+
+  const handleDeleteFeedback = (id) => {
+    if (!confirm("Are you sure you want to delete this feedback?")) return;
+    fetch(`http://localhost:3001/api/feedback/${id}`, { method: "DELETE" })
+      .then(r => {
+        if (r.ok) fetchFeedback();
+        else alert("Failed to delete feedback");
+      }).catch(console.error);
+  };
 
   const filteredFeedback = feedback.filter(f => searchDoctor === "" || f.doctorName.toLowerCase().includes(searchDoctor.toLowerCase()));
 
@@ -1646,6 +1668,8 @@ function DoctorPage() {
     .filter(p => filterSev === 0 || p.sev === filterSev)
     .filter(p => searchPatient === "" || p.name.toLowerCase().includes(searchPatient.toLowerCase()) || p.id.includes(searchPatient))
     .sort((a, b) => b.sev - a.sev);
+
+  const filteredDoctors = DOCTORS.filter(d => searchDoctor === "" || d.name.toLowerCase().includes(searchDoctor.toLowerCase()) || d.specialty.toLowerCase().includes(searchDoctor.toLowerCase()));
 
   const TAB_BTN = (key, label) => (
     <button onClick={()=>setTab(key)} style={{ padding:"8px 20px", borderRadius:8, border:`1.5px solid ${tab===key?T.rose:T.border}`, background:tab===key?T.roseTint:"transparent", fontFamily:"'Outfit',sans-serif", fontWeight:tab===key?700:400, fontSize:13, color:tab===key?T.rose:T.inkMid, cursor:"pointer", transition:"all .15s" }}>{label}</button>
@@ -1655,20 +1679,71 @@ function DoctorPage() {
     <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Sharma">
       {/* Top nav */}
       <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
-        {TAB_BTN("floorplan","🏥 Floor Plan")}
+        {TAB_BTN("doctors","👨‍⚕️ Doctors")}
         {TAB_BTN("patients","🧑‍⚕️ Patient Info")}
         <div style={{ flex:1 }}/>
         <button className="btn-ghost" style={{ fontSize:12, padding:"8px 18px" }} onClick={()=>navigate("/rooms")}>Room assignment</button>
         <button className="btn-ghost" style={{ fontSize:12, padding:"8px 18px" }} onClick={()=>navigate("/schedule")}>Scheduling</button>
       </div>
 
-      {/* ── Floor Plan Tab ── */}
-      {tab === "floorplan" && (
-        <>
-          <FloorPlanUploader onFloors={handleFloors}/>
-          <CapacityEditor floors={hospitalFloors} onSave={handleFloors}/>
-          <NyghFloorPlan key={floorKey} floors={hospitalFloors}/>
-        </>
+      {/* ── Doctors Tab (Floorplan replacement) ── */}
+      {tab === "doctors" && (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, alignItems:"start" }}>
+          <Card>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+              <SHead>Medical Staff</SHead>
+              <input type="text" placeholder="Search doctor or specialty…" value={searchDoctor} onChange={e=>setSearchDoctor(e.target.value)}
+                style={{ padding:"7px 13px", borderRadius:9, border:`1.5px solid ${T.border}`, background:T.bgDeep, fontFamily:"'Outfit',sans-serif", fontSize:12, outline:"none", width:200 }}/>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {filteredDoctors.map(d => (
+                <div key={d.id} style={{ padding:"12px 14px", borderRadius:12, border:`1.5px solid ${T.border}`, display:"flex", alignItems:"center", gap:12, background:T.surfaceHard }}>
+                  <div style={{ width:40, height:40, borderRadius:"50%", background:T.roseTint, display:"flex", alignItems:"center", justifyContent:"center", color:T.rose, fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:15 }}>{d.name[4]}</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>{d.name}</div>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.08em", marginTop:2 }}>{d.specialty} · {d.id}</div>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ padding:"2px 8px", borderRadius:6, background: d.status==="Active" ? `${T.vital}15` : d.status==="Surgery" ? `${T.rose}15` : `${T.amber}15`, color: d.status==="Active" ? T.vital : d.status==="Surgery" ? T.rose : T.amber, fontFamily:"'DM Mono',monospace", fontSize:7, letterSpacing:"0.08em", fontWeight:700 }}>{d.status.toUpperCase()}</div>
+                    <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:10, color:T.inkFaint, marginTop:4 }}>{d.patients} patients</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+              <SHead>Doctor Feedback</SHead>
+              <div style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 10px", borderRadius:100, background:T.vitalPale, border:`1px solid rgba(91,170,138,.3)` }}>
+                <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.vital, letterSpacing:"0.1em", textTransform:"uppercase" }}>Live Reviews</span>
+              </div>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:10, maxHeight:600, overflowY:"auto" }}>
+              {filteredFeedback.length > 0 ? filteredFeedback.map((f,i)=>(
+                <div key={f.id || i} style={{ padding:"14px 16px", borderRadius:14, background:T.surfaceHard, border:`1px solid ${T.border}`, position:"relative" }}>
+                  <button onClick={() => handleDeleteFeedback(f.id)} 
+                    style={{ position:"absolute", top:12, right:12, border:"none", background:"transparent", color:T.inkFaint, cursor:"pointer", fontSize:11, padding:4, borderRadius:6, transition:"all .2s" }}
+                    onMouseEnter={e => e.target.style.color = T.rose}
+                    onMouseLeave={e => e.target.style.color = T.inkFaint}
+                    title="Delete feedback"
+                  >
+                    ✕
+                  </button>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8, paddingRight:24 }}>
+                    <div>
+                      <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>{f.doctorName}</div>
+                      <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkFaint }}>by {f.patientName}</div>
+                    </div>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginTop:4 }}>{new Date(f.date).toLocaleDateString()}</div>
+                  </div>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, lineHeight:1.5 }}><span style={{ color:T.vital, fontWeight:600 }}>✓ </span>{f.liked}</div>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, marginTop:5, lineHeight:1.5 }}><span style={{ color:T.amber, fontWeight:600 }}>△ </span>{f.improved}</div>
+                </div>
+              )) : <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"30px 0" }}>No feedback found.</div>}
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* ── Patient Info Tab ── */}
@@ -1708,38 +1783,14 @@ function DoctorPage() {
             </div>
           </div>
 
-          {/* Patient cards */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, alignItems:"start" }}>
-            <Card>
-              <SHead>Patient Queue — sorted by severity</SHead>
+          {/* Patient cards ONLY (No feedback here) */}
+          <Card>
+            <SHead>Patient Queue — sorted by severity</SHead>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
               {filteredPatients.map(p => <PatientCard key={p.id} p={p}/>)}
-              {filteredPatients.length === 0 && <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"20px 0" }}>No patients match.</div>}
-            </Card>
-            <div id="doctor-info" style={{ display:"flex", flexDirection:"column", gap:14 }}>
-              <Card>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-                  <SHead>Doctor Feedback</SHead>
-                  <input type="text" placeholder="Search doctor…" value={searchDoctor} onChange={e=>setSearchDoctor(e.target.value)}
-                    style={{ padding:"5px 11px", borderRadius:100, border:`1px solid ${T.border}`, background:T.bgDeep, fontFamily:"'Outfit',sans-serif", fontSize:11, outline:"none", width:140 }}/>
-                </div>
-                <div style={{ display:"flex", flexDirection:"column", gap:10, maxHeight:460, overflowY:"auto" }}>
-                  {filteredFeedback.length > 0 ? filteredFeedback.map((f,i)=>(
-                    <div key={i} style={{ padding:12, borderRadius:10, background:T.surfaceHard, border:`1px solid ${T.border}` }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
-                        <div>
-                          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:13, color:T.ink }}>{f.doctorName}</div>
-                          <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:10, color:T.inkFaint }}>by {f.patientName}</div>
-                        </div>
-                        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint }}>{new Date(f.date).toLocaleDateString()}</div>
-                      </div>
-                      <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid }}><span style={{ color:T.vital, fontWeight:600 }}>✓ </span>{f.liked}</div>
-                      <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid, marginTop:3 }}><span style={{ color:T.amber, fontWeight:600 }}>△ </span>{f.improved}</div>
-                    </div>
-                  )) : <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"20px 0" }}>No feedback found.</div>}
-                </div>
-              </Card>
             </div>
-          </div>
+            {filteredPatients.length === 0 && <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"20px 0" }}>No patients match.</div>}
+          </Card>
         </>
       )}
     </PageWrap>
@@ -2282,10 +2333,14 @@ function HospitalPage() {
         const response = await fetch('/hospitals.csv');
         const text = await response.text();
         const lines = text.trim().split('\n');
-        const parsedHospitals = lines.map((line, i) => {
-          const [name, address] = line.split(',');
-          return { name: name.trim(), address: address.trim(), col: hospitalColors[i % hospitalColors.length] };
-        });
+        const parsedHospitals = lines
+          .filter(line => line.trim())
+          .map((line, i) => {
+            const parts = line.split(',');
+            const name = parts[0] || '';
+            const address = parts.slice(1).join(',') || '';
+            return { name: name.trim(), address: address.trim(), col: hospitalColors[i % hospitalColors.length] };
+          });
         setHospitals(parsedHospitals);
       } catch (error) {
         console.error('Error loading hospitals:', error);
@@ -2408,39 +2463,16 @@ function HospitalPage() {
 
 // ─── ROOMS (/rooms) ───────────────────────────────────────────────────────────
 function RoomsPage() {
-  const rooms=Array.from({length:30},(_,i)=>({ id:`${Math.floor(i/6)+1}0${(i%6)+1}`, floor:Math.floor(i/6)+1, status:["occupied","occupied","available","maintenance","occupied","available"][i%6] }));
-  const sc=s=>({occupied:T.rose,available:T.vital,maintenance:T.amber}[s]||T.inkFaint);
-  const sl=s=>({occupied:"In Use",available:"Free",maintenance:"Maint."}[s]||s);
+  const [hospitalFloors, setHospitalFloors] = useState(NYGH_FLOORS);
+  const [floorKey,       setFloorKey]       = useState(0);
+
+  const handleFloors = (floors) => { setHospitalFloors(floors); setFloorKey(k => k + 1); };
+
   return (
     <PageWrap title="Room Map" icon={<Icons.grid/>} subtitle="Live floor plan · Real-time bed status">
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:20, maxWidth:480 }}>
-        {[["Occupied",T.rose],["Available",T.vital],["Maintenance",T.amber]].map(([s,c])=>(
-          <Card key={s} accent={c} style={{ textAlign:"center", padding:"14px 10px" }}>
-            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:28, color:c }}>{rooms.filter(r=>r.status===s.toLowerCase()).length}</div>
-            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.12em", color:c, textTransform:"uppercase", marginTop:3 }}>{s}</div>
-          </Card>
-        ))}
-      </div>
-      {[1,2,3,4,5].map(floor=>(
-        <Card key={floor} style={{ marginBottom:12 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:12 }}>
-            <div style={{ width:26, height:26, borderRadius:7, background:T.roseTint, border:`1px solid ${T.borderStrong}`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:12, color:T.rose }}>{floor}</div>
-            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:13, color:T.ink }}>Floor {floor}</div>
-            <div style={{ marginLeft:"auto", fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase" }}>{rooms.filter(r=>r.floor===floor&&r.status==="available").length} free of {rooms.filter(r=>r.floor===floor).length}</div>
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:7 }}>
-            {rooms.filter(r=>r.floor===floor).map(r=>(
-              <div key={r.id} style={{ padding:"11px 5px", borderRadius:9, textAlign:"center", cursor:"pointer", background:`${sc(r.status)}10`, border:`1.5px solid ${sc(r.status)}28`, transition:"all .15s" }}
-                onMouseEnter={e=>{ e.currentTarget.style.background=`${sc(r.status)}20`; e.currentTarget.style.borderColor=sc(r.status); e.currentTarget.style.transform="scale(1.05)"; }}
-                onMouseLeave={e=>{ e.currentTarget.style.background=`${sc(r.status)}10`; e.currentTarget.style.borderColor=`${sc(r.status)}28`; e.currentTarget.style.transform="scale(1)"; }}>
-                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.ink, letterSpacing:"0.04em", marginBottom:3 }}>{r.id}</div>
-                <div style={{ width:6, height:6, borderRadius:"50%", background:sc(r.status), margin:"0 auto 3px" }}/>
-                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:sc(r.status), letterSpacing:"0.07em", textTransform:"uppercase" }}>{sl(r.status)}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      ))}
+      <FloorPlanUploader onFloors={handleFloors}/>
+      <CapacityEditor floors={hospitalFloors} onSave={handleFloors}/>
+      <NyghFloorPlan key={floorKey} floors={hospitalFloors}/>
     </PageWrap>
   );
 }
