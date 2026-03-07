@@ -12,7 +12,7 @@ export default function LandingPage() {
   const scrollRef = useRef(null);
 
   useEffect(() => {
-    if (isAuthenticated) navigate("/app", { replace: true });
+    // if (isAuthenticated) navigate("/app", { replace: true });
   }, [isAuthenticated, navigate]);
 
   useEffect(() => {

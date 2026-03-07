@@ -152,14 +152,71 @@ function MazePage() {
   const navigate = useNavigate();
   const [hov, setHov] = useState(null);
   const [path, setPath] = useState([]);
+  const [view, setView] = useState("select"); // "select" or "maze"
+  const [syncing, setSyncing] = useState(false);
   const roles = getUserRoles(user);
 
-  useEffect(()=>{ setPath(hov&&hov!=="center" ? bfs("center",hov) : []); }, [hov]);
+  useEffect(()=>{ if(view==="maze") setPath(hov&&hov!=="center" ? bfs("center",hov) : []); }, [hov, view]);
 
   const pd = makeSVGPath(path);
   const ac = hov ? NODES[hov]?.col||T.rose : T.rose;
 
   const handleLogout = () => logout({ logoutParams: { returnTo: window.location.origin } });
+
+  const selectRole = async (selectedRole) => {
+    if (!user?.email) return setView("maze");
+    setSyncing(true);
+    try {
+      await fetch("http://localhost:3001/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          role: selectedRole,
+          name: user.name || user.nickname,
+          avatarUrl: user.picture
+        })
+      });
+      setView("maze");
+    } catch (err) {
+      console.error("Failed to sync role:", err);
+      // Fallback to maze even if sync fails so user isn't stuck
+      setView("maze");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (view === "select") return (
+    <div style={{ position:"fixed", inset:0, background:T.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
+      <BgOrbs/>
+      <div style={{ width:"100%", maxWidth:480, padding:40, zIndex:10, textAlign:"center" }}>
+        <div style={{ width:60, height:60, borderRadius:18, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, margin:"0 auto 24px", animation:"breathe 3s ease-in-out infinite" }}>
+          <Icons.cross/>
+        </div>
+        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:32, color:T.ink, letterSpacing:"-0.03em", marginBottom:8 }}>Welcome back</div>
+        <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:16, color:T.inkFaint, marginBottom:40 }}>Select your access portal to continue</div>
+        
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+          <button onClick={()=>selectRole("doctor")} disabled={syncing} className="glass-hard" style={{ padding:28, border:`1px solid ${T.border}`, cursor:syncing?"not-allowed":"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:14, transition:"all .3s ease", opacity:syncing?.7:1 }}
+            onMouseEnter={e=>{ if(!syncing){ e.currentTarget.style.borderColor=T.rose; e.currentTarget.style.transform="translateY(-4px)"; e.currentTarget.style.boxShadow=`0 12px 30px ${T.rose}15`; } }}
+            onMouseLeave={e=>{ if(!syncing){ e.currentTarget.style.borderColor=T.border; e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="none"; } }}>
+            <div style={{ width:48, height:48, borderRadius:12, background:T.roseTint, display:"flex", alignItems:"center", justifyContent:"center", color:T.rose }}><Icons.stethoscope/></div>
+            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>Doctor Portal</div>
+          </button>
+          
+          <button onClick={()=>selectRole("patient")} disabled={syncing} className="glass-hard" style={{ padding:28, border:`1px solid ${T.border}`, cursor:syncing?"not-allowed":"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:14, transition:"all .3s ease", opacity:syncing?.7:1 }}
+            onMouseEnter={e=>{ if(!syncing){ e.currentTarget.style.borderColor=T.vital; e.currentTarget.style.transform="translateY(-4px)"; e.currentTarget.style.boxShadow=`0 12px 30px ${T.vital}15`; } }}
+            onMouseLeave={e=>{ if(!syncing){ e.currentTarget.style.borderColor=T.border; e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="none"; } }}>
+            <div style={{ width:48, height:48, borderRadius:12, background:`${T.vital}15`, display:"flex", alignItems:"center", justifyContent:"center", color:T.vital }}><Icons.user/></div>
+            <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>Patient Portal</div>
+          </button>
+        </div>
+        
+        <button onClick={handleLogout} style={{ marginTop:40, background:"none", border:"none", cursor:"pointer", fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint }}>{syncing ? "Syncing profile..." : "Sign out"}</button>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>

@@ -3,12 +3,17 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import users from "./routes/users.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 const app = express();
 
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173", credentials: true }));
+console.log("Checking MONGO_URI in main:", !!process.env.MONGO_URI);
+
+app.use(cors({ origin: "http://localhost:5176", credentials: true }));
 app.use(express.json());
 
 mongoose
