@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import ProtectedRoute from "./auth/ProtectedRoute";
-import { getUserRoles, hasRole, ROLE } from "./auth/roles";
+import { getUserRoles, ROLE } from "./auth/roles";
 import { Icons } from "./theme";
 import { BgOrbs, EcgStrip, Card } from "./components/SharedUI";
 import HospitalHologram from "./components/Hologram";
@@ -1014,31 +1014,289 @@ function SchedulePage() {
 
 // ─── HOSPITAL (/hospital) ─────────────────────────────────────────────────────
 function HospitalPage() {
+  const [hospitals, setHospitals] = useState([]);
+  const [userLocation, setUserLocation] = useState(null);
+  const [distances, setDistances] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [sortOrder, setSortOrder] = useState('asc');
+
+  const hospitalColors = [T.vital, T.rose, T.amber, T.vital, T.vital, T.rose, T.amber, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber];
+
+  // Approximate coordinates for Ontario hospitals (for client-side distance calculation)
+  const hospitalCoords = {
+    "200 Fletcher Crescent Alliston ON L9R 1W7": { lat: 44.0177, lng: -79.6404 },
+    "201 Georgian Drive Barrie ON L4M 6M2": { lat: 44.3899, lng: -79.7561 },
+    "2100 Bovaird Drive East Brampton ON L6R 3J7": { lat: 43.7315, lng: -79.7624 },
+    "101 Humber College Boulevard Etobicoke ON M9V 1R8": { lat: 43.7315, lng: -79.5394 },
+    "20 Lynch Street Brampton ON L6W 2Z8": { lat: 43.7117, lng: -79.7528 },
+    "200 Church Street Toronto ON M9N 1N8": { lat: 43.6850, lng: -79.5150 },
+    "459 Hume Street Collingwood ON L9Y 1W9": { lat: 44.4553, lng: -80.2331 },
+    "100 Frank Miller Drive Huntsville ON P1H 1H7": { lat: 45.3342, lng: -79.2136 },
+    "75 Ann Street Bracebridge ON P1L 2E4": { lat: 45.1317, lng: -79.3161 },
+    "381 Church Street Markham ON L3P 7P3": { lat: 43.8500, lng: -79.2469 },
+    "4 Campbell Drive Uxbridge ON L9P 1S4": { lat: 43.8561, lng: -79.1292 },
+    "1112 St. Andrew's Drive Midland ON L4R 4P4": { lat: 44.7653, lng: -79.2903 },
+    "2200 Eglinton Avenue West Mississauga ON L5M 2N1": { lat: 43.5633, lng: -79.5950 },
+    "100 Queensway West Mississauga ON L5B 1B8": { lat: 43.5850, lng: -79.6444 },
+    "150 Sherway Drive Toronto ON M9C 1A5": { lat: 43.5267, lng: -79.5539 },
+    "2180 Speakman Drive Mississauga ON L5K 0B1": { lat: 43.5983, lng: -79.6428 },
+    "82 Buttonwood Avenue Toronto ON M6M 2J5": { lat: 43.7136, lng: -79.4619 },
+    "596 Davis Drive Newmarket ON L3Y 2P9": { lat: 44.0497, lng: -79.4606 },
+    "3001 Hospital Drive Oakville ON L6M 0L8": { lat: 43.4671, lng: -79.2742 },
+    "725 Bronte Street South Milton ON L9T 9K1": { lat: 43.5236, lng: -79.8728 }
+  };
+
+  // Postal code to approximate coordinates mapping
+  const postalCodeCoords = {
+    "L9R": { lat: 44.0177, lng: -79.6404 },
+    "L4M": { lat: 44.3899, lng: -79.7561 },
+    "L6R": { lat: 43.7315, lng: -79.7624 },
+    "M9V": { lat: 43.7315, lng: -79.5394 },
+    "L6W": { lat: 43.7117, lng: -79.7528 },
+    "M9N": { lat: 43.6850, lng: -79.5150 },
+    "L9Y": { lat: 44.4553, lng: -80.2331 },
+    "P1H": { lat: 45.3342, lng: -79.2136 },
+    "P1L": { lat: 45.1317, lng: -79.3161 },
+    "L3P": { lat: 43.8500, lng: -79.2469 },
+    "L9P": { lat: 43.8561, lng: -79.1292 },
+    "L4R": { lat: 44.7653, lng: -79.2903 },
+    "L5M": { lat: 43.5633, lng: -79.5950 },
+    "L5B": { lat: 43.5850, lng: -79.6444 },
+    "M9C": { lat: 43.5267, lng: -79.5539 },
+    "L5K": { lat: 43.5983, lng: -79.6428 },
+    "M6M": { lat: 43.7136, lng: -79.4619 },
+    "L3Y": { lat: 44.0497, lng: -79.4606 },
+    "L6M": { lat: 43.4671, lng: -79.2742 },
+    "L9T": { lat: 43.5236, lng: -79.8728 },
+    "L7G": { lat: 43.6532, lng: -79.9167 },
+    "L9W": { lat: 43.9192, lng: -80.0967 },
+    "L3V": { lat: 44.6087, lng: -79.4207 },
+    "L9M": { lat: 44.7667, lng: -79.9333 },
+    "L4C": { lat: 43.8828, lng: -79.4403 }
+  };
+
+  const getCoordinatesForAddress = (address) => {
+    const trimmedAddress = address.trim();
+    
+    // Try exact match first
+    if (hospitalCoords[trimmedAddress]) {
+      return hospitalCoords[trimmedAddress];
+    }
+
+    // Try matching by substring
+    for (const [key, coords] of Object.entries(hospitalCoords)) {
+      if (trimmedAddress.includes(key) || key.includes(trimmedAddress)) {
+        return coords;
+      }
+    }
+
+    // Try extracting postal code (format: A1A 1A1 or A1A1A1)
+    const postalMatch = address.match(/([A-Z]\d[A-Z])\s?(\d[A-Z]\d)/i);
+    if (postalMatch) {
+      const postalPrefix = postalMatch[1];
+      if (postalCodeCoords[postalPrefix]) {
+        return postalCodeCoords[postalPrefix];
+      }
+    }
+
+    return null;
+  };
+
+  // Haversine formula to calculate distance between two coordinates
+  const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // Calculate drive time estimate (rough: ~60km/h average)
+  const estimateDriveTime = (distanceKm) => {
+    const hours = distanceKm / 60;
+    const minutes = Math.round(hours * 60);
+    if (minutes < 60) return `${minutes} min`;
+    const hr = Math.floor(hours);
+    const min = minutes % 60;
+    return `${hr}h ${min}m`;
+  };
+
+  // Parse duration string to total minutes
+  const parseDurationToMinutes = (duration) => {
+    if (!duration || duration === 'N/A') return 0;
+    const hourMatch = duration.match(/(\d+)h/);
+    const minMatch = duration.match(/(\d+)m/);
+    const hours = hourMatch ? parseInt(hourMatch[1]) : 0;
+    const mins = minMatch ? parseInt(minMatch[1]) : 0;
+    return hours * 60 + mins;
+  };
+
+  // Get color based on drive time
+  const getDriveTimeColor = (duration) => {
+    const minutes = parseDurationToMinutes(duration);
+    if (minutes < 60) return T.vital; // Green for <1 hour
+    if (minutes <= 120) return T.amber; // Yellow for 1-2 hours
+    return T.rose; // Red for 2+ hours
+  };
+
+  const calculateDistances = (hospitalsToUse) => {
+    try {
+      const dists = hospitalsToUse.map((h, index) => {
+        const coords = getCoordinatesForAddress(h.address);
+        if (coords) {
+          const distance = calculateHaversineDistance(
+            userLocation.lat,
+            userLocation.lng,
+            coords.lat,
+            coords.lng
+          );
+          return {
+            ...h,
+            distance: distance,
+            duration: estimateDriveTime(distance),
+            col: hospitalColors[index % hospitalColors.length],
+            coords: coords,
+          };
+        }
+        return {
+          ...h,
+          distance: null,
+          duration: 'N/A',
+          col: hospitalColors[index % hospitalColors.length],
+        };
+      });
+      setDistances(dists);
+      setError(null);
+    } catch (error) {
+      console.error('Error calculating distances:', error);
+      setError('Failed to calculate distances');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadHospitals = async () => {
+      try {
+        const response = await fetch('/hospitals.csv');
+        const text = await response.text();
+        const lines = text.trim().split('\n');
+        const parsedHospitals = lines.map((line, i) => {
+          const [name, address] = line.split(',');
+          return { name: name.trim(), address: address.trim(), col: hospitalColors[i % hospitalColors.length] };
+        });
+        setHospitals(parsedHospitals);
+      } catch (error) {
+        console.error('Error loading hospitals:', error);
+        setError('Could not load hospital data');
+        setLoading(false);
+      }
+    };
+
+    const getUserLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setUserLocation({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            });
+          },
+          (error) => {
+            console.error('Error getting location:', error);
+            // Fallback to Toronto
+            setUserLocation({ lat: 43.6532, lng: -79.3832 });
+          }
+        );
+      } else {
+        setUserLocation({ lat: 43.6532, lng: -79.3832 });
+      }
+    };
+
+    loadHospitals();
+    getUserLocation();
+  }, []);
+
+  useEffect(() => {
+    if (hospitals.length > 0 && userLocation) {
+      calculateDistances(hospitals);
+    }
+  }, [hospitals, userLocation]);
+
+  const validHospitals = distances.filter(h => h.distance !== null);
+  const sortedHospitals = [...validHospitals].sort((a, b) => {
+    if (sortOrder === 'asc') {
+      return a.distance - b.distance;
+    } else {
+      return b.distance - a.distance;
+    }
+  });
+
+  const toggleSort = () => {
+    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+  };
+
+  const openDirections = (hospital) => {
+    if (!userLocation) {
+      alert('Location not available');
+      return;
+    }
+    const url = `https://www.google.com/maps/dir/${userLocation.lat},${userLocation.lng}/${hospital.coords.lat},${hospital.coords.lng}`;
+    window.open(url, '_blank');
+  };
+
+  if (loading) {
+    return (
+      <PageWrap title="Find Hospital" icon={<Icons.mapPin/>} subtitle="Nearest facilities & live routing">
+        <div style={{ textAlign: 'center', padding: '50px', fontFamily:"'Outfit',sans-serif", color: T.inkFaint }}>Loading hospitals...</div>
+      </PageWrap>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageWrap title="Find Hospital" icon={<Icons.mapPin/>} subtitle="Nearest facilities & live routing">
+        <div style={{ textAlign: 'center', padding: '50px', fontFamily:"'Outfit',sans-serif", color: T.rose }}>Error: {error}</div>
+      </PageWrap>
+    );
+  }
+
   return (
     <PageWrap title="Find Hospital" icon={<Icons.mapPin/>} subtitle="Nearest facilities & live routing">
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1.2fr", gap:18 }}>
         <div style={{ display:"flex", flexDirection:"column", gap:11 }}>
-          <SHead>Nearby Hospitals</SHead>
-          {[{name:"St. Michael's Hospital",dist:"1.2 km",wait:"8 min",beds:12,col:T.vital},{name:"Toronto General",dist:"2.8 km",wait:"14 min",beds:8,col:T.rose},{name:"Mount Sinai Hospital",dist:"3.1 km",wait:"22 min",beds:4,col:T.amber},{name:"Sunnybrook Health Centre",dist:"8.4 km",wait:"6 min",beds:18,col:T.vital}].map((h,i)=>(
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <SHead>Nearby Hospitals</SHead>
+            <button className="btn-ghost" onClick={toggleSort} style={{ fontSize: 12, padding: "5px 12px" }}>
+              Sort {sortOrder === 'asc' ? '↑ Closest First' : '↓ Farthest First'}
+            </button>
+          </div>
+          {sortedHospitals.length > 0 ? sortedHospitals.map((h,i)=>(
             <Card key={i} onClick={()=>{}} accent={h.col} style={{ padding:"16px 18px" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:9 }}>
                 <div>
                   <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>{h.name}</div>
-                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.08em", marginTop:2 }}>{h.dist} away</div>
+                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.08em", marginTop:2 }}>{h.distance ? `${h.distance.toFixed(1)} km away` : 'Distance unavailable'}</div>
                 </div>
-                <div style={{ textAlign:"center", padding:"7px 12px", borderRadius:9, background:`${h.col}14`, border:`1px solid ${h.col}35` }}>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:18, color:h.col }}>{h.wait}</div>
-                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:h.col, letterSpacing:"0.12em", textTransform:"uppercase" }}>Avg Wait</div>
+                <div style={{ textAlign:"center", padding:"7px 12px", borderRadius:9, background:`${getDriveTimeColor(h.duration)}14`, border:`1px solid ${getDriveTimeColor(h.duration)}35` }}>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:18, color:getDriveTimeColor(h.duration) }}>{h.duration || 'N/A'}</div>
+                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:getDriveTimeColor(h.duration), letterSpacing:"0.12em", textTransform:"uppercase" }}>Drive Time</div>
                 </div>
               </div>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:5 }}><div style={{ width:5, height:5, borderRadius:"50%", background:h.col }}/><span style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid }}>{h.beds} beds available</span></div>
-                <button className="btn-ghost" style={{ fontSize:10, padding:"5px 12px" }}>Directions →</button>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}><div style={{ width:5, height:5, borderRadius:"50%", background:h.col }}/><span style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkMid }}>Address: {h.address}</span></div>
+                <button className="btn-ghost" onClick={() => openDirections(h)} style={{ fontSize:10, padding:"5px 12px" }}>Directions →</button>
               </div>
             </Card>
-          ))}
+          )) : (
+            <div style={{ textAlign: 'center', padding: '20px', fontFamily:"'Outfit',sans-serif", color: T.inkFaint }}>No hospitals found</div>
+          )}
         </div>
-        <div style={{ minHeight:400, borderRadius:20, overflow:"hidden", background:`linear-gradient(135deg,${T.bgDeep} 0%,#E8D8CC 100%)`, border:`1px solid ${T.border}`, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative" }}>
+        <div style={{ minHeight:400, borderRadius:20, overflow:"hidden", background:`linear-gradient(135deg,${T.bgDeep} 0%,#E8D8CC 100%)`, border:`1px solid ${T.border}`, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", height:400 }}>
           <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%", opacity:.12 }} viewBox="0 0 400 400">
             {Array.from({length:9},(_,i)=>(<g key={i}><line x1={i*50} y1="0" x2={i*50} y2="400" stroke={T.rose} strokeWidth=".8"/><line x1="0" y1={i*50} x2="400" y2={i*50} stroke={T.rose} strokeWidth=".8"/></g>))}
             <path d="M 80 200 L 200 200 L 200 120 L 300 120" fill="none" stroke={T.rose} strokeWidth="3" strokeLinecap="round"/>
