@@ -4,13 +4,14 @@ import { useAuth0 } from "@auth0/auth0-react";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import { getUserRoles, hasRole, ROLE } from "./auth/roles";
 import HospitalHologram from "./HospitalHologram";
+import { getPersistedRole, setPersistedRole } from "./auth/persistedRole";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const T = {
   bg:           "#F8F0E8",
   bgDeep:       "#F0E4D4",
   surfaceHard:  "#FFFAF4",
-  border:       "rgba(200,160,140,0.3)",
+  border:       "rgba(200,160,140,0.3)",  
   borderStrong: "rgba(180,100,100,0.45)",
   rose:         "#D4706A",
   roseMid:      "#C05858",
@@ -186,35 +187,18 @@ function LoadingScreen() {
 function LoginPage() {
   const { loginWithRedirect, isLoading, isAuthenticated } = useAuth0();
   const navigate = useNavigate();
-  const [cardMode, setCardMode] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [scanned, setScanned] = useState(false);
-  const [scanData, setScanData] = useState(null);
-  const [role, setRole] = useState("patient");
-  const fileRef = useRef();
 
   // If already logged in, bounce straight to maze
   useEffect(() => {
-    if (isAuthenticated) navigate("/app", { replace: true });
+    if (isAuthenticated) navigate("/role", { replace: true });
   }, [isAuthenticated, navigate]);
-
-  const doScan = () => {
-    setScanning(true); setScanned(false);
-    setTimeout(() => {
-      setScanning(false); setScanned(true);
-      setScanData({ name:"Jordan A. Mitchell", dob:"1989-03-14", cardNo:"HC-4821-0039-JM", province:"Ontario", expiry:"2027-01-01" });
-    }, 2600);
-  };
 
   const signIn = (connection) => {
     loginWithRedirect({
       authorizationParams: {
-        redirect_uri: window.location.origin,
         ...(connection && { connection }),
-        // Pass role as a custom param so your Auth0 Action can assign it
-        sanctii_role: role,
       },
-      appState: { returnTo: "/app" },
+      appState: { returnTo: "/role" },
     });
   };
 
@@ -273,117 +257,34 @@ function LoginPage() {
           <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:28, color:T.ink, letterSpacing:"-0.03em", marginBottom:4 }}>Sign in</div>
           <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:14, color:T.inkFaint, marginBottom:28 }}>Access your Sanctii health dashboard</div>
 
-          {/* Role selector */}
-          <div style={{ marginBottom:22 }}>
-            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.14em", textTransform:"uppercase", color:T.inkFaint, marginBottom:8 }}>I am a</div>
-            <div style={{ display:"flex", gap:5, padding:4, background:T.bgDeep, borderRadius:12 }}>
-              {[ROLE.PATIENT, ROLE.DOCTOR, ROLE.ADMIN].map(r=>(
-                <button key={r} onClick={()=>setRole(r)} style={{ flex:1, padding:"9px 0", border:"none", cursor:"pointer", borderRadius:8, fontFamily:"'Outfit',sans-serif", fontWeight:500, fontSize:12, background:role===r?T.white:"transparent", color:role===r?T.rose:T.inkFaint, boxShadow:role===r?"0 2px 8px rgba(160,80,80,.12)":"none", transition:"all .2s", textTransform:"capitalize" }}>{r}</button>
-              ))}
+          {/* ── Auth buttons ── */}
+          <div style={{ display:"flex", flexDirection:"column", gap:11, animation:"fadeUp .3s ease" }}>
+
+            {/* Auth0 Universal Login */}
+            <button className="btn-primary"
+              onClick={() => signIn(null)}
+              disabled={isLoading}
+              style={{ width:"100%", padding:"14px 0", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}
+            >
+              <Icons.shield/>
+              {isLoading ? "Connecting…" : "Continue with Auth0 →"}
+            </button>
+
+            {/* Google Social */}
+            <button
+              onClick={() => signIn("google-oauth2")}
+              disabled={isLoading}
+              style={{ width:"100%", padding:"13px 0", borderRadius:100, border:`1.5px solid ${T.border}`, background:T.surfaceHard, cursor:"pointer", fontFamily:"'Outfit',sans-serif", fontWeight:500, fontSize:13, color:T.ink, display:"flex", alignItems:"center", justifyContent:"center", gap:10, transition:"all .2s" }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor=T.rose; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor=T.border; }}
+            >
+              <Icons.google/> Continue with Google
+            </button>
+
+            <div style={{ marginTop:8, fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase", textAlign:"center", lineHeight:1.8 }}>
+              Sign in as a patient or doctor — you’ll choose your role after logging in.
             </div>
           </div>
-
-          {/* ── Auth buttons (default) ── */}
-          {!cardMode && (
-            <div style={{ display:"flex", flexDirection:"column", gap:11, animation:"fadeUp .3s ease" }}>
-
-              {/* Auth0 Universal Login */}
-              <button className="btn-primary"
-                onClick={() => signIn(null)}
-                disabled={isLoading}
-                style={{ width:"100%", padding:"14px 0", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}
-              >
-                <Icons.shield/>
-                {isLoading ? "Connecting…" : "Continue with Auth0 →"}
-              </button>
-
-              {/* Google Social */}
-              <button
-                onClick={() => signIn("google-oauth2")}
-                disabled={isLoading}
-                style={{ width:"100%", padding:"13px 0", borderRadius:100, border:`1.5px solid ${T.border}`, background:T.surfaceHard, cursor:"pointer", fontFamily:"'Outfit',sans-serif", fontWeight:500, fontSize:13, color:T.ink, display:"flex", alignItems:"center", justifyContent:"center", gap:10, transition:"all .2s" }}
-                onMouseEnter={e=>{ e.currentTarget.style.borderColor=T.rose; }}
-                onMouseLeave={e=>{ e.currentTarget.style.borderColor=T.border; }}
-              >
-                <Icons.google/> Continue with Google
-              </button>
-
-              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <div style={{ flex:1, height:1, background:T.border }}/>
-                <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase" }}>or</span>
-                <div style={{ flex:1, height:1, background:T.border }}/>
-              </div>
-
-              {/* Health Card */}
-              <button onClick={()=>setCardMode(true)}
-                style={{ width:"100%", padding:"13px 0", borderRadius:100, border:`1.5px solid ${T.borderStrong}`, background:"transparent", cursor:"pointer", fontFamily:"'Outfit',sans-serif", fontWeight:500, fontSize:13, color:T.inkMid, display:"flex", alignItems:"center", justifyContent:"center", gap:10, transition:"all .2s" }}
-                onMouseEnter={e=>{ e.currentTarget.style.borderColor=T.rose; e.currentTarget.style.color=T.rose; }}
-                onMouseLeave={e=>{ e.currentTarget.style.borderColor=T.borderStrong; e.currentTarget.style.color=T.inkMid; }}
-              >
-                <Icons.card/> Sign in with Health Card
-              </button>
-            </div>
-          )}
-
-          {/* ── Health Card Scanner ── */}
-          {cardMode && (
-            <div style={{ animation:"fadeUp .3s ease" }}>
-              <button onClick={()=>{ setCardMode(false); setScanned(false); setScanning(false); }}
-                style={{ background:"none", border:"none", cursor:"pointer", fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint, marginBottom:14, display:"flex", alignItems:"center", gap:6, padding:0 }}>
-                ← Back to sign-in options
-              </button>
-              <input ref={fileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={doScan}/>
-              <div onClick={()=>!scanning&&fileRef.current.click()}
-                style={{ borderRadius:16, overflow:"hidden", cursor:"pointer", border:`2px dashed ${scanned?T.vital:scanning?T.rose:T.borderStrong}`, background:scanned?"rgba(91,170,138,.08)":scanning?T.roseTint:T.bgDeep, minHeight:200, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", transition:"all .3s ease", padding:24 }}>
-                {scanning && <div style={{ position:"absolute", left:"5%", right:"5%", height:2, background:`linear-gradient(90deg,transparent,${T.rose} 30%,${T.rose} 70%,transparent)`, boxShadow:`0 0 12px ${T.roseGlow}`, animation:"scanLine 1.4s ease-in-out infinite" }}/>}
-
-                {!scanning && !scanned && <>
-                  <div style={{ marginBottom:14 }}>
-                    <svg width="70" height="46" viewBox="0 0 70 46" fill="none">
-                      <rect x="1" y="1" width="68" height="44" rx="6" fill={T.bgDeep} stroke={T.borderStrong} strokeWidth="1.5"/>
-                      <rect x="7" y="7" width="19" height="13" rx="3" fill={T.rosePale} opacity=".7"/>
-                      <line x1="33" y1="9" x2="61" y2="9" stroke={T.border} strokeWidth="2" strokeLinecap="round"/>
-                      <line x1="33" y1="15" x2="54" y2="15" stroke={T.border} strokeWidth="1.5" strokeLinecap="round"/>
-                      <line x1="7" y1="28" x2="63" y2="28" stroke={T.border} strokeWidth="1.5" strokeLinecap="round"/>
-                      <line x1="7" y1="36" x2="38" y2="36" stroke={T.border} strokeWidth="1.5" strokeLinecap="round"/>
-                      <rect x="46" y="30" width="16" height="9" rx="2" fill={T.rosePale} opacity=".5"/>
-                    </svg>
-                  </div>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:15, color:T.ink, marginBottom:5 }}>Scan your Health Card</div>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint, textAlign:"center", lineHeight:1.55, marginBottom:14 }}>Upload your provincial health card<br/>for instant OCR verification</div>
-                  <button className="btn-ghost" onClick={e=>{e.stopPropagation(); doScan();}} style={{ fontSize:11, padding:"7px 18px" }}>Demo Scan</button>
-                </>}
-
-                {scanning && <div style={{ textAlign:"center", padding:"16px 0" }}>
-                  <div style={{ width:40, height:40, borderRadius:"50%", border:`2px solid ${T.rosePale}`, borderTopColor:T.rose, animation:"spin .8s linear infinite", margin:"0 auto 14px" }}/>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:14, color:T.ink }}>Scanning card…</div>
-                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkFaint, marginTop:3 }}>Reading health card data via OCR</div>
-                </div>}
-
-                {scanned && scanData && <div style={{ width:"100%", animation:"fadeUp .4s ease" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
-                    <div style={{ width:22, height:22, borderRadius:"50%", background:T.vital, display:"flex", alignItems:"center", justifyContent:"center" }}><Icons.check/></div>
-                    <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:600, fontSize:13, color:T.vital }}>Card Verified Successfully</span>
-                  </div>
-                  <div style={{ background:T.white, borderRadius:10, padding:"12px 16px", display:"flex", flexDirection:"column", gap:7 }}>
-                    {[["Name",scanData.name],["Date of Birth",scanData.dob],["Card No.",scanData.cardNo],["Province",scanData.province],["Expiry",scanData.expiry]].map(([k,v])=>(
-                      <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                        <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase" }}>{k}</span>
-                        <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, fontWeight:600, color:T.ink }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>}
-              </div>
-
-              {scanned && (
-                <button className="btn-primary" onClick={()=>signIn(null)}
-                  style={{ width:"100%", marginTop:14, padding:"13px 0", fontSize:14 }}>
-                  Continue to Sign In →
-                </button>
-              )}
-            </div>
-          )}
 
           <div style={{ marginTop:22, fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase", textAlign:"center", lineHeight:1.8 }}>
             Secured by Auth0 · HIPAA-aligned · SOC 2 Type II<br/>
@@ -439,11 +340,31 @@ function MazePage() {
   const [hov, setHov] = useState(null);
   const [path, setPath] = useState([]);
   const roles = getUserRoles(user);
+  const persistedRole = getPersistedRole();
+  const activeRole = persistedRole || roles[0] || null;
 
   useEffect(()=>{ setPath(hov&&hov!=="center" ? bfs("center",hov) : []); }, [hov]);
 
+  // Require an explicit role choice before entering the maze
+  useEffect(() => {
+    if (!persistedRole) {
+      navigate("/role", { replace: true });
+    }
+  }, [persistedRole, navigate]);
+
   const pd = makeSVGPath(path);
   const ac = hov ? NODES[hov]?.col||T.rose : T.rose;
+
+  // Adjust maze buttons (nodes) based on active role
+  const visibleNodeKeys = (() => {
+    if (activeRole === ROLE.PATIENT) {
+      return ["center","patient","hospital","presage"];
+    }
+    if (activeRole === ROLE.DOCTOR) {
+      return ["center","rooms","schedule","patient","doctor"];
+    }
+    return Object.keys(NODES);
+  })();
 
   const handleLogout = () => logout({ logoutParams: { returnTo: window.location.origin } });
 
@@ -475,12 +396,12 @@ function MazePage() {
           ))}
         </div>
 
-        {/* User chip + logout */}
+        {/* User chip + role + actions */}
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          {/* Role badge */}
-          {roles.length>0 && (
+          {/* Role badge (from persisted role or token) */}
+          {activeRole && (
             <div style={{ padding:"4px 10px", borderRadius:100, background:`${T.rose}15`, border:`1px solid ${T.rose}35`, fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.1em", textTransform:"uppercase" }}>
-              {roles[0]}
+              {activeRole}
             </div>
           )}
           {/* Avatar chip */}
@@ -496,6 +417,9 @@ function MazePage() {
               <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.06em", marginTop:1 }}>{user?.email}</div>
             </div>
           </div>
+          <button onClick={()=>navigate("/role")} className="btn-ghost" style={{ fontSize:11, padding:"8px 14px", display:"flex", alignItems:"center", gap:4 }}>
+            Change role
+          </button>
           <button onClick={handleLogout} className="btn-ghost" style={{ fontSize:11, padding:"8px 16px", display:"flex", alignItems:"center", gap:6 }}>
             <Icons.logout/> Sign Out
           </button>
@@ -520,20 +444,51 @@ function MazePage() {
           {path.map((key,i)=>{ const n=NODES[key]; return <circle key={key} cx={n.x} cy={n.y} r={i===0?3.5:2.5} fill={i===0?T.roseDeep:ac} opacity=".5" style={{ animation:`nodeIn .3s ease ${i*.07}s both` }}/>; })}
         </svg>
 
-        {Object.entries(NODES).map(([key,node])=>{
+        {Object.entries(NODES)
+          .filter(([key]) => visibleNodeKeys.includes(key))
+          .map(([key,node])=>{
           const isCenter=node.isCenter, isHov=hov===key, inPath=path.includes(key), col=node.col||T.rose, IC=Icons[node.icon];
           return (
             <div key={key}
               onMouseEnter={()=>!isCenter&&setHov(key)}
               onMouseLeave={()=>setHov(null)}
-              onClick={()=>!isCenter&&node.path&&navigate(node.path)}
+              onClick={()=>{
+                if (isCenter) return;
+                // Override destinations for role-specific buttons
+                if (activeRole === ROLE.PATIENT) {
+                  if (key === "patient") navigate("/patient");
+                  else if (key === "hospital") navigate("/hospital");
+                  else if (key === "presage") navigate("/presage");
+                  else if (node.path) navigate(node.path);
+                  return;
+                }
+                if (activeRole === ROLE.DOCTOR) {
+                  if (key === "rooms") navigate("/rooms");
+                  else if (key === "schedule") navigate("/schedule");
+                  else if (key === "patient") navigate("/doctor"); // patient info by severity
+                  else if (key === "doctor") navigate("/doctor");  // doctor information
+                  else if (node.path) navigate(node.path);
+                  return;
+                }
+                if (node.path) navigate(node.path);
+              }}
               style={{ position:"absolute", left:`${node.x}%`, top:`${node.y}%`, transform:"translate(-50%,-50%)", zIndex:20, cursor:isCenter?"default":"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}
             >
               {isHov && <div style={{ position:"absolute", width:isCenter?84:60, height:isCenter?84:60, borderRadius:"50%", border:`1.5px solid ${col}`, animation:"ripple 1s ease-out infinite", pointerEvents:"none" }}/>}
               <div style={{ width:isCenter?66:50, height:isCenter?66:50, borderRadius:isCenter?"18px":"14px", background:isHov||isCenter?`linear-gradient(145deg,${col}ee,${col}aa)`:inPath?`linear-gradient(145deg,${col}35,${col}18)`:T.surfaceHard, border:`${isHov?2:1.5}px solid ${isHov||inPath?col:T.border}`, display:"flex", alignItems:"center", justifyContent:"center", color:isHov||isCenter?T.white:inPath?col:T.inkFaint, boxShadow:isHov?`0 12px 32px ${col}55,0 4px 12px ${col}33`:inPath?`0 0 14px ${col}30`:"0 2px 10px rgba(160,80,80,.06)", transition:"all .25s cubic-bezier(.4,0,.2,1)", transform:isHov?"scale(1.14)":"scale(1)", animation:isCenter?"float 4s ease-in-out infinite":"none", backdropFilter:"blur(12px)" }}>
                 {IC && <IC/>}
               </div>
-              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:isCenter?700:500, fontSize:isCenter?11:9, color:isHov?col:inPath?col:isCenter?T.inkMid:T.inkFaint, textAlign:"center", whiteSpace:"nowrap", transition:"color .2s", letterSpacing:isCenter?"-0.01em":"0.02em" }}>{node.label}</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:isCenter?700:500, fontSize:isCenter?11:9, color:isHov?col:inPath?col:isCenter?T.inkMid:T.inkFaint, textAlign:"center", whiteSpace:"nowrap", transition:"color .2s", letterSpacing:isCenter?"-0.01em":"0.02em" }}>
+                {activeRole === ROLE.PATIENT && key === "patient" && "Patient information"}
+                {activeRole === ROLE.PATIENT && key === "hospital" && "Nearest hospital map"}
+                {activeRole === ROLE.PATIENT && key === "presage" && "Presage"}
+                {activeRole === ROLE.DOCTOR && key === "rooms" && "Room assignment"}
+                {activeRole === ROLE.DOCTOR && key === "schedule" && "Scheduling"}
+                {activeRole === ROLE.DOCTOR && key === "patient" && "Patient info (severity)"}
+                {activeRole === ROLE.DOCTOR && key === "doctor" && "Doctor information"}
+                {!activeRole && node.label}
+                {activeRole && !["patient","hospital","presage","rooms","schedule","doctor"].includes(key) && node.label}
+              </div>
               {isHov && <div style={{ position:"absolute", top:"calc(100% + 8px)", background:T.ink, color:T.white, padding:"5px 12px", borderRadius:8, fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.1em", textTransform:"uppercase", whiteSpace:"nowrap", animation:"fadeIn .15s ease", boxShadow:"0 4px 16px rgba(0,0,0,.2)", zIndex:30 }}>Click to enter →</div>}
             </div>
           );
@@ -551,6 +506,97 @@ function MazePage() {
               <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.08em", textTransform:"uppercase" }}>{k}</span>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ROLE SELECTION (after login) ──────────────────────────────────────────────
+function RoleSelectionPage() {
+  const { user } = useAuth0();
+  const navigate = useNavigate();
+  const [selected, setSelected] = useState(getPersistedRole() || ROLE.PATIENT);
+
+  const handleContinue = () => {
+    setPersistedRole(selected);
+    navigate("/app", { replace: true });
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, display:"flex", overflow:"hidden" }}>
+      <BgOrbs/>
+      <EcgStrip bottom="6%" opacity={0.08}/>
+
+      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center", padding:"44px 52px", background:T.bg }}>
+        <div style={{ width:"100%", maxWidth:520, animation:"fadeUp .5s ease" }}>
+          <div style={{ marginBottom:20, display:"flex", alignItems:"center", gap:12 }}>
+            <div style={{ width:40, height:40, borderRadius:12, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white }}>
+              <Icons.cross/>
+            </div>
+            <div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:22, color:T.ink, letterSpacing:"-0.03em" }}>Welcome, {user?.name || user?.email?.split("@")[0] || "there"}</div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.14em", textTransform:"uppercase", marginTop:2 }}>
+                Choose how you’d like to explore Sanctii
+              </div>
+            </div>
+          </div>
+
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:14, color:T.inkFaint, marginBottom:24 }}>
+            Pick the role that best describes you today. You can change this later from the maze header.
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+            <Card
+              onClick={()=>setSelected(ROLE.PATIENT)}
+              accent={T.rose}
+              style={{
+                padding:22,
+                borderColor: selected===ROLE.PATIENT ? T.roseMid : undefined,
+                boxShadow: selected===ROLE.PATIENT ? `0 10px 30px ${T.roseGlow}` : undefined,
+              }}
+            >
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
+                <div style={{ width:32, height:32, borderRadius:10, background:`${T.rose}18`, display:"flex", alignItems:"center", justifyContent:"center", color:T.rose }}>
+                  <Icons.user/>
+                </div>
+                <div>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>I’m a patient</div>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkFaint }}>View your vitals, appointments, and Presage insights.</div>
+                </div>
+              </div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.12em", textTransform:"uppercase" }}>Continue to Sanctii maze →</div>
+            </Card>
+
+            <Card
+              onClick={()=>setSelected(ROLE.DOCTOR)}
+              accent={T.vital}
+              style={{
+                padding:22,
+                borderColor: selected===ROLE.DOCTOR ? T.vital : undefined,
+                boxShadow: selected===ROLE.DOCTOR ? `0 10px 30px rgba(91,170,138,.35)` : undefined,
+              }}
+            >
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
+                <div style={{ width:32, height:32, borderRadius:10, background:`${T.vital}18`, display:"flex", alignItems:"center", justifyContent:"center", color:T.vital }}>
+                  <Icons.stethoscope/>
+                </div>
+                <div>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>I’m a doctor</div>
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkFaint }}>Access clinical dashboards, queues, and alerts.</div>
+                </div>
+              </div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.vital, letterSpacing:"0.12em", textTransform:"uppercase" }}>Doctor tools & dashboards</div>
+            </Card>
+          </div>
+
+          <button
+            className="btn-primary"
+            onClick={handleContinue}
+            style={{ width:"100%", marginTop:20, padding:"13px 0", fontSize:14 }}
+          >
+            Continue to Sanctii maze →
+          </button>
         </div>
       </div>
     </div>
@@ -587,7 +633,7 @@ function PageWrap({ children, title, icon, subtitle, badge }) {
 // ─── PATIENT PORTAL (/patient) ────────────────────────────────────────────────
 function PatientPage() {
   const { user } = useAuth0();
-  const [tab, setTab] = useState("overview");
+  const navigate = useNavigate();
   const displayName = user?.name || user?.email?.split("@")[0] || "Patient";
   const initials = displayName.split(" ").map(n=>n[0]).join("").toUpperCase().slice(0,2);
 
@@ -597,10 +643,28 @@ function PatientPage() {
         <div style={{ width:6, height:6, borderRadius:"50%", background:T.vital, animation:"pulse 1.5s ease infinite" }}/><span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.vital, letterSpacing:"0.12em", textTransform:"uppercase" }}>Active</span>
       </div>}
     >
-      <div style={{ display:"flex", gap:4, marginBottom:20, padding:4, background:T.bgDeep, borderRadius:12, width:"fit-content" }}>
-        {["overview","records","prescriptions","messages"].map(t=>(
-          <button key={t} onClick={()=>setTab(t)} style={{ padding:"7px 18px", border:"none", borderRadius:8, cursor:"pointer", fontFamily:"'Outfit',sans-serif", fontWeight:500, fontSize:12, background:tab===t?T.white:"transparent", color:tab===t?T.rose:T.inkFaint, boxShadow:tab===t?"0 2px 8px rgba(160,80,80,.12)":"none", transition:"all .2s", textTransform:"capitalize" }}>{t}</button>
-        ))}
+      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
+        <button
+          className="btn-primary"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>navigate("/patient")}
+        >
+          Patient information
+        </button>
+        <button
+          className="btn-ghost"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>navigate("/hospital")}
+        >
+          Nearest hospital map
+        </button>
+        <button
+          className="btn-ghost"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>navigate("/presage")}
+        >
+          Presage
+        </button>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         <Stat label="Next Appointment" value="Mar 12" sub="09:30 AM" color={T.rose}/>
@@ -685,8 +749,45 @@ function PatientPage() {
 
 // ─── DOCTOR PORTAL (/doctor) ──────────────────────────────────────────────────
 function DoctorPage() {
+  const navigate = useNavigate();
   return (
     <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Sharma">
+      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
+        <button
+          className="btn-primary"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>navigate("/rooms")}
+        >
+          Room assignment
+        </button>
+        <button
+          className="btn-ghost"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>navigate("/schedule")}
+        >
+          Scheduling
+        </button>
+        <button
+          className="btn-ghost"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>{
+            const el = document.getElementById("doctor-queue");
+            if (el) el.scrollIntoView({ behavior:"smooth", block:"start" });
+          }}
+        >
+          Patient information (severity)
+        </button>
+        <button
+          className="btn-ghost"
+          style={{ fontSize:12, padding:"8px 18px" }}
+          onClick={()=>{
+            const el = document.getElementById("doctor-info");
+            if (el) el.scrollIntoView({ behavior:"smooth", block:"start" });
+          }}
+        >
+          Doctor information
+        </button>
+      </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         <Stat label="Today's Patients" value="12" color={T.rose}/>
         <Stat label="Pending Reviews" value="4" color={T.amber}/>
@@ -702,6 +803,7 @@ function DoctorPage() {
         <button className="btn-primary" style={{ fontSize:12, padding:"8px 18px", flexShrink:0 }}>View Patient →</button>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1.4fr 1fr", gap:16 }}>
+        <div id="doctor-queue">
         <Card>
           <SHead>Today's Queue</SHead>
           {[{name:"Jordan Mitchell",time:"09:00",reason:"Follow-up — cardiac",sev:2},{name:"Priya Nair",time:"09:30",reason:"Annual physical",sev:1},{name:"Thomas Leclerc",time:"10:00",reason:"Acute abdominal pain",sev:4},{name:"Ana Reyes",time:"10:30",reason:"Prescription renewal",sev:1},{name:"Mohammed Al-Amin",time:"11:00",reason:"Hypertension follow-up",sev:3}].map((p,i)=>{
@@ -723,7 +825,8 @@ function DoctorPage() {
             );
           })}
         </Card>
-        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        </div>
+        <div id="doctor-info" style={{ display:"flex", flexDirection:"column", gap:14 }}>
           <Card>
             <SHead>Severity Guide</SHead>
             {[[1,T.vital,"Routine / Preventive"],[2,"#8BBF5A","Mild Symptoms"],[3,T.amber,"Moderate — Monitor"],[4,T.rose,"Urgent — Expedite"],[5,T.roseDeep,"Critical — Emergency"]].map(([n,c,l])=>(
@@ -1038,10 +1141,13 @@ function LandingPage() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const scrollRef = useRef(null);
+  const persistedRole = getPersistedRole();
 
   useEffect(() => {
-    if (isAuthenticated) navigate("/app", { replace: true });
-  }, [isAuthenticated, navigate]);
+    if (!isAuthenticated) return;
+    if (!persistedRole) navigate("/role", { replace: true });
+    else navigate("/app", { replace: true });
+  }, [isAuthenticated, persistedRole, navigate]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1270,6 +1376,9 @@ export default function App() {
         <Route path="/login" element={<LoginPage/>}/>
 
         {/* Protected routes — require Auth0 authentication */}
+        <Route path="/role" element={
+          <ProtectedRoute><RoleSelectionPage/></ProtectedRoute>
+        }/>
         <Route path="/app" element={
           <ProtectedRoute><MazePage/></ProtectedRoute>
         }/>
