@@ -1744,11 +1744,13 @@ function PatientCard({ p, onRemove }) {
 
 // ─── DOCTOR PORTAL (/doctor) ──────────────────────────────────────────────────
 function DoctorPage() {
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState(() => searchParams.get("tab") === "patients" ? "patients" : "doctors");
   const [feedback,       setFeedback]       = useState([]);
   const [incidents,      setIncidents]      = useState([]);
+  const [loadingInc,     setLoadingInc]     = useState(true);
   const [notifVisible,   setNotifVisible]   = useState(false);
   const notifCountRef = useRef(0);
   const [searchDoctor,   setSearchDoctor]   = useState("");
@@ -1756,8 +1758,8 @@ function DoctorPage() {
   const [filterSev,      setFilterSev]      = useState(0); // 0 = all
 
   const fetchFeedback = () => {
-    fetch("http://localhost:3001/api/feedback")
-      .then(r => r.json()).then(data => setFeedback(data)).catch(console.error);
+    fetch(`${API_BASE}/api/feedback`)
+      .then(r => r.json()).then(data => setFeedback(Array.isArray(data) ? data : [])).catch(console.error);
   };
 
   useEffect(() => { fetchFeedback(); }, []);
@@ -1777,19 +1779,20 @@ function DoctorPage() {
       const res = await fetch("http://localhost:3001/api/incidents");
       if (res.ok) {
         const data = await res.json();
-        setIncidents(data);
+        setIncidents(Array.isArray(data) ? data : []);
       }
     } catch (e) { console.error("incidents fetch", e); }
+    finally { setLoadingInc(false); }
   };
 
-  // incident polling
+  // initial fetch + auto-poll every 8 s
   useEffect(() => {
     fetchInc();
     const iv = setInterval(fetchInc, 8000);
     return () => clearInterval(iv);
   }, []);
 
-  // show notification when new incident arrives
+  // show notification banner when new incident arrives
   useEffect(() => {
     if (incidents.length > notifCountRef.current) {
       setNotifVisible(true);
@@ -1798,40 +1801,54 @@ function DoctorPage() {
     }
   }, [incidents]);
 
-  const filteredFeedback = feedback.filter(f => searchDoctor === "" || f.doctorName.toLowerCase().includes(searchDoctor.toLowerCase()));
+  const filteredFeedback = feedback.filter(f => searchDoctor === "" || (f.doctorName || "").toLowerCase().includes(searchDoctor.toLowerCase()));
 
-  // choose source list depending on tab; on patients tab show incidents only
   const handleDeleteIncident = (patient) => {
     if (!patient._incidentId) return;
     if (!confirm(`Remove ${patient.name} from the queue?`)) return;
-    fetch(`http://localhost:3001/api/incidents/${patient._incidentId}`, { method: "DELETE" })
+    fetch(`${API_BASE}/api/incidents/${patient._incidentId}`, { method: "DELETE" })
       .then(r => { if (r.ok) setIncidents(prev => prev.filter(inc => inc._id !== patient._incidentId)); })
       .catch(console.error);
   };
 
-  const patientSource = tab === "patients" ? incidents.map(i => {
-    const hc = i.healthCard || {};
+  // Map MongoDB triage records → PatientCard-compatible objects
+  const incidentPatients = incidents.map(i => {
+    const hc  = i.healthCard || {};
+    const cat = i.category || "routine";
+
+    // Age: only compute when DOB is a valid, non-empty date string
+    let age = null;
+    if (hc.date_of_birth) {
+      const ms = Date.now() - new Date(hc.date_of_birth).getTime();
+      if (!isNaN(ms)) age = Math.floor(ms / 31557600000);
+    }
+
+    const sev    = cat === "emergency" ? 5 : cat === "urgent" ? 4 : 2;
+    const status = cat === "emergency" ? "Critical" : cat === "urgent" ? "In Treatment" : "Waiting";
+
     return {
       _incidentId: i._id,
-      id: hc.card_number || i.patient.email || i._id,
-      name: hc.full_name || i.patient.name || "Unknown",
-      age: hc.date_of_birth ? Math.floor((Date.now() - new Date(hc.date_of_birth).getTime()) / 31557600000) : null,
-      sex: hc.gender ? hc.gender.charAt(0).toUpperCase() : "",
-      dob: hc.date_of_birth || "",
-      room: "",
-      doctor: "",
-      apptTime: new Date(i.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      sev: i.category === "emergency" ? 5 : 4,
-      status: i.category === "emergency" ? "Critical" : "Waiting",
-      complaint: i.symptoms || i.message || "",
-      diagnosis: i.message || "",
-      vitals: null,
-      healthCard: Object.keys(hc).length > 0 ? hc : null,
-      allergies: [],
-      meds: [],
-      notes: `Presage AI Triage: ${i.category.toUpperCase()}\n${i.message || ""}`.trim(),
+      id:          hc.card_number || i.patient?.email || String(i._id),
+      name:        hc.full_name   || i.patient?.name  || "Unknown Patient",
+      age,
+      sex:         hc.gender ? hc.gender.charAt(0).toUpperCase() : "",
+      dob:         hc.date_of_birth || "",
+      room:        "",
+      doctor:      "",
+      apptTime:    i.timestamp ? new Date(i.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
+      sev,
+      status,
+      complaint:   i.symptoms || i.message || "",
+      diagnosis:   i.message  || "",
+      vitals:      null,
+      healthCard:  Object.keys(hc).length > 0 ? hc : null,
+      allergies:   [],
+      meds:        [],
+      notes:       `Presage AI Triage: ${cat.toUpperCase()}\n${i.message || ""}`.trim(),
     };
-  }) : PATIENTS;
+  });
+
+  const patientSource = tab === "patients" ? incidentPatients : PATIENTS;
 
   const filteredPatients = patientSource
     .filter(p => filterSev === 0 || p.sev === filterSev)
@@ -1949,11 +1966,29 @@ function DoctorPage() {
 
           {/* Patient cards ONLY (No feedback here) */}
           <Card>
-            <SHead>Patient Queue — sorted by severity</SHead>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-              {filteredPatients.map(p => <PatientCard key={p._incidentId || p.id} p={p} onRemove={p._incidentId ? handleDeleteIncident : null}/>)}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+              <SHead>Patient Queue — sorted by severity</SHead>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                {loadingInc && <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint, letterSpacing:"0.08em" }}>Syncing…</span>}
+                <div style={{ width:7, height:7, borderRadius:"50%", background: loadingInc ? T.amber : T.vital, animation:"pulse 1.5s ease infinite" }}/>
+              </div>
             </div>
-            {filteredPatients.length === 0 && <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"20px 0" }}>No patients match.</div>}
+            {loadingInc && incidentPatients.length === 0 ? (
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"30px 0" }}>
+                Connecting to MongoDB…
+              </div>
+            ) : (
+              <>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                  {filteredPatients.map(p => <PatientCard key={p._incidentId || p.id} p={p} onRemove={p._incidentId ? handleDeleteIncident : null}/>)}
+                </div>
+                {filteredPatients.length === 0 && (
+                  <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"20px 0" }}>
+                    {incidentPatients.length === 0 ? "No triage incidents in the queue." : "No patients match the current filter."}
+                  </div>
+                )}
+              </>
+            )}
           </Card>
         </>
       )}
