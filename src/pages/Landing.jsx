@@ -10,6 +10,7 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const scrollRef = useRef(null);
+  const featuresRef = useRef(null);
 
   useEffect(() => {
     // if (isAuthenticated) navigate("/app", { replace: true });
@@ -30,6 +31,8 @@ export default function LandingPage() {
     [<Icons.stethoscope/>, T.roseMid, "Doctor Portal",       "Clinical dashboards, patient queues, and AI-flagged alerts."],
     [<Icons.shield/>,      T.amber,   "Auth0 Security",      "Enterprise-grade authentication. HIPAA-aligned. SOC 2 Type II."],
     [<Icons.heartbeat/>,   T.vital,   "Live Vitals",         "Real-time health monitoring integrated across all portals."],
+    [<Icons.database/>,    "#4B8B3B", "Persistent Storage", "All patient data stored securely in MongoDB for continuity and analytics."],
+    [<Icons.code/>,        "#3A7CA5", "Open API",            "Flexible REST endpoints allow custom integrations and third-party extensions."]
   ];
 
   return (
@@ -44,9 +47,22 @@ export default function LandingPage() {
           <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:20, color:T.ink, letterSpacing:"-0.03em" }}>Sanctii</span>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:24 }}>
-          {["Features","Hospitals","Presage AI"].map(l=>(
-            <span key={l} style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, cursor:"pointer", transition:"color .2s" }}
-              onMouseEnter={e=>{ e.target.style.color=T.rose; }} onMouseLeave={e=>{ e.target.style.color=T.inkFaint; }}>{l}</span>
+          {[
+            {label:"Features", action:()=>{
+              if (featuresRef.current && scrollRef.current) {
+                // compute offset relative to scroll container using bounding rects
+                const containerRect = scrollRef.current.getBoundingClientRect();
+                const targetRect = featuresRef.current.getBoundingClientRect();
+                const offset = targetRect.top - containerRect.top + scrollRef.current.scrollTop - 70;
+                scrollRef.current.scrollTo({ top: offset, behavior: "smooth" });
+              }
+            }},
+          ].map(item=>(
+            <span key={item.label} style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, cursor:"pointer", transition:"color .2s" }}
+              onMouseEnter={e=>{ e.target.style.color=T.rose; }} onMouseLeave={e=>{ e.target.style.color=T.inkFaint; }}
+              onClick={item.action}>
+              {item.label}
+            </span>
           ))}
           <div style={{ width:1, height:20, background:T.border }}/>
           <button className="btn-ghost" onClick={()=>navigate("/login")} style={{ fontSize:12, padding:"8px 18px" }}>Sign In</button>
@@ -57,7 +73,7 @@ export default function LandingPage() {
       <HeroSection />
 
       {/* ── FEATURES SECTION ── */}
-      <section style={{ padding:"80px 60px 60px", position:"relative" }}>
+      <section ref={featuresRef} style={{ padding:"80px 60px 60px", position:"relative" }}>
         <BgOrbs/>
 
         <div style={{ textAlign:"center", marginBottom:48, position:"relative", zIndex:1 }}>

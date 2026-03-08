@@ -1,26 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 
-// simple loader that injects Google Maps script if it isn't already present
-function loadGoogleMaps(apiKey) {
-  if (window.google && window.google.maps) return Promise.resolve(window.google.maps);
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-google-maps]');
-    if (existing) {
-      existing.addEventListener('load', () => resolve(window.google.maps));
-      existing.addEventListener('error', reject);
-      return;
-    }
-    const script = document.createElement('script');
-    script.setAttribute('data-google-maps','loaded');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&libraries=places,geometry`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve(window.google.maps);
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-}
-// we'll load Google Maps API via script tag instead of the npm loader
+// loader using official @googlemaps/js-api-loader package
+import { Loader } from "@googlemaps/js-api-loader";
 
 /**
  * HospitalMap3D — Google Maps 3D interactive hospital map.
@@ -68,18 +49,14 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
       return;
     }
 
-    // load maps script
-    if (!optionsSet) {
-      optionsSet = true;
-    }
-
     let cancelled = false;
 
     async function initMap() {
       try {
-        await loadGoogleMaps(resolvedApiKey);
+        const loader = new Loader({ apiKey: resolvedApiKey, libraries: ["places","geometry"] });
+        const google = await loader.load();
         if (cancelled || !containerRef.current) return;
-        const { Map } = window.google.maps;
+        const { Map } = google.maps;
 
         // already routes library included via script parameter if needed
 

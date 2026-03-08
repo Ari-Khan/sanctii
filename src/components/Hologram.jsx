@@ -457,12 +457,15 @@ export default function HospitalHologram() {
 
     // ── Animation loop ───────────────────────────────────────────────────────
     let frame;
-    const clock = new THREE.Clock();
+    // use Timer instead of deprecated Clock
+    const timer = new THREE.Timer();
+    // timer.connect(document); // optional: enable page visibility handling
     const posAttr = pGeo.attributes.position;
 
-    const animate = () => {
+    const animate = (timestamp) => {
       frame = requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
+      timer.update(timestamp);
+      const t = timer.getElapsed();
 
       // Scan beam sweep (0 → 14 within the tower)
       const scanY = Math.sin(t * 0.6) * 7;

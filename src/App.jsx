@@ -454,7 +454,7 @@ function MazePage() {
                   if (key === "rooms") navigate("/rooms");
                   else if (key === "schedule") navigate("/schedule");
                   else if (key === "patient") navigate("/doctor?tab=patients"); // patient info by severity
-                  else if (key === "doctor") navigate("/doctor?tab=floorplan");  // doctor information
+                  else if (key === "doctor") navigate("/doctor?tab=doctors");  // doctor information
                   else if (node.path) navigate(node.path);
                   return;
                 }
@@ -1188,11 +1188,14 @@ function NyghFloorPlan({ floors = NYGH_FLOORS, hospitalName, hospitalAddress }) 
 
     // ── Animation ─────────────────────────────────────────────────────────────
     let frame;
-    const clock   = new THREE.Clock();
+    // THREE.Clock is deprecated; use Timer
+    const timer   = new THREE.Timer();
+    // timer.connect(document); // optional for page visibility
     const posAttr = pGeo.attributes.position;
-    const animate = () => {
+    const animate = (timestamp) => {
       frame = requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
+      timer.update(timestamp);
+      const t = timer.getElapsed();
       deptMaterials.forEach(({ floorId, edgeMat, fillMat, edgeOp, fillOp }) => {
         const active = activeRef.current;
         const on     = active === null || active === floorId;
@@ -2640,6 +2643,7 @@ function LandingPage() {
   const { isAuthenticated } = useAuth0();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
+  const featuresRef = useRef(null);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -2657,6 +2661,8 @@ function LandingPage() {
     [<Icons.stethoscope/>, T.roseMid, "Doctor Portal",       "Clinical dashboards, patient queues, and AI-flagged alerts."],
     [<Icons.shield/>,      T.amber,   "Auth0 Security",      "Enterprise-grade authentication. HIPAA-aligned. SOC 2 Type II."],
     [<Icons.heartbeat/>,   T.vital,   "Live Vitals",         "Real-time health monitoring integrated across all portals."],
+    [<Icons.database/>,    "#4B8B3B", "Persistent Storage", "All patient data stored securely in MongoDB for continuity and analytics."],
+    [<Icons.code/>,        "#3A7CA5", "Open API",            "Flexible REST endpoints allow custom integrations and third-party extensions."]
   ];
 
   return (
@@ -2671,15 +2677,27 @@ function LandingPage() {
           <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:20, color:T.ink, letterSpacing:"-0.03em" }}>Sanctii</span>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:24 }}>
-          {["Features","Hospitals","Presage AI"].map(l=>(
-            <span key={l} style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, cursor:"pointer", transition:"color .2s" }}
-              onMouseEnter={e=>{ e.target.style.color=T.rose; }} onMouseLeave={e=>{ e.target.style.color=T.inkFaint; }}>{l}</span>
+          {[
+            {label:"Features", action:()=>{
+              if (featuresRef.current && scrollRef.current) {
+                const containerRect = scrollRef.current.getBoundingClientRect();
+                const targetRect = featuresRef.current.getBoundingClientRect();
+                const offset = targetRect.top - containerRect.top + scrollRef.current.scrollTop - 70;
+                scrollRef.current.scrollTo({ top: offset, behavior: "smooth" });
+              }
+            }},
+          ].map(item=>(
+            <span key={item.label} style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, cursor:"pointer", transition:"color .2s" }}
+              onMouseEnter={e=>{ e.target.style.color=T.rose; }} onMouseLeave={e=>{ e.target.style.color=T.inkFaint; }}
+              onClick={item.action}>{item.label}</span>
           ))}
           <div style={{ width:1, height:20, background:T.border }}/>
           <button className="btn-ghost" onClick={()=>navigate("/login")} style={{ fontSize:12, padding:"8px 18px" }}>Sign In</button>
           <button className="btn-primary" onClick={()=>navigate("/login")} style={{ fontSize:12, padding:"9px 22px" }}>Get Started →</button>
         </div>
       </div>
+
+      {/* ── HERO (full viewport, split) ── */}
 
       {/* ── HERO (full viewport, split) ── */}
       <section style={{ height:"calc(100vh - 66px)", display:"flex", position:"relative", overflow:"hidden" }}>
@@ -2696,7 +2714,7 @@ function LandingPage() {
           {/* Badge */}
           <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"6px 14px", borderRadius:100, background:`${T.rose}12`, border:`1px solid ${T.rose}35`, marginBottom:26, width:"fit-content", animation:"fadeUp .4s ease" }}>
             <div style={{ width:6, height:6, borderRadius:"50%", background:T.vital, animation:"pulse 1.5s ease infinite" }}/>
-            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.16em", textTransform:"uppercase" }}>Powered by Gemini AI · Presage Engine</span>
+            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.16em", textTransform:"uppercase" }}>Powered by Gemini AI</span>
           </div>
 
           {/* Headline */}
@@ -2767,7 +2785,7 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* ── FEATURES SECTION ── */}
+      {/* ── FEref={featuresRef} ATURES SECTION ── */}
       <section style={{ padding:"80px 60px 60px", position:"relative" }}>
         <BgOrbs/>
 
