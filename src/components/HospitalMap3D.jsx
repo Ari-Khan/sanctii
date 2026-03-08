@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 
-// loader using official @googlemaps/js-api-loader package
-
+// New functional API from @googlemaps/js-api-loader v2
+import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 
 /**
  * HospitalMap3D — Google Maps 3D interactive hospital map.
@@ -14,18 +14,43 @@ import { useRef, useEffect, useState } from "react";
  *   apiKey            – Google Maps API key
  */
 
-let optionsSet = false;
+let optionsConfigured = false;
+
+/** Creates a circle-pin DOM element for AdvancedMarkerElement */
+function createCirclePin({ color = "#D4706A", size = 16, strokeColor = "#fff", strokeWidth = 2, opacity = 0.9 }) {
+  const el = document.createElement("div");
+  el.style.width = `${size}px`;
+  el.style.height = `${size}px`;
+  el.style.borderRadius = "50%";
+  el.style.backgroundColor = color;
+  el.style.opacity = String(opacity);
+  el.style.border = `${strokeWidth}px solid ${strokeColor}`;
+  el.style.cursor = "pointer";
+  el.style.transition = "transform 0.2s ease, box-shadow 0.2s ease";
+  el.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+  return el;
+}
+
+/** Updates an existing circle-pin DOM element's styles */
+function updateCirclePin(el, { color, size, strokeColor, strokeWidth, opacity }) {
+  if (color !== undefined) el.style.backgroundColor = color;
+  if (size !== undefined) { el.style.width = `${size}px`; el.style.height = `${size}px`; }
+  if (strokeColor !== undefined) el.style.borderColor = strokeColor;
+  if (strokeWidth !== undefined) el.style.borderWidth = `${strokeWidth}px`;
+  if (opacity !== undefined) el.style.opacity = String(opacity);
+}
 
 export default function HospitalMap3D({ hospitals = [], userLocation, selectedHospital, onSelectHospital, apiKey }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const userMarkerRef = useRef(null);
-  const directionsRendererRef = useRef(null);
+  const routePolylineRef = useRef(null);
   const infoWindowRef = useRef(null);
+  const gmapsRef = useRef(null);       // stores google.maps namespace
+  const AdvMarkerRef = useRef(null);    // stores AdvancedMarkerElement class
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState(null);
-  const [isDark, setIsDark] = useState(false);
 
   const resolvedApiKey = apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
@@ -53,33 +78,34 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
 
     async function initMap() {
       try {
-        // Set API key and load libraries using new functional API
-        if (!window.google || !window.google.maps) {
-          // Dynamically inject the Google Maps script if not present
-          const script = document.createElement('script');
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${resolvedApiKey}&libraries=places,geometry`;
-          script.async = true;
-          document.head.appendChild(script);
-          await new Promise((resolve, reject) => {
-            script.onload = resolve;
-            script.onerror = reject;
-          });
+        // Configure API key once (must be called before first importLibrary)
+        if (!optionsConfigured) {
+          setOptions({ key: resolvedApiKey, v: "weekly" });
+          optionsConfigured = true;
         }
 
-        // Use importLibrary to ensure libraries are loaded
-        await Promise.all([
-          window.google.maps.importLibrary('maps'),
-          window.google.maps.importLibrary('core'),
+        // Import required libraries using the new functional API
+        const [mapsLib, coreLib, routesLib, markerLib] = await Promise.all([
+          importLibrary("maps"),
+          importLibrary("core"),
+          importLibrary("routes"),
+          importLibrary("marker"),
         ]);
 
         if (cancelled || !containerRef.current) return;
 
+        // Store google.maps reference & AdvancedMarkerElement for use in other effects
+        gmapsRef.current = google.maps;
+        AdvMarkerRef.current = markerLib.AdvancedMarkerElement;
+
+        const { Map, Polyline } = mapsLib;
         const center = getCenter();
-        const map = new window.google.maps.Map(containerRef.current, {
+        const map = new Map(containerRef.current, {
           center,
           zoom: 10,
           tilt: 45,
           heading: 0,
+          mapId: "DEMO_MAP_ID", // required for AdvancedMarkerElement. "DEMO_MAP_ID" is standard if you don't have a custom Cloud Map ID.
           mapTypeId: "roadmap",
           gestureHandling: "greedy",
           disableDefaultUI: false,
@@ -89,25 +115,22 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
           fullscreenControl: true,
           rotateControl: true,
           tiltControl: true,
-          styles: getLightMapStyles(),
+          // Removed static `styles: getLightMapStyles()` as it conflicts with `mapId`.
+          // Map styling must now be configured in the Google Cloud Console.
         });
 
         mapRef.current = map;
 
-        // Directions renderer
-        const directionsRenderer = new window.google.maps.DirectionsRenderer({
+        // Create a Polyline for the route instead of using the deprecated DirectionsRenderer
+        routePolylineRef.current = new Polyline({
           map,
-          suppressMarkers: true,
-          polylineOptions: {
-            strokeColor: "#D4706A",
-            strokeWeight: 5,
-            strokeOpacity: 0.85,
-          },
+          strokeColor: "#D4706A",
+          strokeWeight: 5,
+          strokeOpacity: 0.85,
         });
-        directionsRendererRef.current = directionsRenderer;
 
         // Info window
-        infoWindowRef.current = new window.google.maps.InfoWindow();
+        infoWindowRef.current = new google.maps.InfoWindow();
 
         setMapLoaded(true);
       } catch (err) {
@@ -120,40 +143,45 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
 
     return () => {
       cancelled = true;
-      markersRef.current.forEach(m => m.setMap && m.setMap(null));
+      markersRef.current.forEach(m => { if (m.map) m.map = null; });
       markersRef.current = [];
-      if (userMarkerRef.current) userMarkerRef.current.setMap(null);
+      if (userMarkerRef.current) userMarkerRef.current.map = null;
+      if (routePolylineRef.current) routePolylineRef.current.setMap(null);
     };
   }, [resolvedApiKey]);
 
   // ── Place markers when map loads or hospitals change ──
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current) return;
+    if (!mapLoaded || !mapRef.current || !gmapsRef.current || !AdvMarkerRef.current) return;
     const map = mapRef.current;
+    const gm = gmapsRef.current;
+    const AdvancedMarkerElement = AdvMarkerRef.current;
 
     // Clear old markers
-    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current.forEach(m => { m.map = null; });
     markersRef.current = [];
 
     const validHospitals = hospitals.filter(h => h.coords);
 
     validHospitals.forEach((h, i) => {
-      const marker = new window.google.maps.Marker({
+      const isSelected = selectedHospital === i;
+      const pinEl = createCirclePin({
+        color: h.col || "#D4706A",
+        size: isSelected ? 24 : 16,
+        strokeColor: "#fff",
+        strokeWidth: 2,
+        opacity: 0.9,
+      });
+
+      const marker = new AdvancedMarkerElement({
         position: { lat: h.coords.lat, lng: h.coords.lng },
         map,
         title: h.name,
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          fillColor: h.col || "#D4706A",
-          fillOpacity: 0.9,
-          strokeColor: "#fff",
-          strokeWeight: 2,
-          scale: selectedHospital === i ? 12 : 8,
-        },
-        zIndex: selectedHospital === i ? 100 : 10,
+        content: pinEl,
+        zIndex: isSelected ? 100 : 10,
       });
 
-      marker.addListener("click", () => {
+      marker.addEventListener("gmp-click", () => {
         if (onSelectHospital) onSelectHospital(i);
         const content = `
           <div style="font-family:'Outfit',sans-serif;padding:4px 0;min-width:180px">
@@ -163,27 +191,28 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
           </div>
         `;
         infoWindowRef.current.setContent(content);
-        infoWindowRef.current.open(map, marker);
+        infoWindowRef.current.open({ anchor: marker, map });
       });
 
       markersRef.current.push(marker);
     });
 
     // User location marker
-    if (userMarkerRef.current) userMarkerRef.current.setMap(null);
+    if (userMarkerRef.current) userMarkerRef.current.map = null;
     if (userLocation) {
-      const userMarker = new window.google.maps.Marker({
+      const userPinEl = createCirclePin({
+        color: "#4488ff",
+        size: 18,
+        strokeColor: "#fff",
+        strokeWidth: 3,
+        opacity: 1,
+      });
+
+      const userMarker = new AdvancedMarkerElement({
         position: { lat: userLocation.lat, lng: userLocation.lng },
         map,
         title: "Your Location",
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          fillColor: "#4488ff",
-          fillOpacity: 1,
-          strokeColor: "#fff",
-          strokeWeight: 3,
-          scale: 9,
-        },
+        content: userPinEl,
         zIndex: 200,
       });
       userMarkerRef.current = userMarker;
@@ -191,7 +220,7 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
 
     // Fit bounds to show all
     if (validHospitals.length > 0) {
-      const bounds = new window.google.maps.LatLngBounds();
+      const bounds = new gm.LatLngBounds();
       validHospitals.forEach(h => bounds.extend({ lat: h.coords.lat, lng: h.coords.lng }));
       if (userLocation) bounds.extend(userLocation);
       map.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
@@ -200,11 +229,11 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
 
   // ── Draw directions when hospital selected ──
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current) return;
-    const map = mapRef.current;
+    if (!mapLoaded || !mapRef.current || !gmapsRef.current) return;
+    const gm = gmapsRef.current;
 
-    if (directionsRendererRef.current) {
-      directionsRendererRef.current.setDirections({ routes: [] });
+    if (routePolylineRef.current) {
+      routePolylineRef.current.setPath([]);
     }
 
     if (selectedHospital == null || !userLocation) return;
@@ -213,32 +242,36 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
     const h = validHospitals[selectedHospital];
     if (!h?.coords) return;
 
-    // Highlight selected marker
+    // Highlight selected marker by updating its pin element
     markersRef.current.forEach((marker, i) => {
       const isSelected = i === selectedHospital;
-      marker.setIcon({
-        path: window.google.maps.SymbolPath.CIRCLE,
-        fillColor: validHospitals[i]?.col || "#D4706A",
-        fillOpacity: isSelected ? 1 : 0.7,
-        strokeColor: isSelected ? "#fff" : "rgba(255,255,255,0.6)",
-        strokeWeight: isSelected ? 3 : 2,
-        scale: isSelected ? 14 : 7,
-      });
-      marker.setZIndex(isSelected ? 100 : 10);
+      const pinEl = marker.content;
+      if (pinEl && pinEl.style) {
+        updateCirclePin(pinEl, {
+          color: validHospitals[i]?.col || "#D4706A",
+          size: isSelected ? 28 : 14,
+          strokeColor: isSelected ? "#fff" : "rgba(255,255,255,0.6)",
+          strokeWidth: isSelected ? 3 : 2,
+          opacity: isSelected ? 1 : 0.7,
+        });
+      }
+      marker.zIndex = isSelected ? 100 : 10;
     });
 
     // Request directions
-    const directionsService = new window.google.maps.DirectionsService();
+    const directionsService = new gm.DirectionsService();
     directionsService.route(
       {
         origin: { lat: userLocation.lat, lng: userLocation.lng },
         destination: { lat: h.coords.lat, lng: h.coords.lng },
-        travelMode: window.google.maps.TravelMode.DRIVING,
+        travelMode: gm.TravelMode.DRIVING,
       },
       (result, status) => {
-        if (status === "OK" && directionsRendererRef.current) {
-          directionsRendererRef.current.setDirections(result);
-          const bounds = new window.google.maps.LatLngBounds();
+        if (status === "OK" && routePolylineRef.current) {
+          const path = result.routes[0].overview_path;
+          routePolylineRef.current.setPath(path);
+          
+          const bounds = new gm.LatLngBounds();
           bounds.extend({ lat: userLocation.lat, lng: userLocation.lng });
           bounds.extend({ lat: h.coords.lat, lng: h.coords.lng });
           mapRef.current.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
@@ -268,7 +301,7 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
         </div>
         <div style={{ marginTop: 16, fontSize: 12, color: "#6B4040", lineHeight: 1.8, textAlign: "left" }}>
           1. Go to <a href="https://console.cloud.google.com" target="_blank" rel="noreferrer" style={{ color: "#5BAA8A" }}>Google Cloud Console</a><br />
-          2. Enable <strong>Maps JavaScript API</strong> & <strong>Directions API</strong><br />
+          2. Enable <strong>Maps JavaScript API</strong> &amp; <strong>Directions API</strong><br />
           3. Create an API key<br />
           4. Add to your project root <code>.env</code> file:<br />
           <code style={{ display: "block", margin: "8px 0", padding: "8px 12px", background: "#141418", borderRadius: 6, color: "#5BAA8A", fontSize: 11 }}>
@@ -293,80 +326,15 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
         )}
       </div>
 
-      {/* Theme Toggle */}
-      <div style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}>
-        <button
-          onClick={() => {
-            const next = !isDark;
-            setIsDark(next);
-            if (mapRef.current) {
-              mapRef.current.setOptions({ styles: next ? getDarkMapStyles() : getLightMapStyles() });
-            }
-          }}
-          style={{
-            padding: "5px 12px", borderRadius: 6, border: "1px solid rgba(200,160,140,0.3)",
-            background: isDark ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.85)",
-            backdropFilter: "blur(6px)", cursor: "pointer",
-            fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: "0.12em", textTransform: "uppercase",
-            color: isDark ? "#D4974A" : "#6B4040",
-            display: "flex", alignItems: "center", gap: 5,
-          }}
-        >
-          {isDark ? "☀" : "🌙"} {isDark ? "Light" : "Dark"}
-        </button>
-      </div>
-
       {/* Legend */}
       <div style={{ position: "absolute", bottom: 12, left: 12, zIndex: 10, pointerEvents: "none" }}>
-        <div style={{ padding: "6px 10px", background: isDark ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.85)", borderRadius: 6, backdropFilter: "blur(6px)" }}>
+        <div style={{ padding: "6px 10px", background: "rgba(255,255,255,0.85)", borderRadius: 6, backdropFilter: "blur(6px)" }}>
           <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, letterSpacing: "0.12em", textTransform: "uppercase", lineHeight: 2 }}>
-            <span style={{ color: "#4488ff" }}>● </span><span style={{ color: isDark ? "rgba(255,255,255,0.5)" : "#6B4040" }}>You</span>&nbsp;&nbsp;
-            <span style={{ color: "#D4706A" }}>● </span><span style={{ color: isDark ? "rgba(255,255,255,0.5)" : "#6B4040" }}>Hospital</span>
+            <span style={{ color: "#4488ff" }}>● </span><span style={{ color: "#6B4040" }}>You</span>&nbsp;&nbsp;
+            <span style={{ color: "#D4706A" }}>● </span><span style={{ color: "#6B4040" }}>Hospital</span>
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-function getDarkMapStyles() {
-  return [
-    { elementType: "geometry", stylers: [{ color: "#1a1a2e" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#1a1a2e" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#6b5a5a" }] },
-    { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#2a2a3e" }] },
-    { featureType: "road", elementType: "geometry", stylers: [{ color: "#2a2a3e" }] },
-    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#1a1a2e" }] },
-    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3a2a2a" }] },
-    { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#4a3535" }] },
-    { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#2d2535" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1a2b" }] },
-    { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3a5a7a" }] },
-    { featureType: "poi", elementType: "geometry", stylers: [{ color: "#1e1e30" }] },
-    { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#1a2a1a" }] },
-    { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#5a5a6a" }] },
-    { featureType: "transit", elementType: "geometry", stylers: [{ color: "#1a1a2e" }] },
-    { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#16162a" }] },
-  ];
-}
-
-function getLightMapStyles() {
-  return [
-    { elementType: "geometry", stylers: [{ color: "#f5f0e8" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#ffffff" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#6B4040" }] },
-    { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#d4c4b4" }] },
-    { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
-    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#e0d0c0" }] },
-    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#f0ddd0" }] },
-    { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#d4a090" }] },
-    { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#f8ece0" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#c8dce8" }] },
-    { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#7a9ab0" }] },
-    { featureType: "poi", elementType: "geometry", stylers: [{ color: "#e8e0d4" }] },
-    { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#d4e8d0" }] },
-    { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#9a8a7a" }] },
-    { featureType: "transit", elementType: "geometry", stylers: [{ color: "#e8e0d4" }] },
-    { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f0e8dc" }] },
-  ];
 }
