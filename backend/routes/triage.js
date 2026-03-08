@@ -7,7 +7,9 @@ const router = express.Router();
 const triageSchema = new mongoose.Schema({
   category: String,
   message: String,
+  symptoms: String,
   patient: mongoose.Schema.Types.Mixed,
+  healthCard: mongoose.Schema.Types.Mixed,
   nearestHospital: mongoose.Schema.Types.Mixed,
   timestamp: { type: Date, default: Date.now }
 });
@@ -27,7 +29,7 @@ router.post("/", async (req, res) => {
     const ai = new GoogleGenAI({ apiKey });
 
     const prompt = `You are a clinical triage assistant. A patient reports the following symptoms:\n"""\n${narrative}\n"""\n
-Please provide a rating of either EMERGENCY, URGENT, or ROUTINE, along with a concise triage recommendation with a brief explanation (1-2 sentences). Respond in format [SEVERITY]: [EXPLANATION]. Do not append any other text.`;
+Please provide a rating of either EMERGENCY, URGENT, or ROUTINE. For EMERGENCY or URGENT, provide a concise recommendation with a brief explanation (1-2 sentences). For ROUTINE, provide 1-2 sentences of practical self-care advice. Respond in format [SEVERITY]: [EXPLANATION_OR_ADVICE]. Do not append any other text.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",

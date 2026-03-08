@@ -41,6 +41,7 @@ export default function PresagePage({ PageWrap }) {
   const [userLocation, setUserLocation] = useState(null);
   const [nearestHospital, setNearestHospital] = useState(null);
   const [booking, setBooking] = useState(null); // { slot, waitTime, procedureTime }
+  const [healthCardData, setHealthCardData] = useState(null);
 
   // Geolocation + nearest hospital
   useEffect(() => {
@@ -180,24 +181,33 @@ export default function PresagePage({ PageWrap }) {
       setTriageResult(text);
 
       // Notify doctor + auto-schedule for URGENT/EMERGENCY
-      const upper = text.toUpperCase();
-      const cat = upper.startsWith("EMERGENCY") ? "emergency" : upper.startsWith("URGENT") ? "urgent" : null;
+      const upper = text.replace(/\*+/g, "").trim().toUpperCase();
+      const cat = upper.startsWith("EMERGENCY") || upper.includes("EMERGENCY") ? "emergency"
+                : upper.startsWith("URGENT") || upper.includes("URGENT") ? "urgent" : null;
       if (cat && user) {
         // Fetch patient health card
         let healthCard = null;
         try {
           const hcRes = await fetch(`${API_BASE}/api/healthcard?email=${encodeURIComponent(user.email)}`);
-          if (hcRes.ok) healthCard = await hcRes.json();
+          if (hcRes.ok) { healthCard = await hcRes.json(); setHealthCardData(healthCard); }
         } catch (_) {}
 
         const patientInfo = { name: user.name, email: user.email };
         const nh = nearestHospital ? { name: nearestHospital.name, address: nearestHospital.address, distanceKm: nearestHospital.distance } : null;
+        const explanation = text.includes(":") ? text.split(":").slice(1).join(":").trim() : text;
 
-        // Save triage record to doctor DB
-        fetch(`${API_BASE}/api/triage`, {
+        // Save incident directly to DB (no second Gemini call)
+        fetch(`${API_BASE}/api/incidents`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ narrative: input.trim(), patient: patientInfo, nearestHospital: nh }),
+          body: JSON.stringify({
+            category: cat,
+            message: explanation,
+            patient: patientInfo,
+            healthCard,
+            nearestHospital: nh,
+            symptoms: input.trim(),
+          }),
         }).catch(() => {});
 
         // Auto-schedule appointment and get wait time
@@ -227,9 +237,22 @@ export default function PresagePage({ PageWrap }) {
   };
 
   // Parse severity from "EMERGENCY: explanation" or object
+  // Handles markdown bold, dashes, varied formatting from Gemini
   const getSeverity = r => {
     if (!r) return null;
-    if (typeof r === "string") return r.split(":")[0].trim().toUpperCase();
+    if (typeof r === "string") {
+      // Strip markdown bold markers and leading/trailing whitespace
+      const clean = r.replace(/\*+/g, "").trim().toUpperCase();
+      if (clean.startsWith("EMERGENCY")) return "EMERGENCY";
+      if (clean.startsWith("URGENT")) return "URGENT";
+      if (clean.startsWith("ROUTINE")) return "ROUTINE";
+      // Fallback: search anywhere in the first line
+      const firstLine = clean.split("\n")[0];
+      if (firstLine.includes("EMERGENCY")) return "EMERGENCY";
+      if (firstLine.includes("URGENT")) return "URGENT";
+      if (firstLine.includes("ROUTINE")) return "ROUTINE";
+      return null;
+    }
     if (r.category) return String(r.category).toUpperCase();
     return null;
   };
@@ -240,9 +263,35 @@ export default function PresagePage({ PageWrap }) {
 
   const resultText = triageResult
     ? typeof triageResult === "string"
-      ? triageResult.includes(":") ? triageResult.split(":").slice(1).join(":").trim() : triageResult
+      ? (() => {
+          const cleaned = triageResult.replace(/\*+/g, "").trim();
+          if (cleaned.includes(":")) return cleaned.split(":").slice(1).join(":").trim();
+          return cleaned;
+        })()
       : triageResult.explanation || triageResult.message || JSON.stringify(triageResult)
     : null;
+
+  // Send info to Doctor Portal when clicking "Get Directions"
+  const handleGetDirections = () => {
+    // Ensure the incident is saved even if the automatic save above failed
+    if (user && (isEmergency || isUrgent)) {
+      const patientInfo = { name: user.name, email: user.email };
+      const nh = nearestHospital ? { name: nearestHospital.name, address: nearestHospital.address, distanceKm: nearestHospital.distance } : null;
+      fetch(`${API_BASE}/api/incidents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: isEmergency ? "emergency" : "urgent",
+          message: resultText || "",
+          patient: patientInfo,
+          healthCard: healthCardData,
+          nearestHospital: nh,
+          symptoms: input.trim(),
+        }),
+      }).catch(() => {});
+    }
+    navigate("/hospital");
+  };
 
   return (
     <PageWrap title="Presage AI" icon={<Icons.brain />} subtitle="Intelligent medical triage · Powered by Gemini">
@@ -270,32 +319,41 @@ export default function PresagePage({ PageWrap }) {
             <div style={{ animation: "fadeUp .4s ease" }}>
               {/* Emergency / Urgent banner */}
               {(isEmergency || isUrgent) && (
-                <div style={{ marginBottom: 14, padding: "18px 22px", borderRadius: 16, background: isEmergency ? `${T.roseDeep}12` : `${T.amber}12`, border: `2px solid ${isEmergency ? T.roseDeep : T.amber}`, display: "flex", gap: 16, alignItems: "flex-start" }}>
-                  <div style={{ fontSize: 28, flexShrink: 0, lineHeight: 1 }}>{isEmergency ? "🚨" : "⚠️"}</div>
+                <div style={{ marginBottom: 14, padding: "22px 26px", borderRadius: 16, background: isEmergency ? `${T.roseDeep}12` : `${T.amber}12`, border: `2px solid ${isEmergency ? T.roseDeep : T.amber}`, display: "flex", gap: 16, alignItems: "flex-start" }}>
+                  <div style={{ fontSize: 32, flexShrink: 0, lineHeight: 1 }}>{isEmergency ? "🚨" : "⚠️"}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 17, color: isEmergency ? T.roseDeep : T.amber, marginBottom: 6 }}>
+                    <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 20, color: isEmergency ? T.roseDeep : T.amber, marginBottom: 8 }}>
                       {isEmergency ? "EMERGENCY — Seek immediate care" : "URGENT — See a doctor today"}
                     </div>
                     {resultText && (
-                      <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, color: T.inkMid, lineHeight: 1.65, marginBottom: isEmergency && nearestHospital ? 14 : 0 }}>
+                      <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 14, color: T.inkMid, lineHeight: 1.65, marginBottom: nearestHospital ? 14 : 0 }}>
                         {resultText}
                       </div>
                     )}
-                    {/* Nearest hospital card inside emergency banner */}
-                    {isEmergency && nearestHospital && (
-                      <div style={{ padding: "12px 16px", borderRadius: 12, background: `${T.roseDeep}10`, border: `1px solid ${T.roseDeep}30`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    {/* Nearest hospital card for both emergency AND urgent */}
+                    {nearestHospital && (
+                      <div style={{ padding: "14px 18px", borderRadius: 12, background: isEmergency ? `${T.roseDeep}10` : `${T.amber}10`, border: `1px solid ${isEmergency ? T.roseDeep : T.amber}30`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                         <div>
-                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7.5, color: T.roseDeep, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 3 }}>Nearest Hospital</div>
-                          <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14, color: T.ink }}>{nearestHospital.name}</div>
-                          <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 11, color: T.inkFaint, marginTop: 2 }}>{nearestHospital.distance.toFixed(1)} km · {nearestHospital.address}</div>
+                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: isEmergency ? T.roseDeep : T.amber, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 3 }}>Nearest Hospital</div>
+                          <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 15, color: T.ink }}>{nearestHospital.name}</div>
+                          <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkFaint, marginTop: 2 }}>{nearestHospital.distance.toFixed(1)} km · {nearestHospital.address}</div>
                         </div>
                         <button
-                          onClick={() => navigate("/hospital")}
-                          style={{ padding: "10px 20px", borderRadius: 100, background: T.roseDeep, color: T.white, border: "none", fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
+                          onClick={handleGetDirections}
+                          style={{ padding: "12px 24px", borderRadius: 100, background: isEmergency ? T.roseDeep : T.amber, color: T.white, border: "none", fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
                         >
                           Get Directions →
                         </button>
                       </div>
+                    )}
+                    {/* Fallback Get Directions button when location is unavailable */}
+                    {!nearestHospital && (
+                      <button
+                        onClick={handleGetDirections}
+                        style={{ marginTop: 10, padding: "12px 28px", borderRadius: 100, background: isEmergency ? T.roseDeep : T.amber, color: T.white, border: "none", fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                      >
+                        Get Directions →
+                      </button>
                     )}
                   </div>
                 </div>
@@ -322,7 +380,7 @@ export default function PresagePage({ PageWrap }) {
               {/* Routine result card */}
               {!isEmergency && !isUrgent && resultText && (
                 <Card>
-                  <SHead>Assessment — {severity || "Routine"}</SHead>
+                  <SHead>Medical Advice — {severity || "Routine"}</SHead>
                   <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 14, color: T.inkMid, lineHeight: 1.7 }}>{resultText}</div>
                 </Card>
               )}
