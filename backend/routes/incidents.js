@@ -6,13 +6,19 @@ const router = express.Router();
 // GET /api/incidents
 // Return most recent triage record per patient (grouped by email/name)
 router.get("/", async (req, res) => {
+  console.log("incidents route invoked; connection state=", mongoose.connection.readyState);
+  console.log("using MONGO_URI", process.env.MONGO_URI && process.env.MONGO_URI.substring(0,60) + "...");
   try {
     const TriageRecord = mongoose.model("TriageRecord");
+    if (!TriageRecord) throw new Error("TriageRecord model missing");
     const incidents = await TriageRecord.aggregate([
       { $sort: { timestamp: -1 } },
       {
         $group: {
-          _id: { email: "$patient.email", name: "$patient.name" },
+          _id: {
+            email: { $ifNull: ["$patient.email", ""] },
+            name:  { $ifNull: ["$patient.name", ""] }
+          },
           doc: { $first: "$$ROOT" },
         },
       },
@@ -21,7 +27,7 @@ router.get("/", async (req, res) => {
     res.json(incidents);
   } catch (err) {
     console.error("Incidents fetch error", err);
-    res.status(500).json({ error: err.message || "Failed to fetch incidents" });
+    res.status(500).json({ error: err.message || "Failed to fetch incidents", stack: err.stack });
   }
 });
 

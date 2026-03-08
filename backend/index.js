@@ -12,7 +12,13 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, "../.env") });
+// the .env lives in the backend folder, not the repository root
+const envPath = path.join(__dirname, ".env");
+console.log("dotenv will load from", envPath);
+import fs from 'fs';
+console.log("env file exists?", fs.existsSync(envPath));
+dotenv.config({ path: envPath });
+console.log("after dotenv, MONGO_URI=", process.env.MONGO_URI);
 
 const app = express();
 
