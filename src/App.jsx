@@ -250,7 +250,7 @@ const NODES = {
   patient:   { x:25, y:25, label:"Patient Portal", icon:"user", path:"/patient", col:T.rose },
   doctor:    { x:75, y:25, label:"Doctor Portal", icon:"stethoscope", path:"/doctor", col:T.blue },
   schedule:  { x:25, y:75, label:"Scheduling", icon:"calendar", path:"/schedule", col:T.amber },
-  presage:   { x:75, y:75, label:"Presage AI", icon:"brain", path:"/presage", col:T.amber },
+  presage:   { x:75, y:75, label:"Sanctii AI", icon:"brain", path:"/presage", col:T.amber },
   hospital:  { x:25, y:75, label:"Find Hospital", icon:"mapPin", path:"/hospital", col:T.vital },
   feedback:  { x:75, y:25, label:"Doctor Feedback", icon:"heart", path:"/patient/feedback", col:T.blue },
   rooms:     { x:75, y:75, label:"Room Map", icon:"grid", path:"/rooms", col:T.vital },
@@ -469,7 +469,7 @@ function MazePage() {
               <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:isCenter?700:500, fontSize:isCenter?11:9, color:isHov?col:inPath?col:isCenter?T.inkMid:T.inkFaint, textAlign:"center", whiteSpace:"nowrap", transition:"color .2s", letterSpacing:isCenter?"-0.01em":"0.02em" }}>
                 {activeRole === ROLE.PATIENT && key === "patient" && "Patient information"}
                 {activeRole === ROLE.PATIENT && key === "hospital" && "Nearest hospital map"}
-                {activeRole === ROLE.PATIENT && key === "presage" && "Presage AI"}
+                {activeRole === ROLE.PATIENT && key === "presage" && "Sanctii AI"}
                 {activeRole === ROLE.PATIENT && key === "feedback" && "Doctor Feedback"}
                 {activeRole === ROLE.DOCTOR && key === "rooms" && "Room assignment"}
                 {activeRole === ROLE.DOCTOR && key === "schedule" && "Scheduling"}
@@ -797,7 +797,7 @@ function PatientPage() {
           <Card accent={T.rose} style={{ borderColor:`${T.rose}28` }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
               <div style={{ color:T.rose }}><Icons.brain/></div>
-              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.12em", textTransform:"uppercase" }}>Presage AI Insight</span>
+              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.12em", textTransform:"uppercase" }}>Sanctii AI Insight</span>
             </div>
             <div style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic", fontSize:14, color:T.ink, lineHeight:1.65 }}>"Your vitals look stable. Consider scheduling your annual eye exam — last recorded 14 months ago."</div>
             <div style={{ marginTop:10, fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase" }}>Confidence: 94% · Updated today</div>
@@ -1576,7 +1576,7 @@ const PATIENTS = [
   { id:"MRN-24891", name:"Thomas Leclerc",    age:47, sex:"M", dob:"1978-04-12", room:"ED-07",   doctor:"Dr. Roberts", apptTime:"10:00", sev:4, status:"In Treatment",
     complaint:"Acute abdominal pain, nausea × 6h", diagnosis:"Suspected appendicitis",
     vitals:{ bp:"138/92", hr:104, temp:38.4, o2:97 },
-    allergies:["Penicillin"], meds:["Morphine 4mg IV","Ondansetron 4mg IV"], notes:"Presage AI flags possible appendicitis. Urgent surgical consult ordered." },
+    allergies:["Penicillin"], meds:["Morphine 4mg IV","Ondansetron 4mg IV"], notes:"Sanctii AI flags possible appendicitis. Urgent surgical consult ordered." },
   { id:"MRN-24892", name:"Jordan Mitchell",   age:60, sex:"M", dob:"1965-09-03", room:"CARD-12", doctor:"Dr. Roberts", apptTime:"09:00", sev:2, status:"Waiting",
     complaint:"Cardiac follow-up, mild exertional dyspnea", diagnosis:"Stable angina — routine follow-up",
     vitals:{ bp:"122/78", hr:72, temp:36.8, o2:98 },
@@ -1850,7 +1850,7 @@ function DoctorPage() {
       healthCard:  Object.keys(hc).length > 0 ? hc : null,
       allergies:   [],
       meds:        [],
-      notes:       `Presage AI Triage: ${cat.toUpperCase()}\n${i.message || ""}`.trim(),
+      notes:       `Sanctii AI Triage: ${cat.toUpperCase()}\n${i.message || ""}`.trim(),
     };
   });
 
@@ -1989,7 +1989,7 @@ function DoctorPage() {
               </div>
             ) : incidentPatients.length === 0 ? (
               <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"40px 0" }}>
-                No triage incidents in the queue. Patients will appear here after running Presage AI triage.
+                No triage incidents in the queue. Patients will appear here after running Sanctii AI triage.
               </div>
             ) : (
               <>
@@ -2709,7 +2709,7 @@ function LandingPage() {
   }, []);
 
   const FEATURES = [
-    [<Icons.brain/>,       "#8B6FBF", "Presage AI Triage",   "Symptom analysis with confidence scoring — powered by Gemini."],
+    [<Icons.brain/>,       "#8B6FBF", "Sanctii AI Triage",   "Symptom analysis with confidence scoring — powered by Gemini."],
     [<Icons.mapPin/>,      T.vital,   "Hospital Routing",    "Nearest facility with live wait times and bed availability."],
     [<Icons.calendar/>,    T.rose,    "Smart Scheduling",    "Book appointments, view slots, and manage your care calendar."],
     [<Icons.stethoscope/>, T.roseMid, "Doctor Portal",       "Clinical dashboards, patient queues, and AI-flagged alerts."],

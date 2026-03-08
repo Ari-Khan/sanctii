@@ -319,7 +319,7 @@ export default function PresagePage({ PageWrap }) {
   };
 
   return (
-    <PageWrap title="Presage AI" icon={<Icons.brain />} subtitle="Intelligent medical triage · Powered by Gemini">
+    <PageWrap title="Sanctii AI" icon={<Icons.brain />} subtitle="Intelligent medical triage · Powered by Gemini">
       <div style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 340px", gap: 24 }}>
 
         {/* LEFT: Symptom input + results */}

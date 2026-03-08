@@ -25,7 +25,7 @@ export default function LandingPage() {
   }, []);
 
   const FEATURES = [
-    [<Icons.brain/>,       "#8B6FBF", "Presage AI Triage",   "Symptom analysis with confidence scoring — powered by Gemini."],
+    [<Icons.brain/>,       "#8B6FBF", "Sanctii AI Triage",   "Symptom analysis with confidence scoring — powered by Gemini."],
     [<Icons.mapPin/>,      T.vital,   "Hospital Routing",    "Nearest facility with live wait times and bed availability."],
     [<Icons.calendar/>,    T.rose,    "Smart Scheduling",    "Book appointments, view slots, and manage your care calendar."],
     [<Icons.stethoscope/>, T.roseMid, "Doctor Portal",       "Clinical dashboards, patient queues, and AI-flagged alerts."],
