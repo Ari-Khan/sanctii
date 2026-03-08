@@ -5,32 +5,6 @@ import { T, Icons } from "../theme";
 import { ROLE } from "../auth/roles";
 import { BgOrbs, EcgStrip } from "../components/SharedUI";
 
-function LiveVitalsSmall() {
-  const [pulse, setPulse] = useState("--");
-  const [resp, setResp] = useState("--");
-
-  useEffect(() => {
-    const tick = () => {
-      const lost = Math.random() < 0.1;
-      setPulse(lost ? "--" : 80 + Math.round((Math.random() - 0.5) * 10));
-      setResp(lost ? "--" : 15 + Math.round((Math.random() - 0.5) * 4));
-    };
-    tick();
-    const id = setInterval(tick, 5000);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div style={{ marginTop:44, display:"flex", gap:14, flexWrap:"wrap", zIndex:1 }}>
-      {[["♥", pulse === "--" ? "--" : `${pulse} bpm`], ["💨", resp === "--" ? "--" : `${resp} rpm`]].map(([ic,v])=>(
-        <div key={v} style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", borderRadius:100, background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.12)" }}>
-          <span style={{ fontSize:10 }}>{ic}</span>
-          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:"rgba(255,255,255,.7)", letterSpacing:"0.04em" }}>{v}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default function LoginPage() {
   const { loginWithRedirect, isLoading, isAuthenticated } = useAuth0();
@@ -101,7 +75,6 @@ export default function LoginPage() {
           ))}
         </div>
 
-        <LiveVitalsSmall />
       </div>
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center", padding:"44px 52px", background:T.bg, overflowY:"auto" }}>
