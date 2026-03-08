@@ -119,26 +119,64 @@ export default function PresagePage({ PageWrap }) {
     setLoading(true);
     setTriageResult(null);
     setBooking(null);
+
+    // build the triage prompt once so both providers get identical context/format
+    const buildPrompt = () => {
+      return `You are a clinical triage assistant. A patient reports the following symptoms:\n"""\n${input.trim()}\n"""\nProvide a rating of EMERGENCY, URGENT, or ROUTINE with a brief 1-2 sentence explanation. Respond ONLY in this format: [SEVERITY]: [EXPLANATION]`;
+    };
+
+    // helper: call the Groq backup model with the same prompt context
+    const callGroq = async () => {
+      const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+      if (!groqKey) throw new Error("VITE_GROQ_API_KEY not set in .env");
+      const prompt = buildPrompt();
+      const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-oss-120b",
+          temperature: 0.2,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok || d.error) throw new Error(d.error?.message || "Groq request failed");
+      return d.choices?.[0]?.message?.content?.trim() || "";
+    };
+
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       if (!apiKey) { setTriageResult("Error: VITE_GEMINI_API_KEY not set in .env"); setLoading(false); return; }
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{
-              role: "user",
-              parts: [{ text: `You are a clinical triage assistant. A patient reports the following symptoms:\n"""\n${input.trim()}\n"""\nProvide a rating of EMERGENCY, URGENT, or ROUTINE with a brief 1-2 sentence explanation. Respond ONLY in this format: [SEVERITY]: [EXPLANATION]` }]
-            }]
-          }),
-        }
-      );
-      const data = await res.json();
-      if (data.error) { setTriageResult(`Error: ${data.error.message}`); setLoading(false); return; }
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Error: No response";
+      let text;
+      // try Gemini first using same prompt construction
+      try {
+        const prompt = buildPrompt();
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                role: "user",
+                parts: [{ text: prompt }]
+              }]
+            }),
+          }
+        );
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message);
+        text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Error: No response";
+      } catch (gemErr) {
+        console.warn("Gemini call failed, falling back to Groq", gemErr);
+        text = await callGroq();
+        text = `(fallback) ${text}`;
+      }
+
       setTriageResult(text);
 
       // Notify doctor + auto-schedule for URGENT/EMERGENCY
