@@ -3,31 +3,45 @@ import mongoose from "mongoose";
 
 const router = express.Router();
 
+// Define (or reuse) the TriageRecord model here so this route never
+// depends on triage.js having been loaded first.
+const triageSchema = new mongoose.Schema({
+  category:        String,
+  message:         String,
+  symptoms:        String,
+  patient:         mongoose.Schema.Types.Mixed,
+  healthCard:      mongoose.Schema.Types.Mixed,
+  nearestHospital: mongoose.Schema.Types.Mixed,
+  timestamp:       { type: Date, default: Date.now },
+});
+const TriageRecord =
+  mongoose.models.TriageRecord ||
+  mongoose.model("TriageRecord", triageSchema);
+
 // GET /api/incidents
-// Return most recent triage record per patient (grouped by email/name)
+// Return the most recent triage record per unique patient (by email or name)
 router.get("/", async (req, res) => {
   console.log("incidents route invoked; connection state=", mongoose.connection.readyState);
   console.log("using MONGO_URI", process.env.MONGO_URI && process.env.MONGO_URI.substring(0,60) + "...");
   try {
-    const TriageRecord = mongoose.model("TriageRecord");
-    if (!TriageRecord) throw new Error("TriageRecord model missing");
-    const incidents = await TriageRecord.aggregate([
-      { $sort: { timestamp: -1 } },
-      {
-        $group: {
-          _id: {
-            email: { $ifNull: ["$patient.email", ""] },
-            name:  { $ifNull: ["$patient.name", ""] }
-          },
-          doc: { $first: "$$ROOT" },
-        },
-      },
-      { $replaceRoot: { newRoot: "$doc" } },
-    ]);
+    // Fetch all records sorted newest-first, then deduplicate in JS.
+    // This avoids $replaceRoot/$group aggregation bugs on older MongoDB versions.
+    const all = await TriageRecord.find({}).sort({ timestamp: -1 }).lean();
+
+    const seen = new Set();
+    const incidents = [];
+    for (const rec of all) {
+      const key = rec.patient?.email || rec.patient?.name || String(rec._id);
+      if (!seen.has(key)) {
+        seen.add(key);
+        incidents.push(rec);
+      }
+    }
+
     res.json(incidents);
   } catch (err) {
-    console.error("Incidents fetch error", err);
-    res.status(500).json({ error: err.message || "Failed to fetch incidents", stack: err.stack });
+    console.error("Incidents fetch error:", err);
+    res.status(500).json({ error: err.message || "Failed to fetch incidents" });
   }
 });
 
