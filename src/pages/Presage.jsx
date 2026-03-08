@@ -27,53 +27,6 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const POSTAL_COORDS = {
-  "L9R": { lat: 44.0177, lng: -79.6404 }, "L4M": { lat: 44.3899, lng: -79.7561 },
-  "L6R": { lat: 43.7315, lng: -79.7624 }, "M9V": { lat: 43.7315, lng: -79.5394 },
-  "L6W": { lat: 43.7117, lng: -79.7528 }, "M9N": { lat: 43.6850, lng: -79.5150 },
-  "L9Y": { lat: 44.4553, lng: -80.2331 }, "P1H": { lat: 45.3342, lng: -79.2136 },
-  "P1L": { lat: 45.1317, lng: -79.3161 }, "L3P": { lat: 43.8500, lng: -79.2469 },
-  "L9P": { lat: 43.8561, lng: -79.1292 }, "L4R": { lat: 44.7653, lng: -79.2903 },
-  "L5M": { lat: 43.5633, lng: -79.5950 }, "L5B": { lat: 43.5850, lng: -79.6444 },
-  "M9C": { lat: 43.5267, lng: -79.5539 }, "L5K": { lat: 43.5983, lng: -79.6428 },
-  "M6M": { lat: 43.7136, lng: -79.4619 }, "L3Y": { lat: 44.0497, lng: -79.4606 },
-  "L6M": { lat: 43.4671, lng: -79.2742 }, "L9T": { lat: 43.5236, lng: -79.8728 },
-  "L7G": { lat: 43.6532, lng: -79.9167 }, "L9W": { lat: 43.9192, lng: -80.0967 },
-  "L3V": { lat: 44.6087, lng: -79.4207 }, "L9M": { lat: 44.7667, lng: -79.9333 },
-  "L4C": { lat: 43.8828, lng: -79.4403 }, "M3M": { lat: 43.7333, lng: -79.5000 },
-  "M2K": { lat: 43.7667, lng: -79.3833 }, "M5B": { lat: 43.6533, lng: -79.3767 },
-  "M6R": { lat: 43.6450, lng: -79.4433 }, "M5G": { lat: 43.6567, lng: -79.3900 },
-  "M4N": { lat: 43.7233, lng: -79.3833 }, "M6J": { lat: 43.6417, lng: -79.4267 },
-  "M1P": { lat: 43.7567, lng: -79.2567 }, "L7R": { lat: 43.3267, lng: -79.8050 },
-  "N1R": { lat: 43.3833, lng: -80.3167 }, "N1E": { lat: 43.5500, lng: -80.2500 },
-  "L8L": { lat: 43.2633, lng: -79.8567 }, "L8V": { lat: 43.2317, lng: -79.8517 },
-  "L8N": { lat: 43.2567, lng: -79.9000 }, "N2A": { lat: 43.4333, lng: -80.4167 },
-  "N2G": { lat: 43.4500, lng: -80.5167 }, "N2M": { lat: 43.4417, lng: -80.4833 },
-  "N6A": { lat: 42.9833, lng: -81.2500 }, "N4K": { lat: 44.5667, lng: -80.9333 },
-  "N7T": { lat: 42.9833, lng: -82.4000 }, "N3Y": { lat: 42.8333, lng: -80.3000 },
-  "L2S": { lat: 43.1500, lng: -79.2167 }, "L2E": { lat: 43.1000, lng: -79.0667 },
-  "N5R": { lat: 42.7750, lng: -81.1667 }, "N5A": { lat: 43.3667, lng: -81.0000 },
-  "N4S": { lat: 43.1167, lng: -80.7500 }, "K6V": { lat: 44.5833, lng: -75.6833 },
-  "K7C": { lat: 45.0667, lng: -76.1167 }, "K9A": { lat: 43.9667, lng: -78.1667 },
-  "K6H": { lat: 45.0167, lng: -74.7333 }, "K0J": { lat: 46.1000, lng: -77.5000 },
-  "K6A": { lat: 45.6000, lng: -74.5833 }, "K0G": { lat: 44.9833, lng: -75.6333 },
-  "K7L": { lat: 44.2333, lng: -76.5000 }, "K9V": { lat: 44.3500, lng: -78.7333 },
-  "K7R": { lat: 44.2333, lng: -76.9500 }, "L1G": { lat: 43.8833, lng: -78.8333 },
-  "L1C": { lat: 43.9167, lng: -78.6833 }, "L1S": { lat: 43.8500, lng: -79.0167 },
-  "L9L": { lat: 44.1000, lng: -78.9500 }, "L1N": { lat: 43.8667, lng: -78.9333 },
-  "K2H": { lat: 45.3500, lng: -75.8167 }, "K1Y": { lat: 45.4000, lng: -75.7333 },
-  "K1K": { lat: 45.4333, lng: -75.6500 }, "K1H": { lat: 45.3833, lng: -75.6667 },
-  "K9J": { lat: 44.3000, lng: -78.3167 }, "P7B": { lat: 48.3833, lng: -89.2333 },
-  "K0A": { lat: 45.2167, lng: -76.2000 }, "K7S": { lat: 45.4167, lng: -76.3500 },
-  "K0C": { lat: 45.3167, lng: -74.6333 }, "K8N": { lat: 44.1667, lng: -77.3833 },
-  "K0K": { lat: 44.0000, lng: -77.1333 }, "K8V": { lat: 44.1167, lng: -77.5833 },
-};
-
-function getCoordsFromAddress(address) {
-  const m = address.match(/([A-Z]\d[A-Z])\s?\d[A-Z]\d/i);
-  if (m) return POSTAL_COORDS[m[1].toUpperCase()] || null;
-  return null;
-}
 
 export default function PresagePage({ PageWrap }) {
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
@@ -96,15 +49,19 @@ export default function PresagePage({ PageWrap }) {
       setUserLocation(loc);
       fetch("/hospitals.csv").then(r => r.text()).then(text => {
         const hospitals = text.trim().split("\n").filter(l => l.trim()).map(line => {
-          const ci = line.indexOf(",");
-          return { name: line.slice(0, ci).trim(), address: line.slice(ci + 1).trim() };
+          const parts = line.split(",");
+          const name = parts[0].trim();
+          const lat = parseFloat(parts[parts.length - 2]);
+          const lng = parseFloat(parts[parts.length - 1]);
+          const address = parts.slice(1, -2).join(",").trim();
+          const coords = (!isNaN(lat) && !isNaN(lng)) ? { lat, lng } : null;
+          return { name, address, coords };
         });
         let nearest = null, minDist = Infinity;
         hospitals.forEach(h => {
-          const c = getCoordsFromAddress(h.address);
-          if (!c) return;
-          const d = haversine(loc.lat, loc.lng, c.lat, c.lng);
-          if (d < minDist) { minDist = d; nearest = { ...h, distance: d, coords: c }; }
+          if (!h.coords) return;
+          const d = haversine(loc.lat, loc.lng, h.coords.lat, h.coords.lng);
+          if (d < minDist) { minDist = d; nearest = { ...h, distance: d }; }
         });
         setNearestHospital(nearest);
       }).catch(() => {});

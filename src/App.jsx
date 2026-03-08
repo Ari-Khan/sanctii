@@ -2246,86 +2246,6 @@ function HospitalPage() {
 
   const hospitalColors = [T.vital, T.rose, T.amber, T.vital, T.vital, T.rose, T.amber, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber, T.rose, T.vital, T.amber];
 
-  // Approximate coordinates for Ontario hospitals (for client-side distance calculation)
-  const hospitalCoords = {
-    "200 Fletcher Crescent Alliston ON L9R 1W7": { lat: 44.0177, lng: -79.6404 },
-    "201 Georgian Drive Barrie ON L4M 6M2": { lat: 44.3899, lng: -79.7561 },
-    "2100 Bovaird Drive East Brampton ON L6R 3J7": { lat: 43.7315, lng: -79.7624 },
-    "101 Humber College Boulevard Etobicoke ON M9V 1R8": { lat: 43.7315, lng: -79.5394 },
-    "20 Lynch Street Brampton ON L6W 2Z8": { lat: 43.7117, lng: -79.7528 },
-    "200 Church Street Toronto ON M9N 1N8": { lat: 43.6850, lng: -79.5150 },
-    "459 Hume Street Collingwood ON L9Y 1W9": { lat: 44.4553, lng: -80.2331 },
-    "100 Frank Miller Drive Huntsville ON P1H 1H7": { lat: 45.3342, lng: -79.2136 },
-    "75 Ann Street Bracebridge ON P1L 2E4": { lat: 45.1317, lng: -79.3161 },
-    "381 Church Street Markham ON L3P 7P3": { lat: 43.8500, lng: -79.2469 },
-    "4 Campbell Drive Uxbridge ON L9P 1S4": { lat: 43.8561, lng: -79.1292 },
-    "1112 St. Andrew's Drive Midland ON L4R 4P4": { lat: 44.7653, lng: -79.2903 },
-    "2200 Eglinton Avenue West Mississauga ON L5M 2N1": { lat: 43.5633, lng: -79.5950 },
-    "100 Queensway West Mississauga ON L5B 1B8": { lat: 43.5850, lng: -79.6444 },
-    "150 Sherway Drive Toronto ON M9C 1A5": { lat: 43.5267, lng: -79.5539 },
-    "2180 Speakman Drive Mississauga ON L5K 0B1": { lat: 43.5983, lng: -79.6428 },
-    "82 Buttonwood Avenue Toronto ON M6M 2J5": { lat: 43.7136, lng: -79.4619 },
-    "596 Davis Drive Newmarket ON L3Y 2P9": { lat: 44.0497, lng: -79.4606 },
-    "3001 Hospital Drive Oakville ON L6M 0L8": { lat: 43.4671, lng: -79.2742 },
-    "725 Bronte Street South Milton ON L9T 9K1": { lat: 43.5236, lng: -79.8728 }
-  };
-
-  // Postal code to approximate coordinates mapping
-  const postalCodeCoords = {
-    "L9R": { lat: 44.0177, lng: -79.6404 },
-    "L4M": { lat: 44.3899, lng: -79.7561 },
-    "L6R": { lat: 43.7315, lng: -79.7624 },
-    "M9V": { lat: 43.7315, lng: -79.5394 },
-    "L6W": { lat: 43.7117, lng: -79.7528 },
-    "M9N": { lat: 43.6850, lng: -79.5150 },
-    "L9Y": { lat: 44.4553, lng: -80.2331 },
-    "P1H": { lat: 45.3342, lng: -79.2136 },
-    "P1L": { lat: 45.1317, lng: -79.3161 },
-    "L3P": { lat: 43.8500, lng: -79.2469 },
-    "L9P": { lat: 43.8561, lng: -79.1292 },
-    "L4R": { lat: 44.7653, lng: -79.2903 },
-    "L5M": { lat: 43.5633, lng: -79.5950 },
-    "L5B": { lat: 43.5850, lng: -79.6444 },
-    "M9C": { lat: 43.5267, lng: -79.5539 },
-    "L5K": { lat: 43.5983, lng: -79.6428 },
-    "M6M": { lat: 43.7136, lng: -79.4619 },
-    "L3Y": { lat: 44.0497, lng: -79.4606 },
-    "L6M": { lat: 43.4671, lng: -79.2742 },
-    "L9T": { lat: 43.5236, lng: -79.8728 },
-    "L7G": { lat: 43.6532, lng: -79.9167 },
-    "L9W": { lat: 43.9192, lng: -80.0967 },
-    "L3V": { lat: 44.6087, lng: -79.4207 },
-    "L9M": { lat: 44.7667, lng: -79.9333 },
-    "L4C": { lat: 43.8828, lng: -79.4403 }
-  };
-
-  const getCoordinatesForAddress = (address) => {
-    const trimmedAddress = address.trim();
-    
-    // Try exact match first
-    if (hospitalCoords[trimmedAddress]) {
-      return hospitalCoords[trimmedAddress];
-    }
-
-    // Try matching by substring
-    for (const [key, coords] of Object.entries(hospitalCoords)) {
-      if (trimmedAddress.includes(key) || key.includes(trimmedAddress)) {
-        return coords;
-      }
-    }
-
-    // Try extracting postal code (format: A1A 1A1 or A1A1A1)
-    const postalMatch = address.match(/([A-Z]\d[A-Z])\s?(\d[A-Z]\d)/i);
-    if (postalMatch) {
-      const postalPrefix = postalMatch[1];
-      if (postalCodeCoords[postalPrefix]) {
-        return postalCodeCoords[postalPrefix];
-      }
-    }
-
-    return null;
-  };
-
   // Haversine formula to calculate distance between two coordinates
   const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Earth's radius in km
@@ -2369,20 +2289,18 @@ function HospitalPage() {
   const calculateDistances = (hospitalsToUse) => {
     try {
       const dists = hospitalsToUse.map((h, index) => {
-        const coords = getCoordinatesForAddress(h.address);
-        if (coords) {
+        if (h.coords) {
           const distance = calculateHaversineDistance(
             userLocation.lat,
             userLocation.lng,
-            coords.lat,
-            coords.lng
+            h.coords.lat,
+            h.coords.lng
           );
           return {
             ...h,
             distance: distance,
             duration: estimateDriveTime(distance),
             col: hospitalColors[index % hospitalColors.length],
-            coords: coords,
           };
         }
         return {
@@ -2412,9 +2330,12 @@ function HospitalPage() {
           .filter(line => line.trim())
           .map((line, i) => {
             const parts = line.split(',');
-            const name = parts[0] || '';
-            const address = parts.slice(1).join(',') || '';
-            return { name: name.trim(), address: address.trim(), col: hospitalColors[i % hospitalColors.length] };
+            const name = parts[0].trim();
+            const lat = parseFloat(parts[parts.length - 2]);
+            const lng = parseFloat(parts[parts.length - 1]);
+            const address = parts.slice(1, -2).join(',').trim();
+            const coords = (!isNaN(lat) && !isNaN(lng)) ? { lat, lng } : null;
+            return { name, address, coords, col: hospitalColors[i % hospitalColors.length] };
           });
         setHospitals(parsedHospitals);
       } catch (error) {
