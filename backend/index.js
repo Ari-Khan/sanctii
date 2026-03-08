@@ -50,7 +50,9 @@ app.get("/api/vitals/latest", async (req, res) => {
     // Default to "--" if no data has been pushed yet
     res.json(latest || { pulse: "--", breathing: "--", status: "Offline" });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch vitals" });
+    console.error("Vitals route error:", error);
+    // include message to help debugging
+    res.status(500).json({ error: "Failed to fetch vitals", detail: error.message });
   }
 });
 
