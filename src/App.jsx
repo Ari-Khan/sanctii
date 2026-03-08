@@ -1569,7 +1569,7 @@ const DOCTORS = [
   { id: "D-005", name: "Dr. Kim",    specialty: "Internal Medicine", status: "Active", patients: 10, rating: 4.8 },
 ];
 
-function PatientCard({ p }) {
+function PatientCard({ p, onRemove }) {
   const [open, setOpen] = useState(false);
   const sc  = p.sev >= 5 ? T.roseDeep : p.sev >= 4 ? T.rose : p.sev >= 3 ? T.amber : T.vital;
   const stc = p.status === "Critical" ? T.roseDeep : p.status === "In Treatment" ? T.amber : p.status === "Discharged" ? T.inkFaint : T.vital;
@@ -1598,6 +1598,15 @@ function PatientCard({ p }) {
           </div>
           <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint }}>{p.room} · {p.apptTime} · {p.doctor}</div>
         </div>
+        {onRemove && (
+          <button
+            onClick={e => { e.stopPropagation(); onRemove(p); }}
+            title="Remove from queue"
+            style={{ marginLeft:4, border:"none", background:"transparent", color:T.inkFaint, cursor:"pointer", fontSize:14, padding:"4px 6px", borderRadius:6, transition:"all .2s", lineHeight:1 }}
+            onMouseEnter={e => { e.target.style.color = T.roseDeep; e.target.style.background = `${T.rose}15`; }}
+            onMouseLeave={e => { e.target.style.color = T.inkFaint; e.target.style.background = "transparent"; }}
+          >✕</button>
+        )}
         <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.inkFaint, marginLeft:4 }}>{open?"▲":"▼"}</div>
       </div>
 
@@ -1740,9 +1749,18 @@ function DoctorPage() {
   const filteredFeedback = feedback.filter(f => searchDoctor === "" || f.doctorName.toLowerCase().includes(searchDoctor.toLowerCase()));
 
   // choose source list depending on tab; on patients tab show incidents only
+  const handleDeleteIncident = (patient) => {
+    if (!patient._incidentId) return;
+    if (!confirm(`Remove ${patient.name} from the queue?`)) return;
+    fetch(`http://localhost:3001/api/incidents/${patient._incidentId}`, { method: "DELETE" })
+      .then(r => { if (r.ok) setIncidents(prev => prev.filter(inc => inc._id !== patient._incidentId)); })
+      .catch(console.error);
+  };
+
   const patientSource = tab === "patients" ? incidents.map(i => {
     const hc = i.healthCard || {};
     return {
+      _incidentId: i._id,
       id: hc.card_number || i.patient.email || i._id,
       name: hc.full_name || i.patient.name || "Unknown",
       age: hc.date_of_birth ? Math.floor((Date.now() - new Date(hc.date_of_birth).getTime()) / 31557600000) : null,
@@ -1856,22 +1874,11 @@ function DoctorPage() {
           {/* Stats */}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:18 }}>
             <Stat label="Incidents" value={patientSource.length} color={T.rose}/>
-            <Stat label="Critical / Urgent" value={PATIENTS.filter(p=>p.sev>=4).length} color={T.roseDeep}/>
-            <Stat label="In Treatment" value={PATIENTS.filter(p=>p.status==="In Treatment").length} color={T.amber}/>
-            <Stat label="Discharged Today" value={PATIENTS.filter(p=>p.status==="Discharged").length} color={T.vital}/>
+            <Stat label="Critical / Urgent" value={patientSource.filter(p=>p.sev>=4).length} color={T.roseDeep}/>
+            <Stat label="In Treatment" value={patientSource.filter(p=>p.status==="In Treatment" || p.status==="Critical").length} color={T.amber}/>
+            <Stat label="Discharged Today" value={patientSource.filter(p=>p.status==="Discharged").length} color={T.vital}/>
           </div>
 
-          {/* Critical alert banner */}
-          {PATIENTS.filter(p=>p.sev>=5).map(p=>(
-            <div key={p.id} style={{ marginBottom:14, padding:"13px 18px", borderRadius:14, background:`linear-gradient(135deg,${T.roseDeep}10,${T.roseTint})`, border:`1.5px solid ${T.rose}55`, display:"flex", alignItems:"center", gap:14 }}>
-              <div style={{ width:38, height:38, borderRadius:11, background:T.rose, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, animation:"breathe 2s ease-in-out infinite", flexShrink:0 }}><Icons.heartbeat/></div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.roseDeep }}>Critical Alert — {p.name} · {p.room}</div>
-                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.inkMid, marginTop:2 }}>{p.notes}</div>
-              </div>
-              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.rose, padding:"4px 10px", borderRadius:6, border:`1px solid ${T.rose}44`, flexShrink:0 }}>SEV {p.sev} · {p.diagnosis}</div>
-            </div>
-          ))}
 
           {/* Search + filter */}
           <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap", alignItems:"center" }}>
@@ -1891,7 +1898,7 @@ function DoctorPage() {
           <Card>
             <SHead>Patient Queue — sorted by severity</SHead>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-              {filteredPatients.map(p => <PatientCard key={p.id} p={p}/>)}
+              {filteredPatients.map(p => <PatientCard key={p._incidentId || p.id} p={p} onRemove={p._incidentId ? handleDeleteIncident : null}/>)}
             </div>
             {filteredPatients.length === 0 && <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"20px 0" }}>No patients match.</div>}
           </Card>

@@ -50,4 +50,31 @@ router.post("/", async (req, res) => {
   }
 });
 
+// DELETE /api/incidents/:id — remove all triage records for that patient
+router.delete("/:id", async (req, res) => {
+  try {
+    const TriageRecord = mongoose.model("TriageRecord");
+    // Find the record first to get the patient info
+    const record = await TriageRecord.findById(req.params.id);
+    if (!record) return res.status(404).json({ error: "Incident not found" });
+
+    // Delete ALL records for the same patient so they don't reappear
+    const email = record.patient?.email;
+    const name = record.patient?.name;
+    let result;
+    if (email) {
+      result = await TriageRecord.deleteMany({ "patient.email": email });
+    } else if (name) {
+      result = await TriageRecord.deleteMany({ "patient.name": name });
+    } else {
+      result = await TriageRecord.findByIdAndDelete(req.params.id);
+    }
+    console.log(`Incidents deleted for ${email || name}: ${result.deletedCount || 1} records`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Incident delete error", err);
+    res.status(500).json({ error: err.message || "Failed to delete incident" });
+  }
+});
+
 export default router;
