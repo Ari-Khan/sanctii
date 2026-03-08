@@ -178,22 +178,6 @@ export default function PresagePage({ PageWrap }) {
         text = `(fallback) ${text}`;
       }
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{
-              role: "user",
-              parts: [{ text: `You are a clinical triage assistant. A patient reports the following symptoms:\n"""\n${input.trim()}\n"""\nProvide a rating of EMERGENCY, URGENT, or ROUTINE. For EMERGENCY or URGENT, provide a brief 1-2 sentence explanation. For ROUTINE, provide 1-2 sentences of practical self-care advice to the patient. Respond ONLY in this format: [SEVERITY]: [EXPLANATION_OR_ADVICE]` }]
-            }]
-          }),
-        }
-      );
-      const data = await res.json();
-      if (data.error) { setTriageResult(`Error: ${data.error.message}`); setLoading(false); return; }
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Error: No response";
       setTriageResult(text);
 
       // Notify doctor + auto-schedule for URGENT/EMERGENCY
