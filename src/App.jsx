@@ -1604,23 +1604,64 @@ function PatientCard({ p }) {
       {/* Expanded details */}
       {open && (
         <div style={{ padding:"0 14px 14px", borderTop:`1px solid ${sc}18` }}>
-          {/* Vitals */}
-          <div style={{ display:"flex", gap:8, margin:"12px 0 10px" }}>
-            <VitalChip label="BP" val={p.vitals.bp} warn={parseInt(p.vitals.bp)>140}/>
-            <VitalChip label="HR bpm" val={p.vitals.hr} warn={p.vitals.hr>100||p.vitals.hr<55}/>
-            <VitalChip label="Temp °C" val={p.vitals.temp} warn={p.vitals.temp>37.5}/>
-            <VitalChip label="SpO₂ %" val={p.vitals.o2} warn={p.vitals.o2<95}/>
-          </div>
+          {/* Vitals — only show if real data exists */}
+          {p.vitals && p.vitals.bp !== "--" && (
+            <div style={{ display:"flex", gap:8, margin:"12px 0 10px" }}>
+              <VitalChip label="BP" val={p.vitals.bp} warn={parseInt(p.vitals.bp)>140}/>
+              <VitalChip label="HR bpm" val={p.vitals.hr} warn={p.vitals.hr>100||p.vitals.hr<55}/>
+              <VitalChip label="Temp °C" val={p.vitals.temp} warn={p.vitals.temp>37.5}/>
+              <VitalChip label="SpO₂ %" val={p.vitals.o2} warn={p.vitals.o2<95}/>
+            </div>
+          )}
+          {/* Health Card info — show when available */}
+          {p.healthCard && (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, margin:"12px 0 10px", padding:"12px 14px", borderRadius:10, background:`${T.vital}08`, border:`1px solid ${T.vital}22` }}>
+              <div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.vital, marginBottom:3, letterSpacing:"0.08em" }}>FULL NAME</div>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink, fontWeight:600 }}>{p.healthCard.full_name || "--"}</div>
+              </div>
+              <div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.vital, marginBottom:3, letterSpacing:"0.08em" }}>CARD NUMBER</div>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink, fontWeight:600 }}>{p.healthCard.card_number || "--"}</div>
+              </div>
+              <div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>DATE OF BIRTH</div>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink }}>{p.healthCard.date_of_birth || "--"}</div>
+              </div>
+              <div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>GENDER</div>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink }}>{p.healthCard.gender || "--"}</div>
+              </div>
+              <div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>VERSION CODE</div>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink }}>{p.healthCard.version_code || "--"}</div>
+              </div>
+              <div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>PROVINCE</div>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink }}>{p.healthCard.province || "--"}</div>
+              </div>
+              <div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>EXPIRY DATE</div>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink }}>{p.healthCard.expiry_date || "--"}</div>
+              </div>
+              <div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>ISSUE DATE</div>
+                <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink }}>{p.healthCard.issue_date || "--"}</div>
+              </div>
+            </div>
+          )}
           {/* Info grid */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
             <div>
               <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>DIAGNOSIS</div>
               <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink, fontWeight:600 }}>{p.diagnosis}</div>
             </div>
+            {!p.healthCard && p.age && (
             <div>
               <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, marginBottom:3, letterSpacing:"0.08em" }}>PATIENT</div>
-              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink }}>{p.age}y {p.sex} · DOB {p.dob}</div>
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:T.ink }}>{p.age ? `${p.age}y` : ""} {p.sex} {p.dob ? `· DOB ${p.dob}` : ""}</div>
             </div>
+            )}
             <div>
               <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, marginBottom:3, letterSpacing:"0.08em" }}>ALLERGIES</div>
               <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:12, color:p.allergies.length?T.rose:T.inkFaint }}>{p.allergies.length?p.allergies.join(", "):"None known"}</div>
@@ -1699,15 +1740,28 @@ function DoctorPage() {
   const filteredFeedback = feedback.filter(f => searchDoctor === "" || f.doctorName.toLowerCase().includes(searchDoctor.toLowerCase()));
 
   // choose source list depending on tab; on patients tab show incidents only
-  const patientSource = tab === "patients" ? incidents.map(i => ({
-    id: i.patient.email || i.patient.name || i._id,
-    name: i.patient.name || "Unknown",
-    sev: i.category === "emergency" ? 5 : 4,
-    notes: i.message,
-    diagnosis: "",
-    room: "",
-    status: "",
-  })) : PATIENTS;
+  const patientSource = tab === "patients" ? incidents.map(i => {
+    const hc = i.healthCard || {};
+    return {
+      id: hc.card_number || i.patient.email || i._id,
+      name: hc.full_name || i.patient.name || "Unknown",
+      age: hc.date_of_birth ? Math.floor((Date.now() - new Date(hc.date_of_birth).getTime()) / 31557600000) : null,
+      sex: hc.gender ? hc.gender.charAt(0).toUpperCase() : "",
+      dob: hc.date_of_birth || "",
+      room: "",
+      doctor: "",
+      apptTime: new Date(i.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      sev: i.category === "emergency" ? 5 : 4,
+      status: i.category === "emergency" ? "Critical" : "Waiting",
+      complaint: i.symptoms || i.message || "",
+      diagnosis: i.message || "",
+      vitals: null,
+      healthCard: Object.keys(hc).length > 0 ? hc : null,
+      allergies: [],
+      meds: [],
+      notes: `Presage AI Triage: ${i.category.toUpperCase()}\n${i.message || ""}`.trim(),
+    };
+  }) : PATIENTS;
 
   const filteredPatients = patientSource
     .filter(p => filterSev === 0 || p.sev === filterSev)
