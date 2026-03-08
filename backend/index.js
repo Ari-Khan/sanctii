@@ -27,9 +27,16 @@ const Vital = mongoose.model("Vital", vitalSchema);
 
 console.log("Checking MONGO_URI in main:", !!process.env.MONGO_URI);
 
-app.use(cors({ 
-  origin: ["http://localhost:5176", "http://localhost:5173", "http://localhost:3000"], 
-  credentials: true 
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow any localhost / 127.0.0.1 origin (any port) plus same-origin requests
+    if (!origin || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`CORS blocked: ${origin}`));
+    }
+  },
+  credentials: true,
 }));
 app.use(express.json({ limit: "20mb" }));
 

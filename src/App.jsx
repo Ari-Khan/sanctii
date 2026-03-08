@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 
 // backend API base (hard‑coded as per instructions)
 const API_BASE = "http://localhost:5176";
-import { Routes, Route, useNavigate, Navigate, useSearchParams } from "react-router-dom";
+import { Routes, Route, useNavigate, Navigate, useSearchParams, useLocation } from "react-router-dom";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -1759,38 +1759,46 @@ function DoctorPage() {
 
   const fetchFeedback = () => {
     fetch(`${API_BASE}/api/feedback`)
-      .then(r => r.json()).then(data => setFeedback(Array.isArray(data) ? data : [])).catch(console.error);
+      .then(r => r.json())
+      .then(data => setFeedback(Array.isArray(data) ? data : []))
+      .catch(err => console.error("feedback fetch:", err));
   };
-
-  useEffect(() => { fetchFeedback(); }, []);
 
   const handleDeleteFeedback = (id) => {
     if (!confirm("Are you sure you want to delete this feedback?")) return;
-    fetch(`http://localhost:3001/api/feedback/${id}`, { method: "DELETE" })
+    fetch(`${API_BASE}/api/feedback/${id}`, { method: "DELETE" })
       .then(r => {
         if (r.ok) fetchFeedback();
         else alert("Failed to delete feedback");
       }).catch(console.error);
   };
 
-  // fetch incidents helper (used by effect and manual button)
+  // fetch incidents — always uses API_BASE, never hardcoded
   const fetchInc = async () => {
+    setLoadingInc(true);
     try {
-      const res = await fetch("http://localhost:3001/api/incidents");
+      const res = await fetch(`${API_BASE}/api/incidents`);
       if (res.ok) {
         const data = await res.json();
         setIncidents(Array.isArray(data) ? data : []);
+      } else {
+        console.error("incidents fetch: HTTP", res.status);
       }
-    } catch (e) { console.error("incidents fetch", e); }
-    finally { setLoadingInc(false); }
+    } catch (e) {
+      console.error("incidents fetch:", e);
+    } finally {
+      setLoadingInc(false);
+    }
   };
 
-  // initial fetch + auto-poll every 8 s
+  // Re-fetch on every navigation to this page + poll every 8 s
+  const location = useLocation();
   useEffect(() => {
+    fetchFeedback();
     fetchInc();
     const iv = setInterval(fetchInc, 8000);
     return () => clearInterval(iv);
-  }, []);
+  }, [location.pathname]);
 
   // show notification banner when new incident arrives
   useEffect(() => {
