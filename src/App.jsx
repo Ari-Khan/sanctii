@@ -1688,7 +1688,7 @@ function DoctorPage() {
   const [filterSev,      setFilterSev]      = useState(0); // 0 = all
 
   const fetchFeedback = () => {
-    fetch(`${API_BASE}/api/feedback`)
+    fetch("http://localhost:3001/api/feedback")
       .then(r => r.json()).then(data => setFeedback(data)).catch(console.error);
   };
 
@@ -1696,7 +1696,7 @@ function DoctorPage() {
 
   const handleDeleteFeedback = (id) => {
     if (!confirm("Are you sure you want to delete this feedback?")) return;
-    fetch(`${API_BASE}/api/feedback/${id}`, { method: "DELETE" })
+    fetch(`http://localhost:3001/api/feedback/${id}`, { method: "DELETE" })
       .then(r => {
         if (r.ok) fetchFeedback();
         else alert("Failed to delete feedback");
@@ -1706,7 +1706,7 @@ function DoctorPage() {
   // fetch incidents helper (used by effect and manual button)
   const fetchInc = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/incidents`);
+      const res = await fetch("http://localhost:3001/api/incidents");
       if (res.ok) {
         const data = await res.json();
         setIncidents(data);
