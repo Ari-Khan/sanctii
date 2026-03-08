@@ -2,7 +2,6 @@
   "version": 2,
   "builds": [
     { "src": "backend/index.js", "use": "@vercel/node" },
-    // point at the front‑end package.json so Vercel runs `npm run build`
     { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
   ],
   "routes": [
