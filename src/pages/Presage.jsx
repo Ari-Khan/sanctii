@@ -143,9 +143,27 @@ export default function PresagePage({ PageWrap }) {
           messages: [{ role: "user", content: prompt }],
         }),
       });
+      if (r.status === 401) {
+        throw new Error("Groq API key unauthorized (401)");
+      }
       const d = await r.json();
       if (!r.ok || d.error) throw new Error(d.error?.message || "Groq request failed");
       return d.choices?.[0]?.message?.content?.trim() || "";
+    };
+
+    // helper to let backend handle triage (uses server-side keys)
+    const callServerTriage = async () => {
+      const resp = await fetch(`${API_BASE}/api/triage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ narrative: input.trim(), patient: user ? { name: user.name, email: user.email } : null, nearestHospital }),
+      });
+      let respData = {};
+      try { respData = await resp.json(); } catch (parseErr) {
+        console.warn("Failed to parse triage response as JSON", parseErr, "status", resp.status);
+      }
+      if (!resp.ok) throw new Error(respData.detail || "Backend triage failed (empty response)");
+      return respData.result || "";
     };
 
     try {
@@ -173,9 +191,16 @@ export default function PresagePage({ PageWrap }) {
         if (data.error) throw new Error(data.error.message);
         text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Error: No response";
       } catch (gemErr) {
-        console.warn("Gemini call failed, falling back to Groq", gemErr);
-        text = await callGroq();
-        text = `(fallback) ${text}`;
+        console.warn("Gemini call failed, attempting fallback", gemErr);
+        // first try client-side Groq (may 401)
+        try {
+          text = await callGroq();
+          text = `(fallback) ${text}`;
+        } catch (groqErr) {
+          console.warn("Groq call failed, delegating to server", groqErr);
+          text = await callServerTriage();
+          text = `(server) ${text}`;
+        }
       }
 
       setTriageResult(text);

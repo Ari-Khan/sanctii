@@ -1679,7 +1679,7 @@ function DoctorPage() {
   const [filterSev,      setFilterSev]      = useState(0); // 0 = all
 
   const fetchFeedback = () => {
-    fetch("http://localhost:3001/api/feedback")
+    fetch(`${API_BASE}/api/feedback`)
       .then(r => r.json()).then(data => setFeedback(data)).catch(console.error);
   };
 
@@ -1687,24 +1687,26 @@ function DoctorPage() {
 
   const handleDeleteFeedback = (id) => {
     if (!confirm("Are you sure you want to delete this feedback?")) return;
-    fetch(`http://localhost:3001/api/feedback/${id}`, { method: "DELETE" })
+    fetch(`${API_BASE}/api/feedback/${id}`, { method: "DELETE" })
       .then(r => {
         if (r.ok) fetchFeedback();
         else alert("Failed to delete feedback");
       }).catch(console.error);
   };
 
+  // fetch incidents helper (used by effect and manual button)
+  const fetchInc = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/incidents`);
+      if (res.ok) {
+        const data = await res.json();
+        setIncidents(data);
+      }
+    } catch (e) { console.error("incidents fetch", e); }
+  };
+
   // incident polling
   useEffect(() => {
-    const fetchInc = async () => {
-      try {
-        const res = await fetch("http://localhost:3001/api/incidents");
-        if (res.ok) {
-          const data = await res.json();
-          setIncidents(data);
-        }
-      } catch (e) { console.error("incidents fetch", e); }
-    };
     fetchInc();
     const iv = setInterval(fetchInc, 8000);
     return () => clearInterval(iv);
@@ -1770,6 +1772,7 @@ function DoctorPage() {
         <div style={{ flex:1 }}/>
         <button className="btn-ghost" style={{ fontSize:12, padding:"8px 18px" }} onClick={()=>navigate("/rooms")}>Room assignment</button>
         <button className="btn-ghost" style={{ fontSize:12, padding:"8px 18px" }} onClick={()=>navigate("/schedule")}>Scheduling</button>
+        <button className="btn-ghost" style={{ fontSize:12, padding:"8px 18px" }} onClick={fetchInc}>Refresh Incidents</button>
       </div>
 
       {/* ── Doctors Tab (Floorplan replacement) ── */}
