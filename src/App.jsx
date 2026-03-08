@@ -190,7 +190,7 @@ function LoginPage() {
           {[
             [<Icons.shield/>, "Auth0 enterprise authentication"],
             [<Icons.card/>,   "Instant health card scanning"],
-            [<Icons.heartbeat/>, "AI-powered triage with Presage"],
+            [<Icons.heartbeat/>, "AI-powered triage with Gemini"],
             [<Icons.mapPin/>, "Real-time hospital routing"],
           ].map(([ic, text], i) => (
             <div key={i} style={{ display:"flex", alignItems:"center", gap:12, animation:`slideR .6s ease ${.1+i*.1}s both`, opacity:0 }}>
@@ -2369,8 +2369,8 @@ function SchedulePage() {
                         }}
                       >
                         {isHov && !startAppt && (
-                          <div style={{ position:"absolute", inset:2, borderRadius:6, border:`1.5px dashed ${T.vital}`, display:"flex", alignItems:"center", justifyContent:"center", zIndex:1 }}>
-                            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.vital, letterSpacing:"0.08em" }}>DROP</span>
+                          <div style={{ position:"absolute", inset:2, borderRadius:6, border:`1.5px dashed ${T.vital}`, display:"flex", alignItems:"center", justifyContent:"center", zIndex:1, pointerEvents:"none" }}>
+                            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.vital, letterSpacing:"0.08em", pointerEvents:"none" }}>DROP</span>
                           </div>
                         )}
                         {startAppt && (

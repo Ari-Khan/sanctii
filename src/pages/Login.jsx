@@ -65,7 +65,7 @@ export default function LoginPage() {
           {[
             [<Icons.shield/>, "Auth0 enterprise authentication"],
             [<Icons.card/>,   "Instant health card scanning"],
-            [<Icons.heartbeat/>, "AI-powered triage with Presage"],
+            [<Icons.heartbeat/>, "AI-powered triage with Gemini"],
             [<Icons.mapPin/>, "Real-time hospital routing"],
           ].map(([ic, text], i) => (
             <div key={i} style={{ display:"flex", alignItems:"center", gap:12, animation:`slideR .6s ease ${.1+i*.1}s both`, opacity:0 }}>
