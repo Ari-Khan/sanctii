@@ -1747,10 +1747,11 @@ function DoctorPage() {
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState(() => searchParams.get("tab") === "patients" ? "patients" : "doctors");
+  const [tab, setTab] = useState(() => searchParams.get("tab") === "doctors" ? "doctors" : "patients");
   const [feedback,       setFeedback]       = useState([]);
   const [incidents,      setIncidents]      = useState([]);
   const [loadingInc,     setLoadingInc]     = useState(true);
+  const [lastSync,       setLastSync]       = useState(null);
   const [notifVisible,   setNotifVisible]   = useState(false);
   const notifCountRef = useRef(0);
   const [searchDoctor,   setSearchDoctor]   = useState("");
@@ -1781,6 +1782,7 @@ function DoctorPage() {
       if (res.ok) {
         const data = await res.json();
         setIncidents(Array.isArray(data) ? data : []);
+        setLastSync(new Date());
       } else {
         console.error("incidents fetch: HTTP", res.status);
       }
@@ -1856,7 +1858,8 @@ function DoctorPage() {
     };
   });
 
-  const patientSource = tab === "patients" ? incidentPatients : PATIENTS;
+  // Patient Info tab always shows live MongoDB data; Doctors tab uses static demo list
+  const patientSource = incidentPatients;
 
   const filteredPatients = patientSource
     .filter(p => filterSev === 0 || p.sev === filterSev)
@@ -1972,18 +1975,25 @@ function DoctorPage() {
             </div>
           </div>
 
-          {/* Patient cards ONLY (No feedback here) */}
+          {/* Patient cards from MongoDB */}
           <Card>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
               <SHead>Patient Queue — sorted by severity</SHead>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                {loadingInc && <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint, letterSpacing:"0.08em" }}>Syncing…</span>}
+                {loadingInc
+                  ? <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.amber, letterSpacing:"0.08em" }}>Syncing…</span>
+                  : lastSync && <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint, letterSpacing:"0.06em" }}>Updated {lastSync.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit", second:"2-digit" })}</span>
+                }
                 <div style={{ width:7, height:7, borderRadius:"50%", background: loadingInc ? T.amber : T.vital, animation:"pulse 1.5s ease infinite" }}/>
               </div>
             </div>
             {loadingInc && incidentPatients.length === 0 ? (
-              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"30px 0" }}>
-                Connecting to MongoDB…
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"40px 0" }}>
+                Fetching patient data from MongoDB…
+              </div>
+            ) : incidentPatients.length === 0 ? (
+              <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"40px 0" }}>
+                No triage incidents in the queue. Patients will appear here after running Presage AI triage.
               </div>
             ) : (
               <>
@@ -1992,7 +2002,7 @@ function DoctorPage() {
                 </div>
                 {filteredPatients.length === 0 && (
                   <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:13, color:T.inkFaint, textAlign:"center", padding:"20px 0" }}>
-                    {incidentPatients.length === 0 ? "No triage incidents in the queue." : "No patients match the current filter."}
+                    No patients match the current filter.
                   </div>
                 )}
               </>
