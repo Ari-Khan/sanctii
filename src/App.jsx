@@ -2802,17 +2802,6 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* ── STATS BAND ── */}
-      <section style={{ padding:"40px 60px", borderTop:`1px solid ${T.border}`, borderBottom:`1px solid ${T.border}`, background:T.surfaceHard, position:"relative", zIndex:1 }}>
-        <div style={{ display:"flex", justifyContent:"center", gap:0, maxWidth:900, margin:"0 auto", flexWrap:"wrap" }}>
-          {[["98%","Triage Accuracy"],["< 2s","AI Response"],["4 Cities","Active Hospitals"],["SOC 2","Type II Certified"]].map(([val,lbl],i)=>(
-            <div key={i} style={{ flex:"1 1 180px", textAlign:"center", padding:"16px 24px", borderRight:i<3?`1px solid ${T.border}`:"none" }}>
-              <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:32, color:T.rose, letterSpacing:"-0.03em" }}>{val}</div>
-              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.14em", textTransform:"uppercase", marginTop:4 }}>{lbl}</div>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* ── CTA BAND ── */}
       <section style={{ padding:"72px 60px", textAlign:"center", position:"relative" }}>
