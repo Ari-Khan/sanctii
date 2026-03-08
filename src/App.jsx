@@ -623,7 +623,7 @@ export function PageWrap({ children, title, icon, subtitle, badge }) {
 
       <div style={{ position:"sticky", top:0, zIndex:50, display:"flex", alignItems:"center", gap:14, padding:"0 30px", height:65, background:"rgba(248,240,232,.9)", backdropFilter:"blur(20px)", borderBottom:`1px solid ${T.border}`, flexShrink:0 }}>
         <button className="btn-ghost" onClick={()=>navigate("/app")} style={{ padding:"7px 16px", fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
-          ← Maze
+          ← Menu
         </button>
         <div style={{ width:1, height:26, background:T.border }}/>
         <div style={{ width:36, height:36, borderRadius:10, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, flexShrink:0 }}>{icon}</div>
@@ -1239,7 +1239,7 @@ function NyghFloorPlan({ floors = NYGH_FLOORS, hospitalName, hospitalAddress }) 
       <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:12, flexWrap:"wrap", gap:10 }}>
         <div>
           <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>
-            {hospitalName ? `${hospitalName} — Floor Plan 3D` : "Floor Plan — 3D"}
+            {hospitalName ? `${hospitalName} — 3D Floor Plan` : "3D Floor Plan"}
           </div>
           <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase", marginTop:2 }}>
             {hospitalAddress || (hospitalName ? hospitalName : "North York General · 4001 Leslie St")} · Drag to rotate · Hover for details
@@ -1412,7 +1412,7 @@ ${pdfText.slice(0, 12000)}`;
           <div style={{ width: 32, height: 32, borderRadius: 9, background: T.roseTint, border: `1.5px solid ${T.rose}45`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>📄</div>
           <div>
             <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14, color: T.ink }}>Upload Hospital Floor Plan PDF</div>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: T.inkFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>Powered by Groq AI · Free · Updates 3D hologram</div>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: T.inkFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>Updates 3D hologram</div>
           </div>
         </div>
         <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.inkFaint }}>{expanded ? "▲ hide" : "▼ expand"}</span>
@@ -1421,7 +1421,7 @@ ${pdfText.slice(0, 12000)}`;
       {expanded && (
         <div style={{ marginTop: 14, borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
           <div style={{ marginBottom: 10 }}>
-            <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid, marginBottom: 5 }}>Groq API Key <span style={{ color: T.vital, fontSize: 11 }}>(free — no credit card)</span></div>
+            <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid, marginBottom: 5 }}>Groq API Key <span style={{ color: T.vital, fontSize: 11 }}></span></div>
             <input
               type="password"
               value={apiKey}
@@ -1429,11 +1429,10 @@ ${pdfText.slice(0, 12000)}`;
               placeholder="gsk_…"
               style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1.5px solid ${T.border}`, fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.ink, background: T.bgDeep, outline: "none", boxSizing: "border-box" }}
             />
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: T.inkFaint, marginTop: 4, letterSpacing: "0.06em" }}>Saved in localStorage · Get a free key at console.groq.com</div>
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid, marginBottom: 5 }}>Floor Plan PDF <span style={{ color: T.inkFaint, fontSize: 11 }}>(must be text-based, not scanned)</span></div>
+            <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, color: T.inkMid, marginBottom: 5 }}>Floor Plan PDF <span style={{ color: T.inkFaint, fontSize: 11 }}></span></div>
             <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, border: `1.5px dashed ${file ? T.vital : T.border}`, background: file ? T.vitalPale : "transparent", cursor: "pointer" }}>
               <input type="file" accept=".pdf" style={{ display: "none" }} onChange={e => { setFile(e.target.files[0]); setStatus("idle"); }} />
               <span style={{ fontSize: 18 }}>{file ? "✅" : "📁"}</span>
@@ -1450,7 +1449,7 @@ ${pdfText.slice(0, 12000)}`;
               disabled={!file || !apiKey.trim() || status === "loading"}
               style={{ opacity: (!file || !apiKey.trim() || status === "loading") ? 0.5 : 1, cursor: (!file || !apiKey.trim() || status === "loading") ? "not-allowed" : "pointer" }}
             >
-              {status === "loading" ? "Extracting & Analyzing…" : "Analyze & Update 3D Map →"}
+              {status === "loading" ? "Extracting & Analyzing…" : "Update 3D Map →"}
             </button>
             {status === "done"  && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.vital }}>✓ Floor plan updated!</span>}
             {status === "error" && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.rose }}>✗ {errMsg}</span>}
@@ -1505,7 +1504,7 @@ function CapacityEditor({ floors, onSave }) {
           <div style={{ width:32, height:32, borderRadius:9, background:`${T.amber}18`, border:`1.5px solid ${T.amber}45`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15 }}>✏️</div>
           <div>
             <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>Edit Room Occupancy</div>
-            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase" }}>Set current patients &amp; max capacity · Rebuilds 3D map</div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase" }}>Set current patients &amp; max capacity</div>
           </div>
         </div>
         <span style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.inkFaint }}>{expanded ? "▲ hide" : "▼ expand"}</span>
@@ -1561,7 +1560,7 @@ function CapacityEditor({ floors, onSave }) {
           </div>
 
           <button className="btn-primary" onClick={apply} style={{ fontSize:12 }}>
-            Apply Changes → Rebuild 3D Map
+            Apply Changes →
           </button>
         </div>
       )}
@@ -1867,16 +1866,16 @@ function DoctorPage() {
   );
 
   return (
-    <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Roberts">
+    <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard">
       {/* Top nav */}
       {notifVisible && (
         <div style={{ position:"fixed", top:80, right:20, padding:"12px 20px", background:T.rose, color:T.white, borderRadius:8, boxShadow:"0 4px 12px rgba(0,0,0,.2)", zIndex:200 }}>
-          New incident recorded
+          New incident(s) recorded
         </div>
       )}
       <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
-        {TAB_BTN("doctors","👨‍⚕️ Doctors")}
-        {TAB_BTN("patients","🧑‍⚕️ Patient Info")}
+        {TAB_BTN("doctors"," Doctors")}
+        {TAB_BTN("patients"," Patient Info")}
         <div style={{ flex:1 }}/>
         <button className="btn-ghost" style={{ fontSize:12, padding:"8px 18px" }} onClick={()=>navigate("/rooms")}>Room assignment</button>
         <button className="btn-ghost" style={{ fontSize:12, padding:"8px 18px" }} onClick={()=>navigate("/schedule")}>Scheduling</button>
@@ -2628,7 +2627,7 @@ function RoomsPage() {
   const handleHospitalInfo = (info) => { setHospitalInfo(info); };
 
   return (
-    <PageWrap title="Room Map" icon={<Icons.grid/>} subtitle="Live floor plan · Real-time bed status">
+    <PageWrap title="Room Map" icon={<Icons.grid/>} subtitle="3D floor plan · Real-time bed status">
       <FloorPlanUploader onFloors={handleFloors} onHospitalInfo={handleHospitalInfo}/>
       <CapacityEditor floors={hospitalFloors} onSave={handleFloors}/>
       <NyghFloorPlan key={floorKey} floors={hospitalFloors} hospitalName={hospitalInfo.name} hospitalAddress={hospitalInfo.address}/>
