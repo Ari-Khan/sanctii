@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 
 // loader using official @googlemaps/js-api-loader package
-import { Loader } from "@googlemaps/js-api-loader";
+
 
 /**
  * HospitalMap3D — Google Maps 3D interactive hospital map.
@@ -41,7 +41,7 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
     };
   };
 
-  // ── Load Google Maps ──
+  // ── Load Google Maps (new API) ──
   useEffect(() => {
     if (!containerRef.current) return;
     if (!resolvedApiKey) {
@@ -53,15 +53,29 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
 
     async function initMap() {
       try {
-        const loader = new Loader({ apiKey: resolvedApiKey, libraries: ["places","geometry"] });
-        const google = await loader.load();
-        if (cancelled || !containerRef.current) return;
-        const { Map } = google.maps;
+        // Set API key and load libraries using new functional API
+        if (!window.google || !window.google.maps) {
+          // Dynamically inject the Google Maps script if not present
+          const script = document.createElement('script');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${resolvedApiKey}&libraries=places,geometry`;
+          script.async = true;
+          document.head.appendChild(script);
+          await new Promise((resolve, reject) => {
+            script.onload = resolve;
+            script.onerror = reject;
+          });
+        }
 
-        // already routes library included via script parameter if needed
+        // Use importLibrary to ensure libraries are loaded
+        await Promise.all([
+          window.google.maps.importLibrary('maps'),
+          window.google.maps.importLibrary('core'),
+        ]);
+
+        if (cancelled || !containerRef.current) return;
 
         const center = getCenter();
-        const map = new Map(containerRef.current, {
+        const map = new window.google.maps.Map(containerRef.current, {
           center,
           zoom: 10,
           tilt: 45,
@@ -81,7 +95,7 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
         mapRef.current = map;
 
         // Directions renderer
-        const directionsRenderer = new google.maps.DirectionsRenderer({
+        const directionsRenderer = new window.google.maps.DirectionsRenderer({
           map,
           suppressMarkers: true,
           polylineOptions: {
@@ -93,7 +107,7 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
         directionsRendererRef.current = directionsRenderer;
 
         // Info window
-        infoWindowRef.current = new google.maps.InfoWindow();
+        infoWindowRef.current = new window.google.maps.InfoWindow();
 
         setMapLoaded(true);
       } catch (err) {
@@ -124,12 +138,12 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
     const validHospitals = hospitals.filter(h => h.coords);
 
     validHospitals.forEach((h, i) => {
-      const marker = new google.maps.Marker({
+      const marker = new window.google.maps.Marker({
         position: { lat: h.coords.lat, lng: h.coords.lng },
         map,
         title: h.name,
         icon: {
-          path: google.maps.SymbolPath.CIRCLE,
+          path: window.google.maps.SymbolPath.CIRCLE,
           fillColor: h.col || "#D4706A",
           fillOpacity: 0.9,
           strokeColor: "#fff",
@@ -158,12 +172,12 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
     // User location marker
     if (userMarkerRef.current) userMarkerRef.current.setMap(null);
     if (userLocation) {
-      const userMarker = new google.maps.Marker({
+      const userMarker = new window.google.maps.Marker({
         position: { lat: userLocation.lat, lng: userLocation.lng },
         map,
         title: "Your Location",
         icon: {
-          path: google.maps.SymbolPath.CIRCLE,
+          path: window.google.maps.SymbolPath.CIRCLE,
           fillColor: "#4488ff",
           fillOpacity: 1,
           strokeColor: "#fff",
@@ -177,7 +191,7 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
 
     // Fit bounds to show all
     if (validHospitals.length > 0) {
-      const bounds = new google.maps.LatLngBounds();
+      const bounds = new window.google.maps.LatLngBounds();
       validHospitals.forEach(h => bounds.extend({ lat: h.coords.lat, lng: h.coords.lng }));
       if (userLocation) bounds.extend(userLocation);
       map.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
@@ -187,6 +201,7 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
   // ── Draw directions when hospital selected ──
   useEffect(() => {
     if (!mapLoaded || !mapRef.current) return;
+    const map = mapRef.current;
 
     if (directionsRendererRef.current) {
       directionsRendererRef.current.setDirections({ routes: [] });
@@ -202,7 +217,7 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
     markersRef.current.forEach((marker, i) => {
       const isSelected = i === selectedHospital;
       marker.setIcon({
-        path: google.maps.SymbolPath.CIRCLE,
+        path: window.google.maps.SymbolPath.CIRCLE,
         fillColor: validHospitals[i]?.col || "#D4706A",
         fillOpacity: isSelected ? 1 : 0.7,
         strokeColor: isSelected ? "#fff" : "rgba(255,255,255,0.6)",
@@ -213,17 +228,17 @@ export default function HospitalMap3D({ hospitals = [], userLocation, selectedHo
     });
 
     // Request directions
-    const directionsService = new google.maps.DirectionsService();
+    const directionsService = new window.google.maps.DirectionsService();
     directionsService.route(
       {
         origin: { lat: userLocation.lat, lng: userLocation.lng },
         destination: { lat: h.coords.lat, lng: h.coords.lng },
-        travelMode: google.maps.TravelMode.DRIVING,
+        travelMode: window.google.maps.TravelMode.DRIVING,
       },
       (result, status) => {
         if (status === "OK" && directionsRendererRef.current) {
           directionsRendererRef.current.setDirections(result);
-          const bounds = new google.maps.LatLngBounds();
+          const bounds = new window.google.maps.LatLngBounds();
           bounds.extend({ lat: userLocation.lat, lng: userLocation.lng });
           bounds.extend({ lat: h.coords.lat, lng: h.coords.lng });
           mapRef.current.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });

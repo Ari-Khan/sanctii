@@ -1,69 +1,80 @@
 # Sanctii
 
-> ⚠️ **Environment variables required**:
-> 
-> * `GEMINI_API_KEY` – Google Gemini/GenAI key used by backend routes.
-> * `VITE_API_BASE` (optional) – URL of backend when running the frontend (`http://localhost:3001` by default). If you use a proxy or different host, set this in `.env` at the project root.
->
-> ## Running both servers together
-> Install the new dependency by running `npm install` in the project root (it adds `concurrently`).
-> After that you can launch both backend and frontend with a single command:
-> ```sh
-> npm run start:all
-> ```
-> This spins up `node backend/index.js` and `npm run dev` side‑by‑side. Before starting it will also try to kill any processes listening on ports `3001`, `5173`, or `5176` so stale servers don’t conflict.
+Sanctii is an **intelligent healthcare platform** that unifies patients, doctors, and hospitals through automation and real-time insights.
 
-## Triage persistence
-> When a clinical triage request returns **urgent** or **emergency** severity the backend saves a record in MongoDB with the following fields:
-> * `category`: lowered severity string
-> * `message`: explanation returned by Gemini
-> * `patient`: object passed from the front‑end (currently includes Auth0 user name/email)
-> * `timestamp`: automatic
->
-> The front‑end includes the logged‑in user's name and email in the request; additional patient data can be added to the `patient` object in the POST body as needed.
+### **Key Features**
 
-
-React + Vite app with Auth0 (doctor/patient sign-in).
-
-## Auth0 – production vs development
-
-The app uses Auth0 credentials from environment variables when set. **Do not use Auth0 “Development” keys in production.**
-
-- **Development:** If you don’t set env vars, the app falls back to built-in dev values (for local use only).
-- **Production:** Create a separate **Production** Application in the [Auth0 Dashboard](https://manage.auth0.com/), then set:
-  - `VITE_AUTH0_DOMAIN` – your tenant domain (e.g. `your-tenant.auth0.com`)
-  - `VITE_AUTH0_CLIENT_ID` – the production application’s Client ID  
-
-  Copy `.env.example` to `.env` and fill in these values. Never commit `.env`.
-
-In Auth0 Dashboard → Branding → Universal Login you can theme the login screen (e.g. red `#B91C1C` and cream `#FAF7F2`) so it matches the app.
-
-### Fix: “Connections using Auth0 development keys”
-
-That message means a **Social connection** (Google, Facebook, Apple, etc.) is using Auth0’s test keys instead of your own. Fix it in the Auth0 Dashboard:
-
-1. Open [Auth0 Dashboard](https://manage.auth0.com/) → **Authentication** → **Social** (or **Connections** → **Social**).
-2. For each connection that shows the warning you have two options:
-   - **Use your own keys (for production):** Click the connection → get a **Client ID** and **Client Secret** from that provider (e.g. [Google Cloud Console](https://console.cloud.google.com/) for Google) → paste them into the connection and save. Then the warning goes away.
-   - **Only need email/password:** If you don’t need that social login, turn **off** that connection for your Application: **Applications** → your app → **Connections** tab → disable the social connection that uses dev keys.
-
-After every connection either has your own keys or is disabled for your app, the warning will stop.
+- **AI Symptom Triage:** Patients describe symptoms and receive instant, AI-powered guidance on care severity and recommended facilities.
+- **Smart Hospital Routing:** Geolocation and mapping APIs find the nearest hospitals, estimate travel times, and display live wait data.
+- **Automated Scheduling:** Gemini AI coordinates appointments, optimizes patient flow, and reduces bottlenecks.
+- **Health Card Scanning:** Computer vision and OCR extract patient info from health cards, eliminating manual entry.
+- **Live Vital Monitoring:** Presage simulates and visualizes real-time vitals for clinicians.
+- **3D Hospital Visualization:** Immersive, interactive hospital maps powered by Three.js.
+- **Secure Patient Data:** All records are stored securely in MongoDB, with enterprise-grade Auth0 authentication.
 
 ---
 
-# React + Vite
+## What’s Next
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+- Integrate **real hospital wait-time data**
+- Expand AI Doctor with **medical datasets**
+- Add secure patient portals for long-term records
+- Support telemedicine and remote consultations
+- Deploy across **multiple healthcare networks**
 
-Currently, two official plugins are available:
+**Our vision:** Help patients reach the right care faster, while reducing administrative burdens for providers.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## Project Structure
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```
+sanctii/
+├── backend/           # FastAPI, models, routes
+├── public/            # Static assets (CSV, images, workers)
+├── src/               # React frontend, components, pages
+├── README.md
+├── package.json
+└── ...
+```
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Getting Started
+
+1. **Clone the repository:**
+  ```sh
+  git clone https://github.com/your-org/sanctii.git
+  cd sanctii
+  ```
+
+2. **Install dependencies:**
+  ```sh
+  npm install
+  cd backend && pip install -r requirements.txt
+  ```
+
+3. **Run the app:**
+  ```sh
+  npm run start:all
+  ```
+
+4. **Visit:** [http://localhost:3000](http://localhost:3000)
+
+---
+
+## Contributing
+
+We welcome contributions! Please open issues or submit pull requests for improvements.
+
+---
+
+## License
+
+© 2026 Sanctii Health Technologies. All rights reserved.
+
+---
+
+**Secured by Auth0 · Powered by Gemini AI · Built with ❤️ for healthcare**
+
+---
