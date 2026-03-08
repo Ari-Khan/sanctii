@@ -29,7 +29,7 @@ function haversine(lat1, lon1, lat2, lon2) {
 
 
 export default function PresagePage({ PageWrap }) {
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+  const API_BASE = "http://localhost:5176"; // keep hard-coded here too
   const { user } = useAuth0();
   const navigate = useNavigate();
 

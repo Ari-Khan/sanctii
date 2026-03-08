@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+
+// backend API base (hard‑coded as per instructions)
+const API_BASE = "http://localhost:5176";
 import { Routes, Route, useNavigate, Navigate, useSearchParams } from "react-router-dom";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -2119,7 +2122,7 @@ function GridCard({ appt, onDragStart, onRemove, onSetDur }) {
 }
 
 function SchedulePage() {
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+  // uses global API_BASE
   const [appts,      setAppts]      = useState(INIT_APPTS);
   const [draggingId, setDraggingId] = useState(null);
   const [hoverSlot,  setHoverSlot]  = useState(null);
