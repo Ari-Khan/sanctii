@@ -95,7 +95,7 @@ export default function PatientFeedbackPage() {
               required
               value={doctorName}
               onChange={e => setDoctorName(e.target.value)}
-              placeholder="e.g. Dr. Sharma"
+              placeholder="e.g. Dr. Roberts"
               style={{ padding: "12px 16px", borderRadius: 10, border: `1.5px solid ${T.border}`, background: T.bg, fontFamily: "'Outfit',sans-serif", fontSize: 14, color: T.ink, outline: "none" }}
             />
           </div>

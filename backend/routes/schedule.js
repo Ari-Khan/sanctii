@@ -87,7 +87,7 @@ router.post("/", async (req, res) => {
     const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
     const appt = new Appointment({
-      patient, type, doctor: doctor || "Dr. Sharma",
+      patient, type, doctor: doctor || "Dr. Roberts",
       day, hour: h, min: m, dur, color, severity,
       healthCard: healthCard || null,
       symptoms: symptoms || null,

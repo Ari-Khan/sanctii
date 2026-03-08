@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { T, Icons } from "../theme";
-import { BgOrbs, EcgStrip } from "../components/SharedUI";
+import { BgOrbs } from "../components/SharedUI";
 import { HeroSection } from "../components/Hero";
 
 export default function LandingPage() {
@@ -59,7 +59,6 @@ export default function LandingPage() {
       {/* ── FEATURES SECTION ── */}
       <section style={{ padding:"80px 60px 60px", position:"relative" }}>
         <BgOrbs/>
-        <EcgStrip bottom={0} opacity={.05}/>
 
         <div style={{ textAlign:"center", marginBottom:48, position:"relative", zIndex:1 }}>
           <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.18em", textTransform:"uppercase", color:T.inkFaint, marginBottom:12 }}>Platform Capabilities</div>
@@ -103,7 +102,7 @@ export default function LandingPage() {
           Ready to transform your<br/>healthcare experience?
         </div>
         <div style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic", fontSize:16, color:T.inkFaint, marginBottom:32, position:"relative", zIndex:1 }}>
-          Join Sanctii today — no setup required.
+          Join Sanctii today, no setup required.
         </div>
         <button className="btn-primary" onClick={()=>navigate("/login")} style={{ fontSize:15, padding:"14px 40px", position:"relative", zIndex:1 }}>
           Create Your Account →
@@ -117,7 +116,7 @@ export default function LandingPage() {
           <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.inkMid }}>Sanctii</span>
         </div>
         <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase", textAlign:"center" }}>
-          Secured by Auth0 · HIPAA-aligned · SOC 2 Type II · © 2026 Sanctii Health Technologies
+          Secured by Auth0 · © 2026 Sanctii Health Technologies
         </div>
         <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.inkFaint, letterSpacing:"0.1em" }}>v1.0.0</div>
       </div>

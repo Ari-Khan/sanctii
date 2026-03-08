@@ -9,7 +9,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import { getUserRoles, ROLE } from "./auth/roles";
 import { Icons } from "./theme";
-import { BgOrbs, EcgStrip, Card } from "./components/SharedUI";
+import { BgOrbs, Card } from "./components/SharedUI";
 import HospitalHologram from "./components/Hologram";
 import HospitalMap3D from "./components/HospitalMap3D";
 import { getPersistedRole, setPersistedRole } from "./auth/persistedRole";
@@ -125,7 +125,6 @@ function LoadingScreen() {
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:T.bg }}>
       <BgOrbs/>
-      <EcgStrip bottom="10%" opacity={0.09}/>
       <div style={{ zIndex:1, textAlign:"center" }}>
         <div style={{ width:52, height:52, borderRadius:14, background:`linear-gradient(135deg,${T.rose},${T.roseDeep})`, display:"flex", alignItems:"center", justifyContent:"center", color:T.white, margin:"0 auto 20px", animation:"breathe 2s ease-in-out infinite" }}>
           <Icons.cross/>
@@ -172,7 +171,7 @@ function LoginPage() {
       <div style={{ width:"44%", position:"relative", overflow:"hidden", background:`linear-gradient(160deg,${T.roseDeep} 0%,#7A2525 100%)`, display:"flex", flexDirection:"column", justifyContent:"center", padding:"56px 48px" }}>
         {/* Watermark cross */}
         <div style={{ position:"absolute", right:-80, top:"50%", transform:"translateY(-50%)", opacity:.05, color:T.white, fontSize:440, lineHeight:1, fontWeight:800, userSelect:"none" }}>+</div>
-        <EcgStrip bottom="8%" opacity={.18} color={T.white}/>
+
 
         <div style={{ animation:"slideR .6s ease", zIndex:1 }}>
           <div style={{ width:52, height:52, borderRadius:14, background:"rgba(255,255,255,.15)", display:"flex", alignItems:"center", justifyContent:"center", color:T.white, marginBottom:18, backdropFilter:"blur(8px)" }}>
@@ -233,14 +232,10 @@ function LoginPage() {
             >
               <Icons.google/> Continue with Google
             </button>
-
-            <div style={{ marginTop:8, fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase", textAlign:"center", lineHeight:1.8 }}>
-              Sign in as a patient or doctor — you’ll choose your role after logging in.
-            </div>
           </div>
 
           <div style={{ marginTop:22, fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.1em", textTransform:"uppercase", textAlign:"center", lineHeight:1.8 }}>
-            Secured by Auth0 · HIPAA-aligned · SOC 2 Type II<br/>
+            Secured by Auth0 · HIPAA-aligned<br/>
             By signing in you agree to Sanctii's Terms &amp; Privacy Policy
           </div>
         </div>
@@ -369,8 +364,7 @@ function MazePage() {
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
       <BgOrbs/>
-      <EcgStrip bottom={0} opacity={.09}/>
-      <EcgStrip top="8%" opacity={.05} color={T.vital}/>
+
 
       {/* ── Top Nav ── */}
       <div style={{ position:"absolute", top:0, left:0, right:0, height:66, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 32px", borderBottom:`1px solid ${T.border}`, background:"rgba(248,240,232,.9)", backdropFilter:"blur(20px)", zIndex:50 }}>
@@ -427,13 +421,15 @@ function MazePage() {
               <polygon points="0 0,5 2.5,0 5" fill="context-stroke"/>
             </marker>
           </defs>
-          {DECOS.map((d,i)=><path key={i} d={d} fill="none" stroke={T.border} strokeWidth=".7" strokeLinecap="round" opacity=".8"/>)}
-          {activeEdges.map((e,i)=>{ const f=NODES[e.from],t=NODES[e.to]; const col=NODES[e.to]?.col||T.rose; const isConnected=hov&&(e.from===hov||e.to===hov); let d=`M ${f.x} ${f.y}`; (e.wp||[]).forEach(w=>{ d+=` L ${w.x} ${w.y}`; }); d+=` L ${t.x} ${t.y}`; return <path key={i} d={d} fill="none" stroke={col} strokeWidth={isConnected?".9":".6"} strokeDasharray="1.5 2" opacity={isConnected?.85:.3} markerEnd="url(#arr-edge)"/>; })}
-          {pd && <>
+          {DECOS.map((d,i)=><path key={i} d={d} fill="none" stroke={T.vital} strokeWidth=".7" strokeLinecap="round" opacity=".8"/>)}
+          {activeEdges.map((e,i)=>{ const f=NODES[e.from],t=NODES[e.to]; const lineColor = T.border; const isConnected=hov&&(e.from===hov||e.to===hov); let d=`M ${f.x} ${f.y}`; (e.wp||[]).forEach(w=>{ d+=` L ${w.x} ${w.y}`; }); d+=` L ${t.x} ${t.y}`; return <path key={i} d={d} fill="none" stroke={lineColor} strokeWidth={isConnected?".9":".6"} strokeDasharray="1.5 2" opacity={isConnected?.85:.3} markerEnd="url(#arr-edge)"/>; })}
+          {/* path animation disabled to remove flying-dot effect */}
+          {/* {pd && <>
             <path d={pd} fill="none" stroke={ac} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" opacity=".15" filter="url(#glow)"/>
             <path d={pd} fill="none" stroke={ac} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" markerEnd="url(#arr)" strokeDasharray="400" style={{ animation:"pathAnim .45s cubic-bezier(.4,0,.2,1) forwards" }}/>
-          </>}
-          {path.map((key,i)=>{ const n=NODES[key]; return <circle key={key} cx={n.x} cy={n.y} r={i===0?3.5:2.5} fill={i===0?T.roseDeep:ac} opacity=".5" style={{ animation:`nodeIn .3s ease ${i*.07}s both` }}/>; })}
+          </>} */}
+          {/* removed path circles (flying balls) to simplify landing animation */}
+          {/* {path.map((key,i)=>{ const n=NODES[key]; return <circle key={key} cx={n.x} cy={n.y} r={i===0?3.5:2.5} fill={i===0?T.roseDeep:ac} opacity=".5" style={{ animation:`nodeIn .3s ease ${i*.07}s both` }}/>; })} */}
         </svg>
 
         {Object.entries(NODES)
@@ -490,10 +486,8 @@ function MazePage() {
 
       {/* ── Status Bar ── */}
       <div style={{ position:"absolute", bottom:0, left:0, right:0, height:42, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 32px", borderTop:`1px solid ${T.border}`, background:"rgba(248,240,232,.75)", backdropFilter:"blur(12px)", zIndex:50 }}>
-        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase", opacity:hov?0:1, transition:"opacity .3s" }}>Hover a destination · Optimal path · Click to enter</div>
-        {hov&&hov!=="center" && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:ac, letterSpacing:"0.1em", textTransform:"uppercase", animation:"fadeIn .2s ease" }}>◈ {path.length-1} hop{path.length!==2?"s":""} to {NODES[hov]?.label}</div>}
         <div style={{ display:"flex", gap:16, alignItems:"center" }}>
-          {[["System","Online",T.vital],["Auth0","Active",T.vital],["Presage","Ready",T.rose]].map(([k,,c])=>(
+          {[["System","Online",T.vital],["Auth0","Active",T.vital],["Gemini","Ready",T.rose]].map(([k,,c])=>(
             <div key={k} style={{ display:"flex", alignItems:"center", gap:5 }}>
               <div style={{ width:5, height:5, borderRadius:"50%", background:c, animation:"pulse 2s ease-in-out infinite" }}/>
               <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.08em", textTransform:"uppercase" }}>{k}</span>
@@ -542,7 +536,7 @@ function RoleSelectionPage() {
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", overflow:"hidden" }}>
       <BgOrbs/>
-      <EcgStrip bottom="6%" opacity={0.08}/>
+
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center", padding:"44px 52px", background:T.bg }}>
         <div style={{ width:"100%", maxWidth:520, animation:"fadeUp .5s ease" }}>
@@ -559,7 +553,7 @@ function RoleSelectionPage() {
           </div>
 
           <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:14, color:T.inkFaint, marginBottom:24 }}>
-            Pick the role that best describes you today. You can change this later from the maze header.
+            Pick the role that best describes you. You can change this later in the menu.
           </div>
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
@@ -581,7 +575,7 @@ function RoleSelectionPage() {
                   <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkFaint }}>View your vitals, appointments, and Presage insights.</div>
                 </div>
               </div>
-              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.12em", textTransform:"uppercase" }}>Continue to Sanctii maze →</div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.12em", textTransform:"uppercase" }}>Continue to Sanctii →</div>
             </Card>
 
             <Card
@@ -602,7 +596,7 @@ function RoleSelectionPage() {
                   <div style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, color:T.inkFaint }}>Access clinical dashboards, queues, and alerts.</div>
                 </div>
               </div>
-              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.vital, letterSpacing:"0.12em", textTransform:"uppercase" }}>Doctor tools & dashboards</div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.vital, letterSpacing:"0.12em", textTransform:"uppercase" }}>Doctor tools & dashboards →</div>
             </Card>
           </div>
 
@@ -612,7 +606,7 @@ function RoleSelectionPage() {
             disabled={saving}
             style={{ width:"100%", marginTop:20, padding:"13px 0", fontSize:14, opacity: saving ? 0.7 : 1 }}
           >
-            {saving ? "Saving..." : "Continue to Sanctii maze →"}
+            {saving ? "Saving..." : "Continue to Sanctii →"}
           </button>
         </div>
       </div>
@@ -626,7 +620,7 @@ export function PageWrap({ children, title, icon, subtitle, badge }) {
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", background:T.bg, overflow:"hidden" }}>
       <BgOrbs/>
-      <EcgStrip bottom={0} opacity={.06}/>
+
       <div style={{ position:"sticky", top:0, zIndex:50, display:"flex", alignItems:"center", gap:14, padding:"0 30px", height:65, background:"rgba(248,240,232,.9)", backdropFilter:"blur(20px)", borderBottom:`1px solid ${T.border}`, flexShrink:0 }}>
         <button className="btn-ghost" onClick={()=>navigate("/app")} style={{ padding:"7px 16px", fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
           ← Maze
@@ -1577,11 +1571,11 @@ function CapacityEditor({ floors, onSave }) {
 
 // ─── PATIENT DATA ─────────────────────────────────────────────────────────────
 const PATIENTS = [
-  { id:"MRN-24891", name:"Thomas Leclerc",    age:47, sex:"M", dob:"1978-04-12", room:"ED-07",   doctor:"Dr. Sharma", apptTime:"10:00", sev:4, status:"In Treatment",
+  { id:"MRN-24891", name:"Thomas Leclerc",    age:47, sex:"M", dob:"1978-04-12", room:"ED-07",   doctor:"Dr. Roberts", apptTime:"10:00", sev:4, status:"In Treatment",
     complaint:"Acute abdominal pain, nausea × 6h", diagnosis:"Suspected appendicitis",
     vitals:{ bp:"138/92", hr:104, temp:38.4, o2:97 },
     allergies:["Penicillin"], meds:["Morphine 4mg IV","Ondansetron 4mg IV"], notes:"Presage AI flags possible appendicitis. Urgent surgical consult ordered." },
-  { id:"MRN-24892", name:"Jordan Mitchell",   age:60, sex:"M", dob:"1965-09-03", room:"CARD-12", doctor:"Dr. Sharma", apptTime:"09:00", sev:2, status:"Waiting",
+  { id:"MRN-24892", name:"Jordan Mitchell",   age:60, sex:"M", dob:"1965-09-03", room:"CARD-12", doctor:"Dr. Roberts", apptTime:"09:00", sev:2, status:"Waiting",
     complaint:"Cardiac follow-up, mild exertional dyspnea", diagnosis:"Stable angina — routine follow-up",
     vitals:{ bp:"122/78", hr:72, temp:36.8, o2:98 },
     allergies:[], meds:["Atorvastatin 40mg","Aspirin 81mg","Metoprolol 25mg"], notes:"Last Echo normal. Stress test booked for next month." },
@@ -1589,7 +1583,7 @@ const PATIENTS = [
     complaint:"Annual physical examination", diagnosis:"Routine preventive care",
     vitals:{ bp:"118/74", hr:68, temp:36.6, o2:99 },
     allergies:["Sulfa drugs"], meds:["Levothyroxine 50mcg"], notes:"Bloodwork ordered. BMI 23.1. No concerns." },
-  { id:"MRN-24894", name:"Mohammed Al-Amin",  age:55, sex:"M", dob:"1970-06-05", room:"INTM-08", doctor:"Dr. Sharma", apptTime:"11:00", sev:3, status:"In Treatment",
+  { id:"MRN-24894", name:"Mohammed Al-Amin",  age:55, sex:"M", dob:"1970-06-05", room:"INTM-08", doctor:"Dr. Roberts", apptTime:"11:00", sev:3, status:"In Treatment",
     complaint:"Hypertension follow-up, persistent frontal headache × 2d", diagnosis:"Uncontrolled hypertension",
     vitals:{ bp:"168/102", hr:88, temp:37.1, o2:96 },
     allergies:["ACE inhibitors"], meds:["Amlodipine 10mg","Hydrochlorothiazide 25mg"], notes:"BP elevated despite current regimen. Considering adding losartan." },
@@ -1601,7 +1595,7 @@ const PATIENTS = [
     complaint:"Thyroid panel result review", diagnosis:"Hypothyroidism — stable",
     vitals:{ bp:"116/72", hr:64, temp:36.5, o2:99 },
     allergies:[], meds:["Levothyroxine 75mcg"], notes:"TSH 2.4 mIU/L — within range. No dose change needed." },
-  { id:"MRN-24897", name:"Robert Green",      age:63, sex:"M", dob:"1963-07-14", room:"CCU-03",  doctor:"Dr. Sharma", apptTime:"08:30", sev:5, status:"Critical",
+  { id:"MRN-24897", name:"Robert Green",      age:63, sex:"M", dob:"1963-07-14", room:"CCU-03",  doctor:"Dr. Roberts", apptTime:"08:30", sev:5, status:"Critical",
     complaint:"Chest pain, diaphoresis, radiating to left arm × 45min", diagnosis:"STEMI — anterior wall",
     vitals:{ bp:"88/58", hr:118, temp:37.0, o2:91 },
     allergies:["Heparin (HIT)"], meds:["Aspirin 325mg","Clopidogrel 600mg","Nitroglycerin IV"], notes:"Cath lab activated. PCI in progress. Family notified." },
@@ -1612,7 +1606,7 @@ const PATIENTS = [
 ];
 
 const DOCTORS = [
-  { id: "D-001", name: "Dr. Sharma", specialty: "Cardiology", status: "Active", patients: 12, rating: 4.8 },
+  { id: "D-001", name: "Dr. Roberts", specialty: "Cardiology", status: "Active", patients: 12, rating: 4.8 },
   { id: "D-002", name: "Dr. Patel",  specialty: "Obstetrics",  status: "Surgery", patients: 8,  rating: 4.9 },
   { id: "D-003", name: "Dr. Chen",   specialty: "Geriatrics",  status: "Active", patients: 15, rating: 4.7 },
   { id: "D-004", name: "Dr. Wright", specialty: "Emergency",   status: "On Break", patients: 0, rating: 4.6 },
@@ -1873,7 +1867,7 @@ function DoctorPage() {
   );
 
   return (
-    <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Sharma">
+    <PageWrap title="Doctor Portal" icon={<Icons.stethoscope/>} subtitle="Clinical dashboard — Dr. Roberts">
       {/* Top nav */}
       {notifVisible && (
         <div style={{ position:"fixed", top:80, right:20, padding:"12px 20px", background:T.rose, color:T.white, borderRadius:8, boxShadow:"0 4px 12px rgba(0,0,0,.2)", zIndex:200 }}>
@@ -2045,15 +2039,15 @@ function HackerPage() {
 // ─── SCHEDULE (/schedule) ─────────────────────────────────────────────────────
 const APPT_COLORS = [T.rose, T.vital, T.amber, T.roseMid, T.roseDeep];
 const INIT_APPTS = [
-  { id:1,  patient:"Thomas Leclerc",  type:"Emergency Consult",    doctor:"Dr. Sharma", day:0, hour:9,  min:0,  dur:30, color:T.rose },
+  { id:1,  patient:"Thomas Leclerc",  type:"Emergency Consult",    doctor:"Dr. Roberts", day:0, hour:9,  min:0,  dur:30, color:T.rose },
   { id:2,  patient:"Maria Santos",    type:"Post-Op Review",       doctor:"Dr. Patel",  day:0, hour:10, min:30, dur:30, color:T.amber },
-  { id:3,  patient:"James Wong",      type:"Cardiology Follow-Up", doctor:"Dr. Sharma", day:1, hour:14, min:0,  dur:60, color:T.vital },
+  { id:3,  patient:"James Wong",      type:"Cardiology Follow-Up", doctor:"Dr. Roberts", day:1, hour:14, min:0,  dur:60, color:T.vital },
   { id:4,  patient:"Sarah Kim",       type:"Lab Results Review",   doctor:"Dr. Chen",   day:2, hour:9,  min:0,  dur:30, color:T.vital },
   { id:5,  patient:"Robert Green",    type:"General Check-Up",     doctor:"Dr. Patel",  day:2, hour:11, min:0,  dur:30, color:T.amber },
-  { id:6,  patient:"Anna Mueller",    type:"Specialist Referral",  doctor:"Dr. Sharma", day:3, hour:13, min:30, dur:30, color:T.roseMid },
+  { id:6,  patient:"Anna Mueller",    type:"Specialist Referral",  doctor:"Dr. Roberts", day:3, hour:13, min:30, dur:30, color:T.roseMid },
   { id:7,  patient:"David Park",      type:"Blood Work Review",    doctor:"Dr. Chen",   day:4, hour:10, min:0,  dur:30, color:T.rose },
   // Unscheduled
-  { id:8,  patient:"Priya Mehta",     type:"Neurology Consult",    doctor:"Dr. Sharma", day:null, hour:null, min:null, dur:30, color:T.roseDeep },
+  { id:8,  patient:"Priya Mehta",     type:"Neurology Consult",    doctor:"Dr. Roberts", day:null, hour:null, min:null, dur:30, color:T.roseDeep },
   { id:9,  patient:"Carlos Rivera",   type:"Pre-Op Assessment",    doctor:"Dr. Patel",  day:null, hour:null, min:null, dur:30, color:T.amber },
   { id:10, patient:"Liu Wei",         type:"Discharge Planning",   doctor:"Dr. Chen",   day:null, hour:null, min:null, dur:30, color:T.vital },
 ];
@@ -2192,7 +2186,7 @@ function SchedulePage() {
           id: `db-${a._id || i}`,
           patient: a.patient || "Unknown",
           type: a.type || "Urgent Care",
-          doctor: a.doctor || "Dr. Sharma",
+          doctor: a.doctor || "Dr. Roberts",
           day: a.day, hour: a.hour, min: a.min, dur: a.dur || 30,
           color: a.color || T.rose,
           urgent: true,
@@ -2253,7 +2247,7 @@ function SchedulePage() {
     if (!newForm?.patient?.trim()) return;
     setAppts(prev => [...prev, {
       id: Date.now(), patient: newForm.patient, type: newForm.type||"Appointment",
-      doctor: newForm.doctor||"Dr. Sharma", day:null, hour:null, min:null,
+      doctor: newForm.doctor||"Dr. Roberts", day:null, hour:null, min:null,
       dur: newForm.dur||30, color: newForm.color||T.rose,
     }]);
     setNewForm(null);
@@ -2777,7 +2771,7 @@ function LandingPage() {
       {/* ── FEATURES SECTION ── */}
       <section style={{ padding:"80px 60px 60px", position:"relative" }}>
         <BgOrbs/>
-        <EcgStrip bottom={0} opacity={.05}/>
+
 
         <div style={{ textAlign:"center", marginBottom:48, position:"relative", zIndex:1 }}>
           <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, letterSpacing:"0.18em", textTransform:"uppercase", color:T.inkFaint, marginBottom:12 }}>Platform Capabilities</div>
@@ -2810,7 +2804,7 @@ function LandingPage() {
           Ready to transform your<br/>healthcare experience?
         </div>
         <div style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic", fontSize:16, color:T.inkFaint, marginBottom:32, position:"relative", zIndex:1 }}>
-          Join Sanctii today — no setup required.
+          Join Sanctii today, no setup required.
         </div>
         <button className="btn-primary" onClick={()=>navigate("/login")} style={{ fontSize:15, padding:"14px 40px", position:"relative", zIndex:1 }}>
           Create Your Account →
@@ -2824,7 +2818,7 @@ function LandingPage() {
           <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.inkMid }}>Sanctii</span>
         </div>
         <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase", textAlign:"center" }}>
-          Secured by Auth0 · HIPAA-aligned · SOC 2 Type II · © 2026 Sanctii Health Technologies
+          Secured by Auth0 · © 2026 Sanctii Health Technologies
         </div>
         <div style={{ fontFamily:"'DM Mono',monospace", fontSize:7, color:T.inkFaint, letterSpacing:"0.1em" }}>v1.0.0</div>
       </div>

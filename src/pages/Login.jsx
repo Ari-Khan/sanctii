@@ -41,11 +41,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, display:"flex", overflow:"hidden" }}>
+    <div style={{ position:"fixed", inset:0, display:"flex" }}>
       <BgOrbs/>
 
       {/* ── LEFT BRAND PANEL ── */}
-      <div style={{ width:"44%", position:"relative", overflow:"hidden", background:`linear-gradient(160deg,${T.roseDeep} 0%,#7A2525 100%)`, display:"flex", flexDirection:"column", justifyContent:"center", padding:"56px 48px" }}>
+      <div style={{ width:"44%", position:"relative", overflow:"visible", background:`linear-gradient(160deg,${T.roseDeep} 0%,#7A2525 100%)`, display:"flex", flexDirection:"column", justifyContent:"center", padding:"56px 48px" }}>
         <div style={{ position:"absolute", right:-80, top:"50%", transform:"translateY(-50%)", opacity:.05, color:T.white, fontSize:440, lineHeight:1, fontWeight:800, userSelect:"none" }}>+</div>
         <EcgStrip bottom="8%" opacity={.18} color={T.white}/>
 

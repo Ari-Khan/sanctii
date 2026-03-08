@@ -16,8 +16,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.join(__dirname, ".env");
 console.log("dotenv will load from", envPath);
 import fs from 'fs';
-console.log("env file exists?", fs.existsSync(envPath));
-dotenv.config({ path: envPath });
+const exists = fs.existsSync(envPath);
+console.log("env file exists?", exists);
+if (exists) {
+  dotenv.config({ path: envPath, debug: true });
+} else {
+  console.warn(".env not found at backend; falling back to default dotenv config");
+  dotenv.config({ debug: true });
+}
+console.log("after dotenv load, env keys=", Object.keys(process.env).filter(k=>k.includes("MONGO")||k.includes("GEMINI")));
 console.log("after dotenv, MONGO_URI=", process.env.MONGO_URI);
 
 const app = express();
