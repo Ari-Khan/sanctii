@@ -812,124 +812,155 @@ function PatientPage() {
 }
 
 // ─── NYGH FLOOR PLAN ──────────────────────────────────────────────────────────
-// Schematic based on North York General Hospital, 4001 Leslie St, Toronto
-// Department layout sourced from nygh.on.ca/areas-care
-// Occupancy colours: red ≥80% (full), amber 50-79% (busy/short wait), green <50% (open)
-
-// SVG canvas: x 0-100, y 0-50.  4-unit corridors between every room.
-// cur = current patients; cap = maximum capacity. occ% derived as cur/cap*100.
-// Coordinates: x 0-100 (width), y 0-50 (depth). 4-unit gaps between all rooms.
-// Layout based on North York General Hospital, 4001 Leslie St, Toronto.
+// Coordinate space: x 0-100 (width), y 0-50 (depth). 4-unit gaps between rooms.
+// Rooms sized proportionally to real hospital room footprints.
+// cur = current patients; cap = maximum capacity. occ% = cur/cap*100.
+// All sections are clinical treatment or physician areas — no lobby/admin.
+//
+// Column grid used across floors (x):
+//   Col-A x:2–24 (w:22) | gap 4 | Col-B x:28–50 (w:22) | gap 4 |
+//   Col-C x:54–70 (w:16) | gap 4 | Col-D x:74–88 (w:14) | gap 4 |
+//   Col-E x:92–98 (w:6, spans full y for nursing / consulting)
+// Row grid (y):  Row-T y:2–24 (h:22) | gap 4 | Row-B y:28–48 (h:20)
 const NYGH_FLOORS = [
-  { id:"g", label:"Ground", name:"Ground Floor — Emergency & Diagnostics",
+  // ── GROUND FLOOR ────────────────────────────────────────────────────────────
+  // Layout: Emergency wing (left) | Trauma/Resus (centre-left) |
+  //         Imaging suites (centre) | Lab + Pharmacy (right)
+  { id:"g", label:"Ground", name:"Ground Floor — Emergency & Acute Diagnostics",
     depts:[
-      // Emergency wing (left block)
-      { id:"ed-triage",  label:"ED Triage",       x:2,  y:2,  w:22, h:10, cur:18, cap:20 },
-      { id:"ed-waiting", label:"ED Waiting",       x:2,  y:16, w:22, h:10, cur:32, cap:40 },
-      { id:"ed-exambay", label:"ED Exam Bays",     x:2,  y:30, w:22, h:18, cur:26, cap:30 },
-      { id:"trauma",     label:"Trauma / Resus",   x:28, y:2,  w:14, h:46, cur:3,  cap:4  },
-      // Diagnostics (centre)
-      { id:"ct",         label:"CT Scanner",       x:46, y:2,  w:12, h:21, cur:2,  cap:3  },
-      { id:"us",         label:"Ultrasound",       x:46, y:27, w:12, h:21, cur:3,  cap:4  },
-      // Services (right)
-      { id:"lab",        label:"Lab / Pathology",  x:62, y:2,  w:12, h:21, cur:12, cap:20 },
-      { id:"phm",        label:"Pharmacy",         x:62, y:27, w:12, h:21, cur:14, cap:25 },
-      { id:"lobby",      label:"Main Lobby",       x:78, y:2,  w:20, h:21, cur:40, cap:80 },
-      { id:"reg",        label:"Registration",     x:78, y:27, w:20, h:21, cur:8,  cap:15 },
+      // Emergency wing — Col A (x:2–24)
+      { id:"ed-triage",   label:"ED Triage",          x:2,  y:2,  w:22, h:22, cur:14, cap:18 },
+      { id:"ed-waiting",  label:"ED Waiting",          x:2,  y:28, w:22, h:20, cur:32, cap:50 },
+      // Acute treatment — Col B (x:28–46, w:18 to share with trauma)
+      { id:"ed-exam",     label:"ED Exam Bays A–E",    x:28, y:2,  w:18, h:22, cur:12, cap:14 },
+      { id:"trauma-resus",label:"Trauma / Resus",      x:28, y:28, w:18, h:20, cur:3,  cap:4  },
+      // Imaging — Col C1 (x:50–62, w:12): CT scanners stacked, MRI below
+      { id:"ct-1",        label:"CT Scanner 1",        x:50, y:2,  w:12, h:10, cur:2,  cap:2  },
+      { id:"ct-2",        label:"CT Scanner 2",        x:50, y:16, w:12, h:8,  cur:1,  cap:2  },
+      { id:"mri-g",       label:"MRI Suite",           x:50, y:28, w:12, h:20, cur:1,  cap:1  },
+      // Imaging — Col C2 (x:66–76, w:10)
+      { id:"xray-g",      label:"X-Ray / Fluoroscopy", x:66, y:2,  w:10, h:22, cur:4,  cap:6  },
+      { id:"ultrasound-g",label:"Ultrasound Suite",    x:66, y:28, w:10, h:20, cur:3,  cap:4  },
+      // Clinical support — Col D+E (x:80–98, w:18)
+      { id:"lab-g",       label:"Lab & Pathology",     x:80, y:2,  w:18, h:22, cur:10, cap:20 },
+      { id:"pharmacy-g",  label:"Clinical Pharmacy",   x:80, y:28, w:18, h:20, cur:6,  cap:12 },
     ],
   },
-  { id:"1", label:"Floor 1", name:"Floor 1 — Medical Imaging & Outpatient Clinics",
+
+  // ── FLOOR 1 ─────────────────────────────────────────────────────────────────
+  // Layout: 8 Operating Rooms (paired columns) | Pre-Op & PACU | Day Sx | Endoscopy
+  { id:"1", label:"Floor 1", name:"Floor 1 — Surgical Suite & Perioperative Care",
     depts:[
-      // Imaging (left block, full height — these rooms are large & specialised)
-      { id:"mri1",   label:"MRI Suite 1",      x:2,  y:2,  w:12, h:21, cur:1,  cap:1  },
-      { id:"mri2",   label:"MRI Suite 2",      x:2,  y:27, w:12, h:21, cur:1,  cap:1  },
-      { id:"ct1",    label:"CT Suite 1",       x:18, y:2,  w:12, h:21, cur:1,  cap:1  },
-      { id:"ct2",    label:"CT Suite 2",       x:18, y:27, w:12, h:21, cur:1,  cap:2  },
-      { id:"xray",   label:"X-Ray / Fluoro",   x:34, y:2,  w:12, h:21, cur:6,  cap:10 },
-      { id:"nuc",    label:"Nuclear Medicine", x:34, y:27, w:12, h:21, cur:3,  cap:6  },
-      // Outpatient clinics (right)
-      { id:"frac",   label:"Fracture Clinic",  x:50, y:2,  w:14, h:21, cur:14, cap:20 },
-      { id:"orth",   label:"Orthopaedics",     x:50, y:27, w:14, h:21, cur:10, cap:18 },
-      { id:"opd-a",  label:"Outpatient A",     x:68, y:2,  w:14, h:21, cur:18, cap:24 },
-      { id:"opd-b",  label:"Outpatient B",     x:68, y:27, w:14, h:21, cur:15, cap:20 },
-      { id:"opd-c",  label:"Specialist Clinic",x:86, y:2,  w:12, h:46, cur:22, cap:30 },
+      // 4 OR pairs — each pair: top (h:22) + bottom (h:20), w:10, gap 4 between pairs
+      { id:"or-1",     label:"OR 1 — General Sx",    x:2,  y:2,  w:10, h:22, cur:1, cap:1 },
+      { id:"or-2",     label:"OR 2 — General Sx",    x:2,  y:28, w:10, h:20, cur:0, cap:1 },
+      { id:"or-3",     label:"OR 3 — Orthopaedics",  x:16, y:2,  w:10, h:22, cur:1, cap:1 },
+      { id:"or-4",     label:"OR 4 — Orthopaedics",  x:16, y:28, w:10, h:20, cur:1, cap:1 },
+      { id:"or-5",     label:"OR 5 — Cardiac Sx",    x:30, y:2,  w:10, h:22, cur:1, cap:1 },
+      { id:"or-6",     label:"OR 6 — Neurosurgery",  x:30, y:28, w:10, h:20, cur:0, cap:1 },
+      { id:"or-7",     label:"OR 7 — Plastics",      x:44, y:2,  w:10, h:22, cur:1, cap:1 },
+      { id:"or-8",     label:"OR 8 — Gynaecology",   x:44, y:28, w:10, h:20, cur:1, cap:1 },
+      // Perioperative — (x:58)
+      { id:"pre-op",   label:"Pre-Op Assessment",    x:58, y:2,  w:14, h:22, cur:8,  cap:14 },
+      { id:"pacu",     label:"Recovery (PACU)",       x:58, y:28, w:14, h:20, cur:6,  cap:12 },
+      // Day surgery + endoscopy — (x:76)
+      { id:"day-sx",   label:"Day Surgery Unit",      x:76, y:2,  w:12, h:22, cur:5,  cap:10 },
+      { id:"endo",     label:"Endoscopy Suite",       x:76, y:28, w:12, h:20, cur:4,  cap:6  },
+      // Interventional procedures — (x:92)
+      { id:"interv",   label:"Interventional Proc.",  x:92, y:2,  w:6,  h:46, cur:3,  cap:4  },
     ],
   },
-  { id:"2", label:"Floor 2", name:"Floor 2 — Surgery & Perioperative Care",
+
+  // ── FLOOR 2 ─────────────────────────────────────────────────────────────────
+  // Layout: Large MICU (left, full height) | SICU + CCU | HDU + Cardiac Step-Down
+  //         | Neuro ICU + Burn & Wound Care
+  { id:"2", label:"Floor 2", name:"Floor 2 — Intensive Care & Critical Units",
     depts:[
-      // Operating Rooms (each OR fits 1 patient at a time)
-      { id:"or1",   label:"OR 1",             x:2,  y:2,  w:10, h:21, cur:1,  cap:1  },
-      { id:"or2",   label:"OR 2",             x:2,  y:27, w:10, h:21, cur:0,  cap:1  },
-      { id:"or3",   label:"OR 3",             x:16, y:2,  w:10, h:21, cur:1,  cap:1  },
-      { id:"or4",   label:"OR 4",             x:16, y:27, w:10, h:21, cur:1,  cap:1  },
-      { id:"or5",   label:"OR 5",             x:30, y:2,  w:10, h:21, cur:0,  cap:1  },
-      { id:"or6",   label:"OR 6",             x:30, y:27, w:10, h:21, cur:1,  cap:1  },
-      { id:"or7",   label:"OR 7",             x:44, y:2,  w:10, h:21, cur:1,  cap:1  },
-      { id:"or8",   label:"OR 8",             x:44, y:27, w:10, h:21, cur:0,  cap:1  },
-      // Perioperative
-      { id:"pacu",  label:"Recovery (PACU)",  x:58, y:2,  w:14, h:21, cur:7,  cap:12 },
-      { id:"preop", label:"Pre-Op Assess.",   x:58, y:27, w:14, h:21, cur:9,  cap:15 },
-      { id:"endo",  label:"Endoscopy",        x:76, y:2,  w:12, h:21, cur:4,  cap:6  },
-      { id:"daysx", label:"Day Surgery",      x:76, y:27, w:12, h:21, cur:8,  cap:14 },
-      { id:"steril",label:"Sterile Supply",   x:92, y:2,  w:6,  h:46, cur:3,  cap:8  },
+      // Medical ICU — full-height Col A+B (x:2–38, w:36)
+      { id:"micu",       label:"Medical ICU (MICU)",   x:2,  y:2,  w:36, h:46, cur:16, cap:20 },
+      // Surgical & Cardiac ICU — Col C (x:42–64, w:22)
+      { id:"sicu",       label:"Surgical ICU (SICU)",  x:42, y:2,  w:22, h:22, cur:8,  cap:10 },
+      { id:"ccu",        label:"Cardiac Care Unit",    x:42, y:28, w:22, h:20, cur:7,  cap:10 },
+      // Step-down units — Col D (x:68–82, w:14)
+      { id:"step-card",  label:"Cardiac Step-Down",    x:68, y:2,  w:14, h:22, cur:10, cap:14 },
+      { id:"step-med",   label:"Medical Step-Down",    x:68, y:28, w:14, h:20, cur:9,  cap:12 },
+      // Specialised critical — Col E (x:86–98, w:12)
+      { id:"neuro-icu",  label:"Neuro ICU",            x:86, y:2,  w:12, h:22, cur:6,  cap:8  },
+      { id:"burn-wound", label:"Burn & Wound Care",    x:86, y:28, w:12, h:20, cur:4,  cap:6  },
     ],
   },
-  { id:"3", label:"Floor 3", name:"Floor 3 — Cardiology & Internal Medicine",
+
+  // ── FLOOR 3 ─────────────────────────────────────────────────────────────────
+  // Layout: Cardiology | General Medicine | Neurology + Nephrology
+  //         | GI + Rheumatology | Physician Consulting (Col E, full height)
+  { id:"3", label:"Floor 3", name:"Floor 3 — Medical Wards & Physician Clinics",
     depts:[
-      // Cardiology
-      { id:"cath1",  label:"Cath Lab 1",       x:2,  y:2,  w:12, h:21, cur:1,  cap:2  },
-      { id:"cath2",  label:"Cath Lab 2",       x:2,  y:27, w:12, h:21, cur:2,  cap:2  },
-      { id:"card-w", label:"Cardiology Ward",  x:18, y:2,  w:18, h:46, cur:20, cap:24 },
-      { id:"stepdn", label:"Cardiac Step-Down",x:40, y:2,  w:14, h:21, cur:10, cap:14 },
-      { id:"echo",   label:"Echocardiography", x:40, y:27, w:14, h:21, cur:4,  cap:6  },
-      // Internal Medicine
-      { id:"intm",   label:"Internal Medicine",x:58, y:2,  w:14, h:21, cur:14, cap:20 },
-      { id:"geri",   label:"Geriatrics",       x:58, y:27, w:14, h:21, cur:12, cap:18 },
-      // Doctor offices / support
-      { id:"dr-off", label:"Doctors' Offices", x:76, y:2,  w:12, h:21, cur:6,  cap:12 },
-      { id:"conf",   label:"Conference Room",  x:76, y:27, w:12, h:21, cur:2,  cap:20 },
-      { id:"chrt",   label:"Charting Station", x:92, y:2,  w:6,  h:46, cur:4,  cap:8  },
+      // Col A (x:2–24)
+      { id:"card-ward",  label:"Cardiology Ward",      x:2,  y:2,  w:22, h:22, cur:20, cap:24 },
+      { id:"resp-ward",  label:"Respiratory Ward",     x:2,  y:28, w:22, h:20, cur:16, cap:22 },
+      // Col B (x:28–50)
+      { id:"gen-med-a",  label:"General Medicine A",   x:28, y:2,  w:22, h:22, cur:18, cap:24 },
+      { id:"gen-med-b",  label:"General Medicine B",   x:28, y:28, w:22, h:20, cur:20, cap:24 },
+      // Col C (x:54–70)
+      { id:"neuro-ward", label:"Neurology Ward",       x:54, y:2,  w:16, h:22, cur:14, cap:18 },
+      { id:"nephro",     label:"Nephrology / Dialysis",x:54, y:28, w:16, h:20, cur:12, cap:16 },
+      // Col D (x:74–88)
+      { id:"gastro",     label:"Gastroenterology",     x:74, y:2,  w:14, h:22, cur:8,  cap:12 },
+      { id:"rheum",      label:"Rheumatology Clinic",  x:74, y:28, w:14, h:20, cur:6,  cap:10 },
+      // Col E (x:92–98) — Physician consulting rooms, full height
+      { id:"phys-consult",label:"Physician Consulting",x:92, y:2,  w:6,  h:46, cur:8,  cap:16 },
     ],
   },
-  { id:"4", label:"Floor 4", name:"Floor 4 — ICU, CCU & Maternity",
+
+  // ── FLOOR 4 ─────────────────────────────────────────────────────────────────
+  // Layout: Maternity (Labour & Birthing) | NICU + Maternity Ward
+  //         | Paediatrics | Nursery + Gynaecology | Antenatal (Col E)
+  { id:"4", label:"Floor 4", name:"Floor 4 — Maternity, NICU & Paediatrics",
     depts:[
-      // Critical Care
-      { id:"icu",   label:"ICU",               x:2,  y:2,  w:22, h:46, cur:17, cap:20 },
-      { id:"ccu",   label:"CCU",               x:28, y:2,  w:12, h:21, cur:7,  cap:10 },
-      { id:"hdu",   label:"High Dependency",   x:28, y:27, w:12, h:21, cur:5,  cap:8  },
-      // Maternity
-      { id:"ld",    label:"Labour & Delivery", x:44, y:2,  w:12, h:21, cur:5,  cap:8  },
-      { id:"birth", label:"Birthing Suites",   x:44, y:27, w:12, h:21, cur:3,  cap:6  },
-      { id:"nicu",  label:"NICU",              x:60, y:2,  w:12, h:21, cur:8,  cap:10 },
-      { id:"mat-w", label:"Maternity Ward",    x:60, y:27, w:12, h:21, cur:11, cap:16 },
-      // Paediatrics
-      { id:"pae-w", label:"Paediatrics Ward",  x:76, y:2,  w:12, h:21, cur:10, cap:16 },
-      { id:"pae-oc",label:"Paed. Outpatient",  x:76, y:27, w:12, h:21, cur:8,  cap:12 },
-      { id:"nurs",  label:"Nursery",           x:92, y:2,  w:6,  h:46, cur:6,  cap:10 },
+      // Col A (x:2–24)
+      { id:"labour-del", label:"Labour & Delivery",    x:2,  y:2,  w:22, h:22, cur:6,  cap:8  },
+      { id:"birth-ste",  label:"Birthing Suites",      x:2,  y:28, w:22, h:20, cur:4,  cap:6  },
+      // Col B (x:28–50)
+      { id:"nicu",       label:"NICU",                 x:28, y:2,  w:22, h:22, cur:9,  cap:12 },
+      { id:"mat-ward",   label:"Maternity Ward",       x:28, y:28, w:22, h:20, cur:14, cap:20 },
+      // Col C (x:54–70)
+      { id:"peds-ward",  label:"Paediatrics Ward",     x:54, y:2,  w:16, h:22, cur:12, cap:18 },
+      { id:"peds-oc",    label:"Paed. Day Treatment",  x:54, y:28, w:16, h:20, cur:8,  cap:12 },
+      // Col D (x:74–88)
+      { id:"nursery",    label:"Nursery",              x:74, y:2,  w:14, h:22, cur:6,  cap:10 },
+      { id:"gyn-clinic", label:"Gynaecology Clinic",   x:74, y:28, w:14, h:20, cur:7,  cap:12 },
+      // Col E (x:92–98) — Antenatal consulting, full height
+      { id:"antenatal",  label:"Antenatal Clinic",     x:92, y:2,  w:6,  h:46, cur:5,  cap:10 },
     ],
   },
-  { id:"5", label:"Floor 5", name:"Floor 5 — Mental Health, Oncology & Rehab",
+
+  // ── FLOOR 5 ─────────────────────────────────────────────────────────────────
+  // Layout: Oncology (Chemo + Ward) | Radiation + Palliative
+  //         | Mental Health | Rehab (Physio + OT) | Wound Care (Col E)
+  { id:"5", label:"Floor 5", name:"Floor 5 — Oncology, Mental Health & Rehabilitation",
     depts:[
-      // Mental Health
-      { id:"mh-ac", label:"MH Acute Unit",    x:2,  y:2,  w:16, h:21, cur:16, cap:20 },
-      { id:"mh-op", label:"MH Outpatient",    x:2,  y:27, w:16, h:21, cur:8,  cap:12 },
-      { id:"mh-dr", label:"Psychiatrist Ofcs",x:22, y:2,  w:10, h:46, cur:5,  cap:8  },
-      // Oncology
-      { id:"chemo", label:"Chemotherapy",     x:36, y:2,  w:14, h:21, cur:10, cap:16 },
-      { id:"onc-w", label:"Oncology Ward",    x:36, y:27, w:14, h:21, cur:9,  cap:14 },
-      { id:"rad",   label:"Radiation Therapy",x:54, y:2,  w:12, h:21, cur:4,  cap:6  },
-      { id:"pall",  label:"Palliative Care",  x:54, y:27, w:12, h:21, cur:8,  cap:12 },
-      // Rehab & Reactivation
-      { id:"physio",label:"Physiotherapy",    x:70, y:2,  w:12, h:21, cur:12, cap:18 },
-      { id:"occ",   label:"Occupational Ther.",x:70, y:27, w:12, h:21, cur:9,  cap:14 },
-      { id:"react", label:"Reactivation Care",x:86, y:2,  w:12, h:46, cur:14, cap:20 },
+      // Col A (x:2–24)
+      { id:"chemo",      label:"Chemotherapy Suite",   x:2,  y:2,  w:22, h:22, cur:10, cap:16 },
+      { id:"onc-ward",   label:"Oncology Ward",        x:2,  y:28, w:22, h:20, cur:9,  cap:14 },
+      // Col B (x:28–50)
+      { id:"rad-onc",    label:"Radiation Oncology",   x:28, y:2,  w:22, h:22, cur:4,  cap:6  },
+      { id:"palliative", label:"Palliative Care",      x:28, y:28, w:22, h:20, cur:8,  cap:12 },
+      // Col C (x:54–70)
+      { id:"mh-acute",   label:"Mental Health Acute",  x:54, y:2,  w:16, h:22, cur:16, cap:20 },
+      { id:"mh-op",      label:"Psychiatry Outpatient",x:54, y:28, w:16, h:20, cur:8,  cap:12 },
+      // Col D (x:74–88)
+      { id:"physio",     label:"Physiotherapy",        x:74, y:2,  w:14, h:22, cur:12, cap:18 },
+      { id:"occ-ther",   label:"Occupational Therapy", x:74, y:28, w:14, h:20, cur:9,  cap:14 },
+      // Col E (x:92–98) — Speech + Wound clinic, stacked
+      { id:"speech",     label:"Speech Therapy",       x:92, y:2,  w:6,  h:22, cur:4,  cap:8  },
+      { id:"wound-c",    label:"Wound Care Clinic",    x:92, y:28, w:6,  h:20, cur:3,  cap:8  },
     ],
   },
 ];
 
-// Floor world-Y positions — defined at module level so both useEffects can read them
+// Floor world-Y positions (g=0, 1..5 stacked at 2.2-unit intervals)
 const FLOOR_Y_MAP = { g:0, "1":2.2, "2":4.4, "3":6.6, "4":8.8, "5":11.0 };
-const FLOOR_CENTER_Y = 5.5;
+const FLOOR_CENTER_Y = 5.5; // midpoint of 6 floors
 
 function occ3dColor(occ) {
   if (occ >= 80) return 0xD4706A;
@@ -942,7 +973,7 @@ function occ3dHex(occ) {
   return "#5BAA8A";
 }
 
-function NyghFloorPlan({ floors = NYGH_FLOORS }) {
+function NyghFloorPlan({ floors = NYGH_FLOORS, hospitalName, hospitalAddress }) {
   // Compute Y positions dynamically so any uploaded floor plan works
   const floorYMap = {};
   floors.forEach((f, i) => { floorYMap[f.id] = i * 2.2; });
@@ -1210,9 +1241,11 @@ function NyghFloorPlan({ floors = NYGH_FLOORS }) {
     <Card style={{ marginTop:18 }}>
       <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:12, flexWrap:"wrap", gap:10 }}>
         <div>
-          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>NYGH Floor Plan — 3D</div>
+          <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:15, color:T.ink }}>
+            {hospitalName ? `${hospitalName} — Floor Plan 3D` : "Floor Plan — 3D"}
+          </div>
           <div style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.inkFaint, letterSpacing:"0.12em", textTransform:"uppercase", marginTop:2 }}>
-            North York General · 4001 Leslie St · Drag to rotate · Hover for details
+            {hospitalAddress || (hospitalName ? hospitalName : "North York General · 4001 Leslie St")} · Drag to rotate · Hover for details
           </div>
         </div>
         <div style={{ display:"flex", gap:14, alignItems:"center", flexWrap:"wrap" }}>
@@ -1274,7 +1307,7 @@ async function extractPdfText(file) {
   return text.trim();
 }
 
-function FloorPlanUploader({ onFloors }) {
+function FloorPlanUploader({ onFloors, onHospitalInfo }) {
   const [apiKey,   setApiKey]   = useState(() => localStorage.getItem("groq_fp_key") || "");
   const [file,     setFile]     = useState(null);
   const [status,   setStatus]   = useState("idle");
@@ -1290,27 +1323,33 @@ function FloorPlanUploader({ onFloors }) {
       const pdfText = await extractPdfText(file);
       if (!pdfText) throw new Error("Could not extract text from PDF. Make sure it is a text-based PDF, not a scanned image.");
 
-      const prompt = `You are a hospital floor plan parser. Below is the extracted text from a hospital floor plan PDF. Identify all floors and rooms/departments.
+      const prompt = `You are a hospital floor plan parser. Below is extracted text from a hospital floor plan PDF. Identify the hospital name, address, all floors and rooms/departments.
 
 Return ONLY valid JSON (no markdown, no extra text) in this exact schema:
-[
-  {
-    "id": "g",
-    "label": "Ground Floor",
-    "name": "Ground Floor — <main departments>",
-    "depts": [
-      { "id": "dept-slug", "label": "Department Name", "x": 0, "y": 0, "w": 30, "h": 20, "occ": 50, "cap": 20 }
-    ]
-  }
-]
+{
+  "hospital": "Full Hospital Name",
+  "address": "Street Address, City, Province",
+  "floors": [
+    {
+      "id": "g",
+      "label": "Ground Floor",
+      "name": "Ground Floor — <main departments listed here>",
+      "depts": [
+        { "id": "dept-slug", "label": "Department Name", "x": 2, "y": 2, "w": 22, "h": 10, "cur": 18, "cap": 20 }
+      ]
+    }
+  ]
+}
 
 Rules:
-- x/y/w/h use a 0-100 (x-axis) by 0-50 (y-axis) coordinate space. Distribute rooms logically, leave 4-unit gaps between them.
-- occ is estimated occupancy % (0-100). Default 50 if unknown.
-- cap is estimated patient capacity based on room type.
-- id must be lowercase URL-safe slugs (no spaces).
-- Include every floor as a separate array entry, ordered ground to top.
-- If floor count is unclear, create at least one floor with all detected rooms.
+- x/y/w/h use a 0-100 (x-axis) by 0-50 (y-axis) coordinate space. Distribute rooms logically so they fill the space, leave 4-unit gaps between rooms.
+- cur = estimated current patient count (integer). Use realistic numbers based on room type and capacity. Default to 50% of cap if unknown.
+- cap = estimated maximum patient capacity (integer) based on room type and size. ORs have cap 1, ICU beds ~20, wards ~24, waiting rooms ~40.
+- id must be lowercase URL-safe slugs (no spaces, use hyphens).
+- Include every floor as a separate entry in "floors", ordered ground floor to top floor.
+- If floor count is unclear, create at least one floor with all detected rooms/departments.
+- If hospital name is not found, use the PDF filename or "Unknown Hospital".
+- Ensure every dept has x, y, w, h, cur, cap — no field may be missing or null.
 
 PDF TEXT:
 ${pdfText.slice(0, 12000)}`;
@@ -1323,18 +1362,44 @@ ${pdfText.slice(0, 12000)}`;
         },
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
-          temperature: 0.2,
+          temperature: 0.1,
           max_tokens: 4096,
           messages: [{ role: "user", content: prompt }],
         }),
       });
 
       if (!res.ok) { const t = await res.text(); throw new Error(t); }
-      const data   = await res.json();
-      const raw    = data.choices?.[0]?.message?.content || "[]";
-      const json   = raw.replace(/```json|```/g, "").trim();
-      const floors = JSON.parse(json);
-      if (!Array.isArray(floors) || floors.length === 0) throw new Error("No floors extracted. Try a different PDF.");
+      const data = await res.json();
+      const raw  = data.choices?.[0]?.message?.content || "{}";
+      const json = raw.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(json);
+
+      // Support both the new wrapped schema and the legacy bare-array schema
+      let floors;
+      if (Array.isArray(parsed)) {
+        floors = parsed;
+      } else if (parsed.floors && Array.isArray(parsed.floors)) {
+        floors = parsed.floors;
+        if (onHospitalInfo) onHospitalInfo({ name: parsed.hospital || file.name, address: parsed.address || "" });
+      } else {
+        throw new Error("Unexpected response shape — no floors found.");
+      }
+
+      if (floors.length === 0) throw new Error("No floors extracted. Try a different PDF.");
+
+      // Normalise: if AI still sent occ instead of cur/cap, convert
+      floors = floors.map(f => ({
+        ...f,
+        depts: (f.depts || []).map(d => {
+          if (d.cur == null && d.occ != null && d.cap != null) {
+            return { ...d, cur: Math.round((d.occ / 100) * d.cap) };
+          }
+          if (d.cur == null) return { ...d, cur: Math.round((d.cap || 20) * 0.5) };
+          if (d.cap == null) return { ...d, cap: Math.max(d.cur * 2, 10) };
+          return d;
+        }),
+      }));
+
       onFloors(floors);
       setStatus("done");
     } catch (e) {
@@ -2505,16 +2570,18 @@ function HospitalPage() {
 
 // ─── ROOMS (/rooms) ───────────────────────────────────────────────────────────
 function RoomsPage() {
-  const [hospitalFloors, setHospitalFloors] = useState(NYGH_FLOORS);
-  const [floorKey,       setFloorKey]       = useState(0);
+  const [hospitalFloors,  setHospitalFloors]  = useState(NYGH_FLOORS);
+  const [floorKey,        setFloorKey]        = useState(0);
+  const [hospitalInfo,    setHospitalInfo]    = useState({ name: "North York General Hospital", address: "4001 Leslie St, Toronto, ON" });
 
   const handleFloors = (floors) => { setHospitalFloors(floors); setFloorKey(k => k + 1); };
+  const handleHospitalInfo = (info) => { setHospitalInfo(info); };
 
   return (
     <PageWrap title="Room Map" icon={<Icons.grid/>} subtitle="Live floor plan · Real-time bed status">
-      <FloorPlanUploader onFloors={handleFloors}/>
+      <FloorPlanUploader onFloors={handleFloors} onHospitalInfo={handleHospitalInfo}/>
       <CapacityEditor floors={hospitalFloors} onSave={handleFloors}/>
-      <NyghFloorPlan key={floorKey} floors={hospitalFloors}/>
+      <NyghFloorPlan key={floorKey} floors={hospitalFloors} hospitalName={hospitalInfo.name} hospitalAddress={hospitalInfo.address}/>
     </PageWrap>
   );
 }
