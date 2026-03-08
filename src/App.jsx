@@ -198,15 +198,6 @@ function LoginPage() {
           ))}
         </div>
 
-        {/* Live vitals badge strip */}
-        <div style={{ marginTop:44, display:"flex", gap:14, flexWrap:"wrap", zIndex:1 }}>
-          {[["♥","72 bpm"],["⚡","98% SpO₂"],["🌡","36.6°C"]].map(([ic,v])=>(
-            <div key={v} style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", borderRadius:100, background:"rgba(255,255,255,.08)", border:"1px solid rgba(255,255,255,.12)" }}>
-              <span style={{ fontSize:10 }}>{ic}</span>
-              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:"rgba(255,255,255,.7)", letterSpacing:"0.04em" }}>{v}</span>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* ── RIGHT FORM PANEL ── */}
@@ -390,15 +381,6 @@ function MazePage() {
           </div>
         </div>
 
-        {/* Vitals strip */}
-        <div style={{ display:"flex", alignItems:"center", gap:20, padding:"7px 18px", borderRadius:100, background:"rgba(91,170,138,.08)", border:"1px solid rgba(91,170,138,.25)" }}>
-          {[["♥","72 bpm",T.vital],["⚡","98% SpO₂",T.rose],["🌡","36.6°C",T.amber]].map(([ic,val,c])=>(
-            <div key={val} style={{ display:"flex", alignItems:"center", gap:5 }}>
-              <span style={{ fontSize:10 }}>{ic}</span>
-              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:c, letterSpacing:"0.04em" }}>{val}</span>
-            </div>
-          ))}
-        </div>
 
         {/* User chip + role + actions */}
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -2550,7 +2532,7 @@ function LandingPage() {
   }, []);
 
   const FEATURES = [
-    [<Icons.brain/>,       "#8B6FBF", "Presage AI Triage",   "Symptom analysis with confidence scoring — powered by Claude."],
+    [<Icons.brain/>,       "#8B6FBF", "Presage AI Triage",   "Symptom analysis with confidence scoring — powered by Gemini."],
     [<Icons.mapPin/>,      T.vital,   "Hospital Routing",    "Nearest facility with live wait times and bed availability."],
     [<Icons.calendar/>,    T.rose,    "Smart Scheduling",    "Book appointments, view slots, and manage your care calendar."],
     [<Icons.stethoscope/>, T.roseMid, "Doctor Portal",       "Clinical dashboards, patient queues, and AI-flagged alerts."],
@@ -2595,7 +2577,7 @@ function LandingPage() {
           {/* Badge */}
           <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"6px 14px", borderRadius:100, background:`${T.rose}12`, border:`1px solid ${T.rose}35`, marginBottom:26, width:"fit-content", animation:"fadeUp .4s ease" }}>
             <div style={{ width:6, height:6, borderRadius:"50%", background:T.vital, animation:"pulse 1.5s ease infinite" }}/>
-            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.16em", textTransform:"uppercase" }}>Powered by Claude AI · Presage Engine</span>
+            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:T.rose, letterSpacing:"0.16em", textTransform:"uppercase" }}>Powered by Gemini AI · Presage Engine</span>
           </div>
 
           {/* Headline */}
@@ -2619,15 +2601,6 @@ function LandingPage() {
             </button>
           </div>
 
-          {/* Live vitals */}
-          <div style={{ display:"flex", gap:10, flexWrap:"wrap", animation:"fadeUp .8s ease" }}>
-            {[["♥","72 bpm",T.vital],["⚡","98% SpO₂",T.rose],["🌡","36.6°C",T.amber],["🛏","12 beds",T.vital]].map(([ic,v,c])=>(
-              <div key={v} style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 12px", borderRadius:100, background:T.surfaceHard, border:`1px solid ${T.border}`, boxShadow:"0 1px 8px rgba(160,80,80,.06)" }}>
-                <span style={{ fontSize:11 }}>{ic}</span>
-                <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:c, letterSpacing:"0.04em" }}>{v}</span>
-              </div>
-            ))}
-          </div>
 
           {/* Scroll hint */}
           <div style={{ position:"absolute", bottom:28, left:60, display:"flex", alignItems:"center", gap:8, opacity:.5 }}>
