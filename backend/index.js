@@ -57,7 +57,11 @@ app.use(express.json({ limit: "20mb" }));
 if (process.env.MONGO_URI) {
   mongoose
     .connect(process.env.MONGO_URI)
-    .then(() => console.log("Mongo connected"))
+    .then(async () => {
+      console.log("Mongo connected");
+      // no seeding of default appointment – appointments are initialized on the client side now
+
+    })
     .catch((err) => console.error("Mongo connection error:", err));
 }
 

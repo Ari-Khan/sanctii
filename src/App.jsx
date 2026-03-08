@@ -2048,14 +2048,20 @@ const INIT_APPTS = [
   { id:5,  patient:"Robert Green",    type:"General Check-Up",     doctor:"Dr. Patel",  day:2, hour:11, min:0,  dur:30, color:T.amber },
   { id:6,  patient:"Anna Mueller",    type:"Specialist Referral",  doctor:"Dr. Roberts", day:3, hour:13, min:30, dur:30, color:T.roseMid },
   { id:7,  patient:"David Park",      type:"Blood Work Review",    doctor:"Dr. Chen",   day:4, hour:10, min:0,  dur:30, color:T.rose },
-  // Unscheduled
-  { id:8,  patient:"Priya Mehta",     type:"Neurology Consult",    doctor:"Dr. Roberts", day:null, hour:null, min:null, dur:30, color:T.roseDeep },
-  { id:9,  patient:"Carlos Rivera",   type:"Pre-Op Assessment",    doctor:"Dr. Patel",  day:null, hour:null, min:null, dur:30, color:T.amber },
-  { id:10, patient:"Liu Wei",         type:"Discharge Planning",   doctor:"Dr. Chen",   day:null, hour:null, min:null, dur:30, color:T.vital },
+  // Saturday / Sunday defaults
+  { id:12, patient:"Emma Rossi",      type:"Weekend Walk-in",      doctor:"Dr. Patel",  day:5, hour:11, min:0,  dur:30, color:T.amber },
+  { id:13, patient:"Liam O'Neil",     type:"Weekend Check-Up",    doctor:"Dr. Roberts", day:6, hour:14, min:30, dur:45, color:T.vital },
+  // Ari Khan – chest pain, will be fitted into first available slot
+  { id:11, patient:"Ari Khan",        type:"Chest Pain Consult",   doctor:"Dr. Roberts", day:null, hour:null, min:null, dur:60, color:T.roseDeep },
+  // Unscheduled (now with varied durations)
+  { id:8,  patient:"Priya Mehta",     type:"Neurology Consult",    doctor:"Dr. Roberts", day:null, hour:null, min:null, dur:60, color:T.roseDeep },
+  { id:9,  patient:"Carlos Rivera",   type:"Pre-Op Assessment",    doctor:"Dr. Patel",  day:null, hour:null, min:null, dur:90, color:T.amber },
+  { id:10, patient:"Liu Wei",         type:"Discharge Planning",   doctor:"Dr. Chen",   day:null, hour:null, min:null, dur:45, color:T.vital },
 ];
 
-const DAYS_LABEL = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
-const DAYS_SHORT = ["Mon","Tue","Wed","Thu","Fri"];
+// switch to 7-day week and start default view on week of Mar 9, 2026
+const DAYS_LABEL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const DAYS_SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const SLOT_H = 38; // px per 30-min row
 const HOURS = Array.from({length:20},(_,i)=>({ h:8+Math.floor(i/2), m:i%2===0?0:30 }));
 
@@ -2171,6 +2177,50 @@ function GridCard({ appt, onDragStart, onRemove, onSetDur }) {
 }
 
 function SchedulePage() {
+    // AutoSchedule logic
+    function getOccupiedSlots(appts) {
+      const slots = new Set();
+      appts.forEach(a => {
+        if (a.day != null && a.hour != null && a.min != null) {
+          slots.add(`${a.day}-${a.hour}-${a.min}`);
+        }
+      });
+      return slots;
+    }
+
+    function findEarliestSlot(appts, dur = 30) {
+      const slots = getOccupiedSlots(appts);
+      for (let day = 0; day < DAYS_SHORT.length; ++day) {
+        for (let i = 0; i < HOURS.length; ++i) {
+          const { h, m } = HOURS[i];
+          let free = true;
+          for (let offset = 0; offset < dur; offset += 30) {
+            const slotMin = h * 60 + m + offset;
+            const slotH = Math.floor(slotMin / 60);
+            const slotM = slotMin % 60;
+            if (slotH < 8 || slotH > 17) { free = false; break; }
+            if (slots.has(`${day}-${slotH}-${slotM}`)) { free = false; break; }
+          }
+          if (free) return { day, hour: h, min: m };
+        }
+      }
+      return null;
+    }
+
+    function autoSchedule() {
+      let newAppts = [...appts];
+      let changed = false;
+      newAppts.forEach((appt, idx) => {
+        if (appt.day == null || appt.hour == null || appt.min == null) {
+          const slot = findEarliestSlot(newAppts, appt.dur || 30);
+          if (slot) {
+            newAppts[idx] = { ...appt, ...slot };
+            changed = true;
+          }
+        }
+      });
+      if (changed) setAppts(newAppts);
+    }
   // uses global API_BASE
   const [appts,      setAppts]      = useState(INIT_APPTS);
   const [draggingId, setDraggingId] = useState(null);
@@ -2255,8 +2305,8 @@ function SchedulePage() {
     setNewForm(null);
   };
 
-  // Build week label
-  const baseDate = new Date(2026, 2, 2); // Mon Mar 2 2026
+  // Build week label (default to week starting Mar 9 2026)
+  const baseDate = new Date(2026, 2, 9); // Mon Mar 9 2026
   baseDate.setDate(baseDate.getDate() + weekOffset * 7);
   const weekLabel = DAYS_LABEL.map((_,i) => {
     const d = new Date(baseDate); d.setDate(baseDate.getDate()+i);
@@ -2285,8 +2335,7 @@ function SchedulePage() {
                 </div>
               ))}
             </div>
-
-            <div style={{ marginTop:10 }}>
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
               {newForm ? (
                 <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
                   <input placeholder="Patient name" value={newForm.patient||""} onChange={e=>setNewForm(f=>({...f,patient:e.target.value}))}
@@ -2310,8 +2359,13 @@ function SchedulePage() {
                   </div>
                 </div>
               ) : (
-                <button className="btn-ghost" onClick={()=>setNewForm({patient:"",type:"",doctor:"",color:T.rose})}
-                  style={{ width:"100%", fontSize:10, padding:"6px 0" }}>+ New Appointment</button>
+                <>
+                  <button className="btn-ghost" onClick={()=>setNewForm({patient:"",type:"",doctor:"",color:T.rose})}
+                    style={{ width:"100%", fontSize:10, padding:"6px 0" }}>+ New Appointment</button>
+                  <button className="btn-primary" style={{ width: "100%", fontSize: 10, marginTop: 4 }} onClick={autoSchedule}>
+                    AutoSchedule All
+                  </button>
+                </>
               )}
             </div>
           </Card>
@@ -2324,7 +2378,7 @@ function SchedulePage() {
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
               <button className="btn-ghost" style={{ fontSize:12, padding:"5px 12px" }} onClick={()=>setWeekOffset(w=>w-1)}>‹ Prev</button>
               <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:700, fontSize:14, color:T.ink }}>
-                Week of Mar {weekLabel[0]}–{weekLabel[4]}, 2026
+                Week of Mar {weekLabel[0]}–{weekLabel[6]}, 2026
               </div>
               <button className="btn-ghost" style={{ fontSize:12, padding:"5px 12px" }} onClick={()=>setWeekOffset(w=>w+1)}>Next ›</button>
             </div>

@@ -64,7 +64,7 @@ router.post("/", async (req, res) => {
     let found = false;
     for (let attempt = 0; attempt < 200; attempt++) {
       if (h >= 18) { h = 8; m = 0; day++; }
-      if (day >= 5) break;
+      if (day >= 7) break; // allow weekends
 
       // Check dur/30 consecutive slots free
       let clear = true;
